@@ -17,12 +17,14 @@ func goEnv() []string {
 	if e := os.Getenv("GOARCH"); e != "" {
 		goarch = e
 	}
-	return []string{
-		"CGO_ENABLED=0",
-		fmt.Sprintf("GOARCH=%s", goarch),
-		fmt.Sprintf("GOPATH=%s", os.Getenv("GOPATH")),
-		fmt.Sprintf("PATH=%s", os.Getenv("PATH")), // go get needs to find git and others
+
+	env := os.Environ()
+	for idx, e := range env {
+		if strings.HasPrefix(e, "CGO_ENABLED=") {
+			env[idx] = "CGO_ENABLED=0"
+		}
 	}
+	return append(env, fmt.Sprintf("GOARCH=%s", goarch))
 }
 
 func install() error {
