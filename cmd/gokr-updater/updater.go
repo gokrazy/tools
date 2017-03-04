@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 	"net/url"
+	"os"
 
 	"github.com/gokrazy/internal/updater"
 )
@@ -45,14 +46,22 @@ func main() {
 		log.Printf("Updating %q with root file system %q", *update, *root)
 		// Start with the root file system because writing to the non-active
 		// partition cannot break the currently running system.
-		if err := updater.UpdateRoot(baseUrl.String(), *overwriteRoot); err != nil {
+		f, err := os.Open(*root)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if err := updater.UpdateRoot(baseUrl.String(), f); err != nil {
 			log.Fatalf("updating root file system: %v", err)
 		}
 	}
 
 	if *boot != "" {
 		log.Printf("Updating %q with boot file system %q", *update, *boot)
-		if err := updater.UpdateBoot(baseUrl.String(), *boot); err != nil {
+		f, err := os.Open(*boot)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if err := updater.UpdateBoot(baseUrl.String(), f); err != nil {
 			log.Fatalf("updating boot file system: %v", err)
 		}
 	}
