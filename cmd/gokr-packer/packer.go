@@ -19,7 +19,7 @@ import (
 
 	// Imported so that the go tool will download the repositories
 	_ "github.com/gokrazy/firmware"
-	_ "github.com/gokrazy/gokrazy"
+	_ "github.com/gokrazy/gokrazy/empty"
 	_ "github.com/gokrazy/kernel"
 )
 
