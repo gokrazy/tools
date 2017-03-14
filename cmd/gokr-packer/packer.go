@@ -112,6 +112,13 @@ func writeRootFile(filename string, bins map[string]string) error {
 	return f.Close()
 }
 
+func partitionPath(base, num string) string {
+	if strings.HasPrefix(base, "/dev/mmcblk") {
+		return base + "p" + num
+	}
+	return base + num
+}
+
 func overwriteDevice(dev string, bins map[string]string) error {
 	log.Printf("partitioning %s", dev)
 
@@ -124,11 +131,11 @@ func overwriteDevice(dev string, bins map[string]string) error {
 	log.Printf("waiting for %s1 to appear", dev)
 	time.Sleep(1 * time.Second)
 
-	if err := writeBootFile(*overwrite + "1"); err != nil {
+	if err := writeBootFile(partitionPath(*overwrite, "1")); err != nil {
 		return err
 	}
 
-	if err := writeRootFile(*overwrite+"2", bins); err != nil {
+	if err := writeRootFile(partitionPath(*overwrite, "2"), bins); err != nil {
 		return err
 	}
 
