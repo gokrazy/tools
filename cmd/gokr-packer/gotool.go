@@ -18,13 +18,18 @@ func goEnv() []string {
 		goarch = e
 	}
 
+	goos := "linux" // Raspberry Pi 3
+	if e := os.Getenv("GOOS"); e != "" {
+		goos = e
+	}
+
 	env := os.Environ()
 	for idx, e := range env {
 		if strings.HasPrefix(e, "CGO_ENABLED=") {
 			env[idx] = "CGO_ENABLED=0"
 		}
 	}
-	return append(env, fmt.Sprintf("GOARCH=%s", goarch))
+	return append(env, fmt.Sprintf("GOARCH=%s", goarch), fmt.Sprintf("GOOS=%s", goos))
 }
 
 func install() error {
