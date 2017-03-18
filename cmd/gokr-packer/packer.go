@@ -78,7 +78,7 @@ func findCACerts() (string, error) {
 			return fn, nil
 		}
 	}
-	return "", fmt.Errorf("did not found any of: %s", strings.Join(certFiles, ", "))
+	return "", fmt.Errorf("did not find any of: %s", strings.Join(certFiles, ", "))
 }
 
 type countingWriter int64
