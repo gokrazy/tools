@@ -115,6 +115,9 @@ func writeRootFile(filename string, bins map[string]string) error {
 func partitionPath(base, num string) string {
 	if strings.HasPrefix(base, "/dev/mmcblk") {
 		return base + "p" + num
+	} else if strings.HasPrefix(base, "/dev/disk") ||
+		strings.HasPrefix(base, "/dev/rdisk") {
+		return base + "s" + num
 	}
 	return base + num
 }
