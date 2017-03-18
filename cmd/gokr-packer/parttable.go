@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/binary"
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -89,8 +88,8 @@ func partition(path string) error {
 	// Make Linux re-read the partition table. Sequence of system calls like in fdisk(8).
 	unix.Sync()
 
-	if _, _, errno := unix.Syscall(unix.SYS_IOCTL, uintptr(o.Fd()), unix.BLKRRPART, 0); errno != 0 {
-		return fmt.Errorf("re-read partition table: %v", errno)
+	if err := rereadPartitions(uintptr(o.Fd())); err != nil {
+		return err
 	}
 
 	if err := o.Sync(); err != nil {
