@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"unsafe"
 
 	"golang.org/x/sys/unix"
 )
@@ -77,9 +76,9 @@ func partition(path string) error {
 	}
 	defer o.Close()
 
-	var devsize uint64
-	if _, _, errno := unix.Syscall(unix.SYS_IOCTL, uintptr(o.Fd()), unix.BLKGETSIZE64, uintptr(unsafe.Pointer(&devsize))); errno != 0 {
-		log.Fatal(errno)
+	devsize, err := deviceSize(uintptr(o.Fd()))
+	if err != nil {
+		return err
 	}
 	log.Printf("device holds %d bytes", devsize)
 
