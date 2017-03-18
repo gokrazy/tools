@@ -73,6 +73,11 @@ func findCACerts() (string, error) {
 		"/etc/ssl/ca-bundle.pem",                            // OpenSUSE
 		"/etc/pki/tls/cacert.pem",                           // OpenELEC
 	}
+	home, err := homedir()
+	if err != nil {
+		return "", err
+	}
+	certFiles = append(certFiles, filepath.Join(home, ".config", "gokrazy", "cacert.pem"))
 	for _, fn := range certFiles {
 		if _, err := os.Stat(fn); err == nil {
 			return fn, nil
