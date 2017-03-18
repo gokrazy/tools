@@ -136,14 +136,14 @@ func overwriteDevice(dev string, bins map[string]string) error {
 
 	// TODO: get rid of this ridiculous sleep. Without it, I get -EACCES when
 	// trying to open /dev/sdb1.
-	log.Printf("waiting for %s1 to appear", dev)
+	log.Printf("waiting for %s to appear", partitionPath(dev, "1"))
 	time.Sleep(1 * time.Second)
 
-	if err := writeBootFile(partitionPath(*overwrite, "1")); err != nil {
+	if err := writeBootFile(partitionPath(dev, "1")); err != nil {
 		return err
 	}
 
-	if err := writeRootFile(partitionPath(*overwrite, "2"), bins); err != nil {
+	if err := writeRootFile(partitionPath(dev, "2"), bins); err != nil {
 		return err
 	}
 
