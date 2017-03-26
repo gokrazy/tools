@@ -139,7 +139,10 @@ func overwriteDevice(dev string, bins map[string]string) error {
 		return err
 	}
 
-	log.Printf("mkfs.ext4 %s4", *overwrite)
+	fmt.Printf("If your applications need to store persistent data, create a file system using e.g.:\n")
+	fmt.Printf("\n")
+	fmt.Printf("\tmkfs.ext4 %s\n", partitionPath(dev, "4"))
+	fmt.Printf("\n")
 
 	return nil
 }
@@ -281,6 +284,8 @@ func main() {
 			if err := overwriteDevice(*overwrite, bins); err != nil {
 				log.Fatal(err)
 			}
+			fmt.Printf("To boot gokrazy, plug the SD card into a Raspberry Pi 3 (no other model supported)\n")
+			fmt.Printf("\n")
 		} else {
 			if *targetStorageBytes == 0 {
 				log.Fatalf("-target_storage_bytes is required when using -overwrite with a file")
@@ -296,6 +301,9 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
+
+			fmt.Printf("To boot gokrazy, copy %s to an SD card and plug it into a Raspberry Pi 3 (no other model supported)\n", *overwrite)
+			fmt.Printf("\n")
 		}
 
 	default:
@@ -333,7 +341,11 @@ func main() {
 		}
 	}
 
-	log.Printf("http://gokrazy:%s@%s/", pw, *hostname)
+	fmt.Printf("To interact with the device, gokrazy provides a web interface reachable at:\n")
+	fmt.Printf("\n")
+	fmt.Printf("\thttp://gokrazy:%s@%s/\n", pw, *hostname)
+	fmt.Printf("\n")
+	fmt.Printf("There will be not be any other output (no HDMI, no serial console, etc.)\n")
 
 	if *update == "" {
 		return
