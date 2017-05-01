@@ -53,7 +53,7 @@ gokr-packer \
 To overwrite the SD card `/dev/sdb` with the image, use:
 
 ```
-sudo dd if=/tmp/full.fat of=/dev/sdb bs=1M
+sudo dd if=/tmp/full.img of=/dev/sdb bs=1M
 ```
 
 If you’re curious, you can also loop-mount the file systems of the
