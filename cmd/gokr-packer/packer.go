@@ -307,18 +307,19 @@ func main() {
 		}
 
 	default:
-		switch {
-		case *overwriteBoot != "":
+		if *overwriteBoot != "" {
 			if err := writeBootFile(*overwriteBoot); err != nil {
 				log.Fatal(err)
 			}
+		}
 
-		case *overwriteRoot != "":
+		if *overwriteRoot != "" {
 			if err := writeRootFile(*overwriteRoot, bins); err != nil {
 				log.Fatal(err)
 			}
+		}
 
-		default:
+		if *overwriteBoot == "" && *overwriteRoot == "" {
 			tmpBoot, err = ioutil.TempFile("", "gokrazy")
 			if err != nil {
 				log.Fatal(err)
@@ -393,22 +394,23 @@ func main() {
 		}
 
 	default:
-		switch {
-		case *overwriteBoot != "":
+		if *overwriteBoot != "" {
 			bootFile, err := os.Open(*overwriteBoot)
 			if err != nil {
 				log.Fatal(err)
 			}
 			bootReader = bootFile
+		}
 
-		case *overwriteRoot != "":
+		if *overwriteRoot != "" {
 			rootFile, err := os.Open(*overwriteRoot)
 			if err != nil {
 				log.Fatal(err)
 			}
 			rootReader = rootFile
+		}
 
-		default:
+		if *overwriteBoot == "" && *overwriteRoot == "" {
 			if _, err := tmpBoot.Seek(0, io.SeekStart); err != nil {
 				log.Fatal(err)
 			}
