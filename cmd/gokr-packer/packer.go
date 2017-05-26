@@ -346,7 +346,7 @@ func main() {
 	fmt.Printf("\n")
 	fmt.Printf("\thttp://gokrazy:%s@%s/\n", pw, *hostname)
 	fmt.Printf("\n")
-	fmt.Printf("There will be not be any other output (no HDMI, no serial console, etc.)\n")
+	fmt.Printf("There will not be any other output (no HDMI, no serial console, etc.)\n")
 
 	if *update == "" {
 		return
