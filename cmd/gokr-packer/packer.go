@@ -204,46 +204,31 @@ gokr-packer -overwrite_init=<file> <go-package> [<go-package>…]
 Flags:
 `
 
-func main() {
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, usage)
-		flag.PrintDefaults()
-		os.Exit(2)
-	}
-	flag.Parse()
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-
-	if *overwrite == "" && *overwriteBoot == "" && *overwriteRoot == "" && *overwriteInit == "" && *update == "" {
-		flag.Usage()
-	}
-
+func logic() error {
 	cacerts, err := findCACerts()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	log.Printf("installing %v", flag.Args())
 
 	if err := install(); err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	bins, err := findBins()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	if *initPkg == "" {
 		if *overwriteInit != "" {
-			if err := dumpInit(*overwriteInit, bins); err != nil {
-				log.Fatal(err)
-			}
-			return
+			return dumpInit(*overwriteInit, bins)
 		}
 
 		tmpdir, err := buildInit(bins)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		defer os.RemoveAll(tmpdir)
 
@@ -252,7 +237,7 @@ func main() {
 
 	pw, pwPath, err := ensurePasswordFileExists()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	bins["/localtim"] = "/etc/localtime"
@@ -275,31 +260,31 @@ func main() {
 	case *overwrite != "":
 		st, err := os.Lstat(*overwrite)
 		if err != nil && !os.IsNotExist(err) {
-			log.Fatal(err)
+			return err
 		}
 
 		isDev := err == nil && st.Mode()&os.ModeDevice == os.ModeDevice
 
 		if isDev {
 			if err := overwriteDevice(*overwrite, bins); err != nil {
-				log.Fatal(err)
+				return err
 			}
 			fmt.Printf("To boot gokrazy, plug the SD card into a Raspberry Pi 3 (no other model supported)\n")
 			fmt.Printf("\n")
 		} else {
 			if *targetStorageBytes == 0 {
-				log.Fatalf("-target_storage_bytes is required when using -overwrite with a file")
+				return fmt.Errorf("-target_storage_bytes is required when using -overwrite with a file")
 			}
 			if *targetStorageBytes%512 != 0 {
-				log.Fatalf("-target_storage_bytes must be a multiple of 512 (sector size)")
+				return fmt.Errorf("-target_storage_bytes must be a multiple of 512 (sector size)")
 			}
 			if lower := 1100*MB + 8192; *targetStorageBytes < lower {
-				log.Fatalf("-target_storage_bytes must be at least %d (for boot + 2 root file systems)", lower)
+				return fmt.Errorf("-target_storage_bytes must be at least %d (for boot + 2 root file systems)", lower)
 			}
 
 			bootSize, rootSize, err = overwriteFile(*overwrite, bins)
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 
 			fmt.Printf("To boot gokrazy, copy %s to an SD card and plug it into a Raspberry Pi 3 (no other model supported)\n", *overwrite)
@@ -309,35 +294,35 @@ func main() {
 	default:
 		if *overwriteBoot != "" {
 			if err := writeBootFile(*overwriteBoot); err != nil {
-				log.Fatal(err)
+				return err
 			}
 		}
 
 		if *overwriteRoot != "" {
 			if err := writeRootFile(*overwriteRoot, bins); err != nil {
-				log.Fatal(err)
+				return err
 			}
 		}
 
 		if *overwriteBoot == "" && *overwriteRoot == "" {
 			tmpBoot, err = ioutil.TempFile("", "gokrazy")
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 			defer os.Remove(tmpBoot.Name())
 
 			if err := writeBoot(tmpBoot); err != nil {
-				log.Fatal(err)
+				return err
 			}
 
 			tmpRoot, err = ioutil.TempFile("", "gokrazy")
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 			defer os.Remove(tmpRoot.Name())
 
 			if err := writeRoot(tmpRoot, bins); err != nil {
-				log.Fatal(err)
+				return err
 			}
 		}
 	}
@@ -349,7 +334,7 @@ func main() {
 	fmt.Printf("There will not be any other output (no HDMI, no serial console, etc.)\n")
 
 	if *update == "" {
-		return
+		return nil
 	}
 
 	// Determine where to read the boot and root images from.
@@ -359,21 +344,21 @@ func main() {
 		if isDev {
 			bootFile, err := os.Open(*overwrite + "1")
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 			bootReader = bootFile
 			rootFile, err := os.Open(*overwrite + "2")
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 			rootReader = rootFile
 		} else {
 			bootFile, err := os.Open(*overwrite)
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 			if _, err := bootFile.Seek(8192*512, io.SeekStart); err != nil {
-				log.Fatal(err)
+				return err
 			}
 			bootReader = &io.LimitedReader{
 				R: bootFile,
@@ -382,10 +367,10 @@ func main() {
 
 			rootFile, err := os.Open(*overwrite)
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 			if _, err := rootFile.Seek(8192*512+100*MB, io.SeekStart); err != nil {
-				log.Fatal(err)
+				return err
 			}
 			rootReader = &io.LimitedReader{
 				R: rootFile,
@@ -397,7 +382,7 @@ func main() {
 		if *overwriteBoot != "" {
 			bootFile, err := os.Open(*overwriteBoot)
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 			bootReader = bootFile
 		}
@@ -405,19 +390,19 @@ func main() {
 		if *overwriteRoot != "" {
 			rootFile, err := os.Open(*overwriteRoot)
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 			rootReader = rootFile
 		}
 
 		if *overwriteBoot == "" && *overwriteRoot == "" {
 			if _, err := tmpBoot.Seek(0, io.SeekStart); err != nil {
-				log.Fatal(err)
+				return err
 			}
 			bootReader = tmpBoot
 
 			if _, err := tmpRoot.Seek(0, io.SeekStart); err != nil {
-				log.Fatal(err)
+				return err
 			}
 			rootReader = tmpRoot
 		}
@@ -429,7 +414,7 @@ func main() {
 
 	baseUrl, err := url.Parse(*update)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	baseUrl.Path = "/"
 	log.Printf("Updating %q", *update)
@@ -437,20 +422,39 @@ func main() {
 	// Start with the root file system because writing to the non-active
 	// partition cannot break the currently running system.
 	if err := updater.UpdateRoot(baseUrl.String(), rootReader); err != nil {
-		log.Fatalf("updating root file system: %v", err)
+		return fmt.Errorf("updating root file system: %v", err)
 	}
 
 	if err := updater.UpdateBoot(baseUrl.String(), bootReader); err != nil {
-		log.Fatalf("updating boot file system: %v", err)
+		return fmt.Errorf("updating boot file system: %v", err)
 	}
 
 	if err := updater.Switch(baseUrl.String()); err != nil {
-		log.Fatalf("switching to non-active partition: %v", err)
+		return fmt.Errorf("switching to non-active partition: %v", err)
 	}
 
 	if err := updater.Reboot(baseUrl.String()); err != nil {
-		log.Fatalf("reboot: %v", err)
+		return fmt.Errorf("reboot: %v", err)
 	}
 
 	log.Printf("updated, should be back within 10 seconds")
+	return nil
+}
+
+func main() {
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, usage)
+		flag.PrintDefaults()
+		os.Exit(2)
+	}
+	flag.Parse()
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
+	if *overwrite == "" && *overwriteBoot == "" && *overwriteRoot == "" && *overwriteInit == "" && *update == "" {
+		flag.Usage()
+	}
+
+	if err := logic(); err != nil {
+		log.Fatal(err)
+	}
 }
