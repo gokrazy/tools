@@ -68,7 +68,10 @@ func install() error {
 	}
 
 	cmd = exec.Command("go",
-		append([]string{"install", "-tags", "gokrazy"}, pkgs...)...)
+		append([]string{"install",
+			"-tags", "gokrazy",
+			"-ldflags", "-s -w",
+		}, pkgs...)...)
 	cmd.Env = env
 	cmd.Stderr = os.Stderr
 	return cmd.Run()

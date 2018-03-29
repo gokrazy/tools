@@ -106,7 +106,8 @@ func buildInit(bins map[string]string) (tmpdir string, err error) {
 		return "", err
 	}
 
-	cmd := exec.Command("go", "build", "-o", filepath.Join(tmpdir, "init"), code.Name())
+	cmd := exec.Command("go", "build", "-ldflags", "-s -w",
+		"-o", filepath.Join(tmpdir, "init"), code.Name())
 	cmd.Env = env
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
