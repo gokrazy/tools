@@ -20,7 +20,7 @@ var (
 		"path to the root file system (e.g. /tmp/root.fat)")
 
 	update = flag.String("update",
-		"",
+		os.Getenv("GOKRAZY_UPDATE"),
 		"URL of a gokrazy installation (e.g. http://gokrazy:mypassword@myhostname/) to update")
 )
 
