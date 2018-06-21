@@ -8,7 +8,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -159,26 +158,6 @@ func writeBoot(f io.Writer) error {
 	return bufw.Flush()
 }
 
-var safeForFilenameRe = regexp.MustCompile(`[^a-zA-Z0-9]`)
-
-// truncate83 truncates a filename to 8 characters plus 3 extension
-// characters, as is required on FAT file systems.
-func truncate83(filename string) string {
-	filename = safeForFilenameRe.ReplaceAllLiteralString(filename, "")
-	parts := strings.Split(filename+".", ".")
-	if len(parts[0]) > 8 {
-		parts[0] = parts[0][:8]
-	}
-	if len(parts[1]) > 3 {
-		parts[1] = parts[1][:3]
-	}
-	if len(parts[1]) > 0 {
-		return parts[0] + "." + parts[1]
-	} else {
-		return parts[0]
-	}
-}
-
 type fileInfo struct {
 	filename string
 
@@ -210,7 +189,7 @@ func findBins() (*fileInfo, error) {
 	gokrazy := fileInfo{filename: "gokrazy"}
 	for _, target := range gokrazyMainPkgs {
 		gokrazy.dirents = append(gokrazy.dirents, &fileInfo{
-			filename: truncate83(filepath.Base(target)),
+			filename: filepath.Base(target),
 			fromHost: target,
 		})
 	}
@@ -240,7 +219,7 @@ func findBins() (*fileInfo, error) {
 	user := fileInfo{filename: "user"}
 	for _, target := range mainPkgs {
 		user.dirents = append(user.dirents, &fileInfo{
-			filename: truncate83(filepath.Base(target)),
+			filename: filepath.Base(target),
 			fromHost: target,
 		})
 	}
