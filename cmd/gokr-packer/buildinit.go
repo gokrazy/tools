@@ -35,7 +35,7 @@ func main() {
 	}
 
 	cmds := []*exec.Cmd{
-{{- range $path, $target := .Binaries }}
+{{- range $idx, $path := .Binaries }}
 {{- if ne $path "/gokrazy/init" }}
 		exec.Command({{ printf "%#v" $path }}),
 {{- end }}
@@ -50,7 +50,19 @@ func main() {
 
 var initTmpl = template.Must(template.New("").Parse(initTmplContents))
 
-func dumpInit(path string, bins map[string]string) error {
+func flattenFiles(prefix string, root *fileInfo) []string {
+	var result []string
+	for _, ent := range root.dirents {
+		if ent.fromHost != "" { // regular file
+			result = append(result, filepath.Join(prefix, root.filename, ent.filename))
+		} else { // subdir
+			result = append(result, flattenFiles(filepath.Join(prefix, root.filename), ent)...)
+		}
+	}
+	return result
+}
+
+func dumpInit(path string, root *fileInfo) error {
 	f, err := os.Create(path)
 	if err != nil {
 		return err
@@ -59,10 +71,10 @@ func dumpInit(path string, bins map[string]string) error {
 
 	var buf bytes.Buffer
 	if err := initTmpl.Execute(&buf, struct {
-		Binaries       map[string]string
+		Binaries       []string
 		BuildTimestamp string
 	}{
-		Binaries:       bins,
+		Binaries:       flattenFiles("/", root),
 		BuildTimestamp: time.Now().Format(time.RFC3339),
 	}); err != nil {
 		return err
@@ -80,7 +92,7 @@ func dumpInit(path string, bins map[string]string) error {
 	return f.Close()
 }
 
-func buildInit(bins map[string]string) (tmpdir string, err error) {
+func buildInit(root *fileInfo) (tmpdir string, err error) {
 	tmpdir, err = ioutil.TempDir("", "gokr-packer")
 	if err != nil {
 		return "", err
@@ -93,10 +105,10 @@ func buildInit(bins map[string]string) (tmpdir string, err error) {
 	defer os.Remove(code.Name())
 
 	if err := initTmpl.Execute(code, struct {
-		Binaries       map[string]string
+		Binaries       []string
 		BuildTimestamp string
 	}{
-		Binaries:       bins,
+		Binaries:       flattenFiles("/", root),
 		BuildTimestamp: time.Now().Format(time.RFC3339),
 	}); err != nil {
 		return "", err

@@ -97,13 +97,13 @@ func writeBootFile(filename string) error {
 	return f.Close()
 }
 
-func writeRootFile(filename string, bins map[string]string) error {
+func writeRootFile(filename string, root *fileInfo) error {
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	if err := writeRoot(f, bins); err != nil {
+	if err := writeRoot(f, root); err != nil {
 		return err
 	}
 	return f.Close()
@@ -119,7 +119,7 @@ func partitionPath(base, num string) string {
 	return base + num
 }
 
-func overwriteDevice(dev string, bins map[string]string) error {
+func overwriteDevice(dev string, root *fileInfo) error {
 	log.Printf("partitioning %s", dev)
 
 	if err := partition(*overwrite); err != nil {
@@ -135,7 +135,7 @@ func overwriteDevice(dev string, bins map[string]string) error {
 		return err
 	}
 
-	if err := writeRootFile(partitionPath(dev, "2"), bins); err != nil {
+	if err := writeRootFile(partitionPath(dev, "2"), root); err != nil {
 		return err
 	}
 
@@ -147,7 +147,7 @@ func overwriteDevice(dev string, bins map[string]string) error {
 	return nil
 }
 
-func overwriteFile(filename string, bins map[string]string) (bootSize int64, rootSize int64, err error) {
+func overwriteFile(filename string, root *fileInfo) (bootSize int64, rootSize int64, err error) {
 	f, err := os.Create(*overwrite)
 	if err != nil {
 		return 0, 0, err
@@ -172,8 +172,23 @@ func overwriteFile(filename string, bins map[string]string) (bootSize int64, roo
 	if _, err := f.Seek(8192*512+100*MB, io.SeekStart); err != nil {
 		return 0, 0, err
 	}
+
+	tmp, err := ioutil.TempFile("", "gokr-packer")
+	if err != nil {
+		return 0, 0, err
+	}
+	defer os.Remove(tmp.Name())
+	defer tmp.Close()
+
+	if err := writeRoot(tmp, root); err != nil {
+		return 0, 0, err
+	}
+	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
+		return 0, 0, err
+	}
+
 	var rs countingWriter
-	if err := writeRoot(io.MultiWriter(f, &rs), bins); err != nil {
+	if _, err := io.Copy(io.MultiWriter(f, &rs), tmp); err != nil {
 		return 0, 0, err
 	}
 
@@ -216,23 +231,27 @@ func logic() error {
 		return err
 	}
 
-	bins, err := findBins()
+	root, err := findBins()
 	if err != nil {
 		return err
 	}
 
 	if *initPkg == "" {
 		if *overwriteInit != "" {
-			return dumpInit(*overwriteInit, bins)
+			return dumpInit(*overwriteInit, root)
 		}
 
-		tmpdir, err := buildInit(bins)
+		tmpdir, err := buildInit(root)
 		if err != nil {
 			return err
 		}
 		defer os.RemoveAll(tmpdir)
 
-		bins["/gokrazy/init"] = filepath.Join(tmpdir, "init")
+		gokrazy := root.mustFindDirent("gokrazy")
+		gokrazy.dirents = append(gokrazy.dirents, &fileInfo{
+			filename: "init",
+			fromHost: filepath.Join(tmpdir, "init"),
+		})
 	}
 
 	pw, pwPath, err := ensurePasswordFileExists()
@@ -240,15 +259,26 @@ func logic() error {
 		return err
 	}
 
-	bins["/localtim"] = "/etc/localtime"
-	bins["/cacerts"] = cacerts
-	bins["/gokr-pw.txt"] = pwPath
-	bins["/dev/"] = ""
-	bins["/etc/"] = ""
-	bins["/proc/"] = ""
-	bins["/sys/"] = ""
-	bins["/tmp/"] = ""
-	bins["/perm/"] = ""
+	root.dirents = append(root.dirents, &fileInfo{
+		filename: "localtim",
+		fromHost: "/etc/localtime",
+	})
+
+	root.dirents = append(root.dirents, &fileInfo{
+		filename: "cacerts",
+		fromHost: cacerts,
+	})
+
+	root.dirents = append(root.dirents, &fileInfo{
+		filename: "gokr-pw.txt",
+		fromHost: pwPath,
+	})
+
+	for _, dir := range []string{"dev", "etc", "proc", "sys", "tmp", "perm"} {
+		root.dirents = append(root.dirents, &fileInfo{
+			filename: dir,
+		})
+	}
 
 	// Determine where to write the boot and root images to.
 	var (
@@ -266,7 +296,7 @@ func logic() error {
 		isDev := err == nil && st.Mode()&os.ModeDevice == os.ModeDevice
 
 		if isDev {
-			if err := overwriteDevice(*overwrite, bins); err != nil {
+			if err := overwriteDevice(*overwrite, root); err != nil {
 				return err
 			}
 			fmt.Printf("To boot gokrazy, plug the SD card into a Raspberry Pi 3 (no other model supported)\n")
@@ -282,7 +312,7 @@ func logic() error {
 				return fmt.Errorf("-target_storage_bytes must be at least %d (for boot + 2 root file systems)", lower)
 			}
 
-			bootSize, rootSize, err = overwriteFile(*overwrite, bins)
+			bootSize, rootSize, err = overwriteFile(*overwrite, root)
 			if err != nil {
 				return err
 			}
@@ -299,7 +329,7 @@ func logic() error {
 		}
 
 		if *overwriteRoot != "" {
-			if err := writeRootFile(*overwriteRoot, bins); err != nil {
+			if err := writeRootFile(*overwriteRoot, root); err != nil {
 				return err
 			}
 		}
@@ -321,7 +351,7 @@ func logic() error {
 			}
 			defer os.Remove(tmpRoot.Name())
 
-			if err := writeRoot(tmpRoot, bins); err != nil {
+			if err := writeRoot(tmpRoot, root); err != nil {
 				return err
 			}
 		}

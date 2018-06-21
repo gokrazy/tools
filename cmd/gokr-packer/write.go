@@ -9,10 +9,12 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/gokrazy/internal/fat"
+	"github.com/gokrazy/internal/squashfs"
 )
 
 var (
@@ -38,6 +40,26 @@ func copyFile(fw *fat.Writer, dest, src string) error {
 		return err
 	}
 	return f.Close()
+}
+
+func copyFileSquash(d *squashfs.Directory, dest, src string) error {
+	f, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	w, err := d.File(filepath.Base(dest), st.ModTime(), st.Mode()&os.ModePerm)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(w, f); err != nil {
+		return err
+	}
+	return w.Close()
 }
 
 func writeCmdline(fw *fat.Writer, src string) error {
@@ -157,15 +179,39 @@ func truncate83(filename string) string {
 	}
 }
 
-func findBins() (map[string]string, error) {
-	result := make(map[string]string)
+type fileInfo struct {
+	filename string
+
+	fromHost    string
+	symlinkDest string
+
+	dirents []*fileInfo
+}
+
+func (fi *fileInfo) mustFindDirent(path string) *fileInfo {
+	for _, ent := range fi.dirents {
+		// TODO: split path into components and compare piecemeal
+		if ent.filename == path {
+			return ent
+		}
+	}
+	log.Panicf("mustFindDirent(%q) did not find directory entry", path)
+	return nil
+}
+
+func findBins() (*fileInfo, error) {
+	result := fileInfo{filename: ""}
 
 	gokrazyMainPkgs, err := mainPackages(gokrazyPkgs)
 	if err != nil {
 		return nil, err
 	}
+	gokrazy := fileInfo{filename: "gokrazy"}
 	for _, target := range gokrazyMainPkgs {
-		result["/gokrazy/"+truncate83(filepath.Base(target))] = target
+		gokrazy.dirents = append(gokrazy.dirents, &fileInfo{
+			filename: truncate83(filepath.Base(target)),
+			fromHost: target,
+		})
 	}
 
 	if *initPkg != "" {
@@ -178,50 +224,80 @@ func findBins() (map[string]string, error) {
 				log.Printf("Error: -init_pkg=%q produced unexpected binary name: got %q, want %q", *initPkg, got, want)
 				continue
 			}
-			result["/gokrazy/init"] = target
+			gokrazy.dirents = append(gokrazy.dirents, &fileInfo{
+				filename: "init",
+				fromHost: target,
+			})
 		}
 	}
+	result.dirents = append(result.dirents, &gokrazy)
 
 	mainPkgs, err := mainPackages(flag.Args())
 	if err != nil {
 		return nil, err
 	}
+	user := fileInfo{filename: "user"}
 	for _, target := range mainPkgs {
-		result["/user/"+truncate83(filepath.Base(target))] = target
+		user.dirents = append(user.dirents, &fileInfo{
+			filename: truncate83(filepath.Base(target)),
+			fromHost: target,
+		})
 	}
-	return result, nil
+	result.dirents = append(result.dirents, &user)
+	return &result, nil
 }
 
-func writeRoot(f io.Writer, bins map[string]string) error {
-	log.Printf("writing root file system: %v", bins)
-	bufw := bufio.NewWriter(f)
-	fw, err := fat.NewWriter(bufw)
-	if err != nil {
-		return err
+func writeFileInfo(dir *squashfs.Directory, fi *fileInfo) error {
+	if fi.fromHost != "" { // copy a regular file
+		return copyFileSquash(dir, fi.filename, fi.fromHost)
 	}
 
-	for path, target := range bins {
-		if strings.HasSuffix(path, "/") {
-			if err := fw.Mkdir(path, time.Now()); err != nil {
-				return err
-			}
-		} else {
-			if err := copyFile(fw, path, target); err != nil {
-				return err
-			}
+	if fi.symlinkDest != "" { // create a symlink
+		log.Printf("TODO: create symlink from %s to %s", fi.filename, fi.symlinkDest)
+		return nil
+	}
+	// subdir
+	var d *squashfs.Directory
+	if fi.filename == "" { // root
+		d = dir
+	} else {
+		d = dir.Directory(fi.filename, time.Now())
+	}
+	sort.Slice(fi.dirents, func(i, j int) bool {
+		return fi.dirents[i].filename < fi.dirents[j].filename
+	})
+	for _, ent := range fi.dirents {
+		if err := writeFileInfo(d, ent); err != nil {
+			return err
 		}
 	}
+	return d.Flush()
+}
 
-	w, err := fw.File("/hostname", time.Now())
+func writeRoot(f io.WriteSeeker, root *fileInfo) error {
+	log.Printf("writing root file system")
+	fw, err := squashfs.NewWriter(f, time.Now())
 	if err != nil {
 		return err
 	}
-	if _, err := w.Write([]byte(*hostname)); err != nil {
+
+	tmp, err := ioutil.TempFile("", "gokr-packer")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	tmp.Close()
+	if err := ioutil.WriteFile(tmp.Name(), []byte(*hostname), 0644); err != nil {
+		return err
+	}
+	root.dirents = append(root.dirents, &fileInfo{
+		filename: "hostname",
+		fromHost: tmp.Name(),
+	})
+
+	if err := writeFileInfo(fw.Root, root); err != nil {
 		return err
 	}
 
-	if err := fw.Flush(); err != nil {
-		return err
-	}
-	return bufw.Flush()
+	return fw.Flush()
 }
