@@ -183,6 +183,7 @@ type fileInfo struct {
 	filename string
 
 	fromHost    string
+	fromLiteral string
 	symlinkDest string
 
 	dirents []*fileInfo
@@ -251,10 +252,19 @@ func writeFileInfo(dir *squashfs.Directory, fi *fileInfo) error {
 	if fi.fromHost != "" { // copy a regular file
 		return copyFileSquash(dir, fi.filename, fi.fromHost)
 	}
+	if fi.fromLiteral != "" { // write a regular file
+		w, err := dir.File(fi.filename, time.Now(), 0444)
+		if err != nil {
+			return err
+		}
+		if _, err := w.Write([]byte(fi.fromLiteral)); err != nil {
+			return err
+		}
+		return w.Close()
+	}
 
 	if fi.symlinkDest != "" { // create a symlink
-		log.Printf("TODO: create symlink from %s to %s", fi.filename, fi.symlinkDest)
-		return nil
+		return dir.Symlink(fi.symlinkDest, fi.filename, time.Now(), 0444)
 	}
 	// subdir
 	var d *squashfs.Directory
@@ -280,20 +290,6 @@ func writeRoot(f io.WriteSeeker, root *fileInfo) error {
 	if err != nil {
 		return err
 	}
-
-	tmp, err := ioutil.TempFile("", "gokr-packer")
-	if err != nil {
-		return err
-	}
-	defer os.Remove(tmp.Name())
-	tmp.Close()
-	if err := ioutil.WriteFile(tmp.Name(), []byte(*hostname), 0644); err != nil {
-		return err
-	}
-	root.dirents = append(root.dirents, &fileInfo{
-		filename: "hostname",
-		fromHost: tmp.Name(),
-	})
 
 	if err := writeFileInfo(fw.Root, root); err != nil {
 		return err

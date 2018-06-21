@@ -259,26 +259,43 @@ func logic() error {
 		return err
 	}
 
-	root.dirents = append(root.dirents, &fileInfo{
-		filename: "localtim",
-		fromHost: "/etc/localtime",
-	})
-
-	root.dirents = append(root.dirents, &fileInfo{
-		filename: "cacerts",
-		fromHost: cacerts,
-	})
-
-	root.dirents = append(root.dirents, &fileInfo{
-		filename: "gokr-pw.txt",
-		fromHost: pwPath,
-	})
-
 	for _, dir := range []string{"dev", "etc", "proc", "sys", "tmp", "perm"} {
 		root.dirents = append(root.dirents, &fileInfo{
 			filename: dir,
 		})
 	}
+
+	etc := root.mustFindDirent("etc")
+	etc.dirents = append(etc.dirents, &fileInfo{
+		filename: "localtime",
+		fromHost: "/etc/localtime",
+	})
+	etc.dirents = append(etc.dirents, &fileInfo{
+		filename:    "resolv.conf",
+		symlinkDest: "/tmp/resolv.conf",
+	})
+	etc.dirents = append(etc.dirents, &fileInfo{
+		filename: "hosts",
+		fromLiteral: `127.0.0.1 localhost
+::1 localhost
+`,
+	})
+	etc.dirents = append(etc.dirents, &fileInfo{
+		filename:    "hostname",
+		fromLiteral: *hostname,
+	})
+
+	ssl := &fileInfo{filename: "ssl"}
+	ssl.dirents = append(ssl.dirents, &fileInfo{
+		filename: "ca-bundle.pem",
+		fromHost: cacerts,
+	})
+	etc.dirents = append(etc.dirents, ssl)
+
+	etc.dirents = append(etc.dirents, &fileInfo{
+		filename: "gokr-pw.txt",
+		fromHost: pwPath,
+	})
 
 	// Determine where to write the boot and root images to.
 	var (
