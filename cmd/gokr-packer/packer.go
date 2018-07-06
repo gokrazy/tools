@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gokrazy/internal/fat"
+	"github.com/gokrazy/internal/mbr"
 	"github.com/gokrazy/internal/updater"
 
 	// Imported so that the go tool will download the repositories
@@ -120,6 +122,23 @@ func partitionPath(base, num string) string {
 	return base + num
 }
 
+func writeMBRFile(filename string) error {
+	f, err := os.OpenFile(filename, os.O_RDWR, 0600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	if err := writeMBR(f); err != nil {
+		return err
+	}
+
+	if err := f.Close(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func overwriteDevice(dev string, root *fileInfo) error {
 	log.Printf("partitioning %s", dev)
 
@@ -136,6 +155,10 @@ func overwriteDevice(dev string, root *fileInfo) error {
 		return err
 	}
 
+	if err := writeMBRFile(*overwrite); err != nil {
+		return err
+	}
+
 	if err := writeRootFile(partitionPath(dev, "2"), root); err != nil {
 		return err
 	}
@@ -144,6 +167,47 @@ func overwriteDevice(dev string, root *fileInfo) error {
 	fmt.Printf("\n")
 	fmt.Printf("\tmkfs.ext4 %s\n", partitionPath(dev, "4"))
 	fmt.Printf("\n")
+
+	return nil
+}
+
+type offsetReadSeeker struct {
+	io.ReadSeeker
+	offset int64
+}
+
+func (ors *offsetReadSeeker) Seek(offset int64, whence int) (int64, error) {
+	if whence == io.SeekStart {
+		// github.com/gokrazy/internal/fat.Reader only uses io.SeekStart
+		return ors.ReadSeeker.Seek(offset+ors.offset, io.SeekStart)
+	}
+	return ors.ReadSeeker.Seek(offset, whence)
+}
+
+func writeMBR(f io.ReadWriteSeeker) error {
+	rd, err := fat.NewReader(&offsetReadSeeker{f, 8192 * 512})
+	if err != nil {
+		return err
+	}
+	vmlinuzOffset, _, err := rd.Extents("/vmlinuz")
+	if err != nil {
+		return err
+	}
+	cmdlineOffset, _, err := rd.Extents("/cmdline.txt")
+	if err != nil {
+		return err
+	}
+
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return err
+	}
+	vmlinuzLba := uint32((vmlinuzOffset / 512) + 8192)
+	cmdlineTxtLba := uint32((cmdlineOffset / 512) + 8192)
+
+	mbr := mbr.Configure(vmlinuzLba, cmdlineTxtLba)
+	if _, err := f.Write(mbr[:]); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -167,6 +231,10 @@ func overwriteFile(filename string, root *fileInfo) (bootSize int64, rootSize in
 	}
 	var bs countingWriter
 	if err := writeBoot(io.MultiWriter(f, &bs)); err != nil {
+		return 0, 0, err
+	}
+
+	if err := writeMBR(f); err != nil {
 		return 0, 0, err
 	}
 
