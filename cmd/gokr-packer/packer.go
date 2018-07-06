@@ -57,12 +57,13 @@ var (
 	hostname = flag.String("hostname",
 		"gokrazy",
 		"host name to set on the target system. Will be sent when acquiring DHCP leases")
+
+	gokrazyPkgList = flag.String("gokrazy_pkgs",
+		"github.com/gokrazy/gokrazy/cmd/...",
+		"comma-separated list of packages installed to /gokrazy/ (boot and system utilities)")
 )
 
-var gokrazyPkgs = []string{
-	// boot and system utilities
-	"github.com/gokrazy/gokrazy/cmd/...",
-}
+var gokrazyPkgs []string
 
 func findCACerts() (string, error) {
 	home, err := homedir()
@@ -496,6 +497,8 @@ func main() {
 	}
 	flag.Parse()
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
+	gokrazyPkgs = strings.Split(*gokrazyPkgList, ",")
 
 	if *overwrite == "" && *overwriteBoot == "" && *overwriteRoot == "" && *overwriteInit == "" && *update == "" {
 		flag.Usage()
