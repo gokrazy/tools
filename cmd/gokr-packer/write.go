@@ -20,6 +20,14 @@ var (
 	serialConsole = flag.String("serial_console",
 		"UART0",
 		`"UART0" enables UART0 as a serial console, "disabled" allows applications to use UART0 instead`)
+
+	kernelPackage = flag.String("kernel_package",
+		"github.com/gokrazy/kernel",
+		"Go package to copy vmlinuz and *.dtb from for constructing the firmware file system")
+
+	firmwarePackage = flag.String("firmware_package",
+		"github.com/gokrazy/firmware",
+		"Go package to copy *.{bin,dat,elf} from for constructing the firmware file system")
 )
 
 func copyFile(fw *fat.Writer, dest, src string) error {
@@ -112,14 +120,14 @@ var (
 func writeBoot(f io.Writer) error {
 	log.Printf("writing boot file system")
 	globs := make([]string, 0, len(firmwareGlobs)+len(kernelGlobs))
-	firmwareDir, err := packageDir("github.com/gokrazy/firmware")
+	firmwareDir, err := packageDir(*firmwarePackage)
 	if err != nil {
 		return err
 	}
 	for _, glob := range firmwareGlobs {
 		globs = append(globs, filepath.Join(firmwareDir, glob))
 	}
-	kernelDir, err := packageDir("github.com/gokrazy/kernel")
+	kernelDir, err := packageDir(*kernelPackage)
 	if err != nil {
 		return err
 	}
