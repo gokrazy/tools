@@ -18,8 +18,8 @@ import (
 
 var (
 	serialConsole = flag.String("serial_console",
-		"UART0",
-		`"UART0" enables UART0 as a serial console, "disabled" allows applications to use UART0 instead`)
+		"ttyAMA0,115200",
+		`"ttyAMA0,115200" enables UART0 as a serial console, "disabled" allows applications to use UART0 instead`)
 
 	kernelPackage = flag.String("kernel_package",
 		"github.com/gokrazy/kernel",
@@ -75,8 +75,14 @@ func writeCmdline(fw *fat.Writer, src string) error {
 		return err
 	}
 	var cmdline string
-	if *serialConsole == "UART0" {
-		cmdline = "console=ttyAMA0,115200 " + string(b)
+	if *serialConsole != "disabled" {
+		if *serialConsole == "UART0" {
+			// For backwards compatibility, treat the special value UART0 as
+			// ttyAMA0,115200:
+			cmdline = "console=ttyAMA0,115200 " + string(b)
+		} else {
+			cmdline = "console=" + *serialConsole + " " + string(b)
+		}
 	} else {
 		cmdline = string(b)
 	}
@@ -94,7 +100,7 @@ func writeConfig(fw *fat.Writer, src string) error {
 		return err
 	}
 	config := string(b)
-	if *serialConsole == "UART0" {
+	if *serialConsole != "disabled" {
 		config = strings.Replace(config, "enable_uart=0", "enable_uart=1", -1)
 	}
 	w, err := fw.File("/config.txt", time.Now())
