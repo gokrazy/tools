@@ -29,7 +29,10 @@ func goEnv() []string {
 			env[idx] = "CGO_ENABLED=0"
 		}
 	}
-	return append(env, fmt.Sprintf("GOARCH=%s", goarch), fmt.Sprintf("GOOS=%s", goos))
+	return append(env,
+		fmt.Sprintf("GOARCH=%s", goarch),
+		fmt.Sprintf("GOOS=%s", goos),
+		"CGO_ENABLED=0")
 }
 
 func install() error {
