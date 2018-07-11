@@ -38,7 +38,11 @@ var (
 
 	overwriteRoot = flag.String("overwrite_root",
 		"",
-		"Destination partition (e.g. /dev/sdb2) or file (e.g. /tmp/root.fat) to overwrite with the root file system")
+		"Destination partition (e.g. /dev/sdb2) or file (e.g. /tmp/root.squashfs) to overwrite with the root file system")
+
+	overwriteMBR = flag.String("overwrite_mbr",
+		"",
+		"Destination device (e.g. /dev/sdb) or file (e.g. /tmp/mbr.img) to overwrite the MBR of (only effective if -overwrite_boot is specified, too)")
 
 	overwriteInit = flag.String("overwrite_init",
 		"",
@@ -88,14 +92,27 @@ func (cw *countingWriter) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func writeBootFile(filename string) error {
-	f, err := os.Create(filename)
+func writeBootFile(bootfilename, mbrfilename string) error {
+	f, err := os.Create(bootfilename)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 	if err := writeBoot(f); err != nil {
 		return err
+	}
+	if mbrfilename != "" {
+		fmbr, err := os.OpenFile(mbrfilename, os.O_RDWR|os.O_CREATE, 0600)
+		if err != nil {
+			return err
+		}
+		defer fmbr.Close()
+		if err := writeMBR(f, fmbr); err != nil {
+			return err
+		}
+		if err := fmbr.Close(); err != nil {
+			return err
+		}
 	}
 	return f.Close()
 }
@@ -122,23 +139,6 @@ func partitionPath(base, num string) string {
 	return base + num
 }
 
-func writeMBRFile(filename string) error {
-	f, err := os.OpenFile(filename, os.O_RDWR, 0600)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	if err := writeMBR(f); err != nil {
-		return err
-	}
-
-	if err := f.Close(); err != nil {
-		return err
-	}
-	return nil
-}
-
 func overwriteDevice(dev string, root *fileInfo) error {
 	log.Printf("partitioning %s", dev)
 
@@ -151,11 +151,7 @@ func overwriteDevice(dev string, root *fileInfo) error {
 	log.Printf("waiting for %s to appear", partitionPath(dev, "1"))
 	time.Sleep(1 * time.Second)
 
-	if err := writeBootFile(partitionPath(dev, "1")); err != nil {
-		return err
-	}
-
-	if err := writeMBRFile(*overwrite); err != nil {
+	if err := writeBootFile(partitionPath(dev, "1"), *overwrite); err != nil {
 		return err
 	}
 
@@ -184,8 +180,8 @@ func (ors *offsetReadSeeker) Seek(offset int64, whence int) (int64, error) {
 	return ors.ReadSeeker.Seek(offset, whence)
 }
 
-func writeMBR(f io.ReadWriteSeeker) error {
-	rd, err := fat.NewReader(&offsetReadSeeker{f, 8192 * 512})
+func writeMBR(f io.ReadSeeker, fw io.WriteSeeker) error {
+	rd, err := fat.NewReader(f)
 	if err != nil {
 		return err
 	}
@@ -198,14 +194,14 @@ func writeMBR(f io.ReadWriteSeeker) error {
 		return err
 	}
 
-	if _, err := f.Seek(0, io.SeekStart); err != nil {
+	if _, err := fw.Seek(0, io.SeekStart); err != nil {
 		return err
 	}
 	vmlinuzLba := uint32((vmlinuzOffset / 512) + 8192)
 	cmdlineTxtLba := uint32((cmdlineOffset / 512) + 8192)
 
 	mbr := mbr.Configure(vmlinuzLba, cmdlineTxtLba)
-	if _, err := f.Write(mbr[:]); err != nil {
+	if _, err := fw.Write(mbr[:]); err != nil {
 		return err
 	}
 
@@ -234,7 +230,7 @@ func overwriteFile(filename string, root *fileInfo) (bootSize int64, rootSize in
 		return 0, 0, err
 	}
 
-	if err := writeMBR(f); err != nil {
+	if err := writeMBR(&offsetReadSeeker{f, 8192 * 512}, f); err != nil {
 		return 0, 0, err
 	}
 
@@ -411,7 +407,7 @@ func logic() error {
 
 	default:
 		if *overwriteBoot != "" {
-			if err := writeBootFile(*overwriteBoot); err != nil {
+			if err := writeBootFile(*overwriteBoot, *overwriteMBR); err != nil {
 				return err
 			}
 		}
