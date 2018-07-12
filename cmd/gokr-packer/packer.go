@@ -476,7 +476,7 @@ func logic() error {
 			}
 			bootReader = &io.LimitedReader{
 				R: bootFile,
-				N: rootSize,
+				N: bootSize,
 			}
 
 			rootFile, err := os.Open(*overwrite)
@@ -488,7 +488,7 @@ func logic() error {
 			}
 			rootReader = &io.LimitedReader{
 				R: rootFile,
-				N: bootSize,
+				N: rootSize,
 			}
 		}
 
