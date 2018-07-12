@@ -375,7 +375,7 @@ func logic() error {
 			return err
 		}
 
-		isDev := err == nil && st.Mode()&os.ModeDevice == os.ModeDevice
+		isDev = err == nil && st.Mode()&os.ModeDevice == os.ModeDevice
 
 		if isDev {
 			if err := overwriteDevice(*overwrite, root); err != nil {
