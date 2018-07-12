@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"flag"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -123,7 +124,7 @@ var (
 	}
 )
 
-func writeBoot(f io.Writer) error {
+func writeBoot(f io.Writer, mbrfilename string) error {
 	log.Printf("writing boot file system")
 	globs := make([]string, 0, len(firmwareGlobs)+len(kernelGlobs))
 	firmwareDir, err := packageDir(*firmwarePackage)
@@ -169,7 +170,26 @@ func writeBoot(f io.Writer) error {
 	if err := fw.Flush(); err != nil {
 		return err
 	}
-	return bufw.Flush()
+	if err := bufw.Flush(); err != nil {
+		return err
+	}
+	if mbrfilename != "" {
+		if _, ok := f.(io.ReadSeeker); !ok {
+			return fmt.Errorf("BUG: f does not implement io.ReadSeeker")
+		}
+		fmbr, err := os.OpenFile(mbrfilename, os.O_RDWR|os.O_CREATE, 0600)
+		if err != nil {
+			return err
+		}
+		defer fmbr.Close()
+		if err := writeMBR(f.(io.ReadSeeker), fmbr); err != nil {
+			return err
+		}
+		if err := fmbr.Close(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type fileInfo struct {

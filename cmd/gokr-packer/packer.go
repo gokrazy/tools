@@ -98,21 +98,8 @@ func writeBootFile(bootfilename, mbrfilename string) error {
 		return err
 	}
 	defer f.Close()
-	if err := writeBoot(f); err != nil {
+	if err := writeBoot(f, mbrfilename); err != nil {
 		return err
-	}
-	if mbrfilename != "" {
-		fmbr, err := os.OpenFile(mbrfilename, os.O_RDWR|os.O_CREATE, 0600)
-		if err != nil {
-			return err
-		}
-		defer fmbr.Close()
-		if err := writeMBR(f, fmbr); err != nil {
-			return err
-		}
-		if err := fmbr.Close(); err != nil {
-			return err
-		}
 	}
 	return f.Close()
 }
@@ -226,7 +213,7 @@ func overwriteFile(filename string, root *fileInfo) (bootSize int64, rootSize in
 		return 0, 0, err
 	}
 	var bs countingWriter
-	if err := writeBoot(io.MultiWriter(f, &bs)); err != nil {
+	if err := writeBoot(io.MultiWriter(f, &bs), ""); err != nil {
 		return 0, 0, err
 	}
 
@@ -364,9 +351,9 @@ func logic() error {
 
 	// Determine where to write the boot and root images to.
 	var (
-		isDev              bool
-		tmpBoot, tmpRoot   *os.File
-		bootSize, rootSize int64
+		isDev                    bool
+		tmpBoot, tmpRoot, tmpMBR *os.File
+		bootSize, rootSize       int64
 	)
 	switch {
 	case *overwrite != "":
@@ -407,7 +394,16 @@ func logic() error {
 
 	default:
 		if *overwriteBoot != "" {
-			if err := writeBootFile(*overwriteBoot, *overwriteMBR); err != nil {
+			mbrfn := *overwriteMBR
+			if *overwriteMBR == "" {
+				tmpMBR, err = ioutil.TempFile("", "gokrazy")
+				if err != nil {
+					return err
+				}
+				defer os.Remove(tmpMBR.Name())
+				mbrfn = tmpMBR.Name()
+			}
+			if err := writeBootFile(*overwriteBoot, mbrfn); err != nil {
 				return err
 			}
 		}
@@ -419,13 +415,19 @@ func logic() error {
 		}
 
 		if *overwriteBoot == "" && *overwriteRoot == "" {
+			tmpMBR, err = ioutil.TempFile("", "gokrazy")
+			if err != nil {
+				return err
+			}
+			defer os.Remove(tmpMBR.Name())
+
 			tmpBoot, err = ioutil.TempFile("", "gokrazy")
 			if err != nil {
 				return err
 			}
 			defer os.Remove(tmpBoot.Name())
 
-			if err := writeBoot(tmpBoot); err != nil {
+			if err := writeBoot(tmpBoot, tmpMBR.Name()); err != nil {
 				return err
 			}
 
@@ -451,8 +453,8 @@ func logic() error {
 		return nil
 	}
 
-	// Determine where to read the boot and root images from.
-	var rootReader, bootReader io.Reader
+	// Determine where to read the boot, root and MBR images from.
+	var rootReader, bootReader, mbrReader io.Reader
 	switch {
 	case *overwrite != "":
 		if isDev {
@@ -491,6 +493,14 @@ func logic() error {
 				N: rootSize,
 			}
 		}
+		mbrFile, err := os.Open(*overwrite)
+		if err != nil {
+			return err
+		}
+		mbrReader = &io.LimitedReader{
+			R: mbrFile,
+			N: 446,
+		}
 
 	default:
 		if *overwriteBoot != "" {
@@ -499,6 +509,18 @@ func logic() error {
 				return err
 			}
 			bootReader = bootFile
+			if *overwriteMBR != "" {
+				mbrFile, err := os.Open(*overwriteMBR)
+				if err != nil {
+					return err
+				}
+				mbrReader = mbrFile
+			} else {
+				if _, err := tmpMBR.Seek(0, io.SeekStart); err != nil {
+					return err
+				}
+				mbrReader = tmpMBR
+			}
 		}
 
 		if *overwriteRoot != "" {
@@ -514,6 +536,11 @@ func logic() error {
 				return err
 			}
 			bootReader = tmpBoot
+
+			if _, err := tmpMBR.Seek(0, io.SeekStart); err != nil {
+				return err
+			}
+			mbrReader = tmpMBR
 
 			if _, err := tmpRoot.Seek(0, io.SeekStart); err != nil {
 				return err
@@ -541,6 +568,10 @@ func logic() error {
 
 	if err := updater.UpdateBoot(baseUrl.String(), bootReader); err != nil {
 		return fmt.Errorf("updating boot file system: %v", err)
+	}
+
+	if err := updater.UpdateMBR(baseUrl.String(), mbrReader); err != nil {
+		return fmt.Errorf("updating MBR: %v", err)
 	}
 
 	if err := updater.Switch(baseUrl.String()); err != nil {
