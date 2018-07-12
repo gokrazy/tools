@@ -15,8 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gokrazy/internal/fat"
-	"github.com/gokrazy/internal/mbr"
 	"github.com/gokrazy/internal/updater"
 
 	// Imported so that the go tool will download the repositories
@@ -165,35 +163,6 @@ func (ors *offsetReadSeeker) Seek(offset int64, whence int) (int64, error) {
 		return ors.ReadSeeker.Seek(offset+ors.offset, io.SeekStart)
 	}
 	return ors.ReadSeeker.Seek(offset, whence)
-}
-
-func writeMBR(f io.ReadSeeker, fw io.WriteSeeker) error {
-	rd, err := fat.NewReader(f)
-	if err != nil {
-		return err
-	}
-	vmlinuzOffset, _, err := rd.Extents("/vmlinuz")
-	if err != nil {
-		return err
-	}
-	cmdlineOffset, _, err := rd.Extents("/cmdline.txt")
-	if err != nil {
-		return err
-	}
-
-	if _, err := fw.Seek(0, io.SeekStart); err != nil {
-		return err
-	}
-	vmlinuzLba := uint32((vmlinuzOffset / 512) + 8192)
-	cmdlineTxtLba := uint32((cmdlineOffset / 512) + 8192)
-
-	log.Printf("writing MBR (LBAs: vmlinuz=%d, cmdline.txt=%d)", vmlinuzLba, cmdlineTxtLba)
-	mbr := mbr.Configure(vmlinuzLba, cmdlineTxtLba)
-	if _, err := fw.Write(mbr[:]); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func overwriteFile(filename string, root *fileInfo) (bootSize int64, rootSize int64, err error) {
