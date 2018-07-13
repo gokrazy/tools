@@ -539,7 +539,11 @@ func logic() error {
 	}
 
 	if err := updater.UpdateMBR(baseUrl.String(), mbrReader); err != nil {
-		return fmt.Errorf("updating MBR: %v", err)
+		if err == updater.ErrUpdateHandlerNotImplemented {
+			log.Printf("target does not support updating MBR yet, ignoring")
+		} else {
+			return fmt.Errorf("updating MBR: %v", err)
+		}
 	}
 
 	if err := updater.Switch(baseUrl.String()); err != nil {
