@@ -18,9 +18,7 @@ import (
 	"github.com/gokrazy/internal/updater"
 
 	// Imported so that the go tool will download the repositories
-	_ "github.com/gokrazy/firmware"
 	_ "github.com/gokrazy/gokrazy/empty"
-	_ "github.com/gokrazy/kernel"
 )
 
 const MB = 1024 * 1024

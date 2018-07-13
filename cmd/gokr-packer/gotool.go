@@ -41,9 +41,11 @@ func install() error {
 		pkgs = append(pkgs, *initPkg)
 	}
 
+	incompletePkgs := append(pkgs, *kernelPackage, *firmwarePackage)
+
 	// run “go get” for incomplete packages (most likely just not present)
 	cmd := exec.Command("go",
-		append([]string{"list", "-e", "-f", "{{ .ImportPath }} {{ if .Incomplete }}error{{ else }}ok{{ end }}"}, pkgs...)...)
+		append([]string{"list", "-e", "-f", "{{ .ImportPath }} {{ if .Incomplete }}error{{ else }}ok{{ end }}"}, incompletePkgs...)...)
 	cmd.Env = env
 	cmd.Stderr = os.Stderr
 	output, err := cmd.Output()
