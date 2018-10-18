@@ -16,8 +16,9 @@ var (
 	// invalidCHS results in using the sector values instead
 	invalidCHS = [3]byte{0xFE, 0xFF, 0xFF}
 
-	FAT   = byte(0xc)
-	Linux = byte(0x83)
+	FAT      = byte(0xc)
+	Linux    = byte(0x83)
+	SquashFS = Linux // SquashFS does not have a dedicated type
 
 	signature = uint16(0xAA55)
 )
@@ -37,7 +38,7 @@ func writePartitionTable(w io.Writer, devsize uint64) error {
 		// partition 2
 		inactive,
 		invalidCHS,
-		FAT,
+		SquashFS,
 		invalidCHS,
 		uint32(8192 + (100 * MB / 512)), // start after partition 1
 		uint32(500 * MB / 512),          // 500MB in size
@@ -45,12 +46,12 @@ func writePartitionTable(w io.Writer, devsize uint64) error {
 		// partition 3
 		inactive,
 		invalidCHS,
-		FAT,
+		SquashFS,
 		invalidCHS,
 		uint32(8192 + (600 * MB / 512)), // start after partition 2
 		uint32(500 * MB / 512),          // 500MB in size
 
-		// partition 3
+		// partition 4
 		inactive,
 		invalidCHS,
 		Linux,
