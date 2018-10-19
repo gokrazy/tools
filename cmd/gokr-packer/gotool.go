@@ -39,6 +39,9 @@ func install() error {
 	pkgs := append(gokrazyPkgs, flag.Args()...)
 	if *initPkg != "" {
 		pkgs = append(pkgs, *initPkg)
+	} else {
+		// The default init template requires github.com/gokrazy/gokrazy:
+		pkgs = append(pkgs, "github.com/gokrazy/gokrazy")
 	}
 
 	incompletePkgs := append(pkgs, *kernelPackage, *firmwarePackage)
