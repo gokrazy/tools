@@ -61,7 +61,11 @@ var (
 		"host name to set on the target system. Will be sent when acquiring DHCP leases")
 
 	gokrazyPkgList = flag.String("gokrazy_pkgs",
-		"github.com/gokrazy/gokrazy/cmd/...",
+		strings.Join([]string{
+			"github.com/gokrazy/gokrazy/cmd/dhcp",
+			"github.com/gokrazy/gokrazy/cmd/ntp",
+			"github.com/gokrazy/gokrazy/cmd/randomd",
+		}, ","),
 		"comma-separated list of packages installed to /gokrazy/ (boot and system utilities)")
 )
 
