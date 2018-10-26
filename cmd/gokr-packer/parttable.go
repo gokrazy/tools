@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -81,6 +82,9 @@ func partition(path string) error {
 		return err
 	}
 	log.Printf("device holds %d bytes", devsize)
+	if devsize == 0 {
+		return fmt.Errorf("path %s does not seem to be a device", path)
+	}
 
 	if err := writePartitionTable(o, devsize); err != nil {
 		return err

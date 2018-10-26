@@ -26,7 +26,3 @@ func deviceSize(fd uintptr) (uint64, error) {
 
 	return uint64(blocksize) * blockcount, nil
 }
-
-func rereadPartitions(fd uintptr) error {
-	return nil // darwin seems to re-read the partition table without any extra ioctls
-}

@@ -13,7 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/gokrazy/internal/updater"
 
@@ -134,20 +133,47 @@ func overwriteDevice(dev string, root *fileInfo) error {
 		return err
 	}
 
-	// TODO: get rid of this ridiculous sleep. Without it, I get -EACCES when
-	// trying to open /dev/sdb1.
-	log.Printf("waiting for %s to appear", partitionPath(dev, "1"))
-	time.Sleep(1 * time.Second)
+	f, err := os.OpenFile(*overwrite, os.O_RDWR, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
 
-	if err := writeBootFile(partitionPath(dev, "1"), *overwrite); err != nil {
+	if _, err := f.Seek(8192*512, io.SeekStart); err != nil {
 		return err
 	}
 
-	if err := writeRootFile(partitionPath(dev, "2"), root); err != nil {
+	if err := writeBoot(f, ""); err != nil {
 		return err
 	}
 
-	fmt.Printf("If your applications need to store persistent data, create a file system using e.g.:\n")
+	if _, err := f.Seek((8192+(100*MB/512))*512, io.SeekStart); err != nil {
+		return err
+	}
+
+	tmp, err := ioutil.TempFile("", "gokr-packer")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	defer tmp.Close()
+
+	if err := writeRoot(tmp, root); err != nil {
+		return err
+	}
+	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
+		return err
+	}
+
+	if _, err := io.Copy(f, tmp); err != nil {
+		return err
+	}
+
+	if err := f.Close(); err != nil {
+		return err
+	}
+
+	fmt.Printf("If your applications need to store persistent data, unplug and re-plug the SD card, then create a file system using e.g.:\n")
 	fmt.Printf("\n")
 	fmt.Printf("\tmkfs.ext4 %s\n", partitionPath(dev, "4"))
 	fmt.Printf("\n")
