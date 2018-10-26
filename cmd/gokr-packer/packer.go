@@ -117,7 +117,8 @@ func writeRootFile(filename string, root *fileInfo) error {
 }
 
 func partitionPath(base, num string) string {
-	if strings.HasPrefix(base, "/dev/mmcblk") {
+	if strings.HasPrefix(base, "/dev/mmcblk") ||
+		strings.HasPrefix(base, "/dev/loop") {
 		return base + "p" + num
 	} else if strings.HasPrefix(base, "/dev/disk") ||
 		strings.HasPrefix(base, "/dev/rdisk") {
