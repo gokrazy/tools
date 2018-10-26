@@ -126,7 +126,30 @@ func partitionPath(base, num string) string {
 	return base + num
 }
 
+func verifyNotMounted(dev string) error {
+	b, err := ioutil.ReadFile("/proc/self/mountinfo")
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil // platform does not have /proc/self/mountinfo, fall back to not verifying
+		}
+		return err
+	}
+	for _, line := range strings.Split(strings.TrimSpace(string(b)), "\n") {
+		parts := strings.Split(line, " ")
+		if len(parts) < 9 {
+			continue
+		}
+		if strings.HasPrefix(parts[9], dev) {
+			return fmt.Errorf("partition %s of device %s is mounted", parts[9], dev)
+		}
+	}
+	return nil
+}
+
 func overwriteDevice(dev string, root *fileInfo) error {
+	if err := verifyNotMounted(dev); err != nil {
+		return err
+	}
 	log.Printf("partitioning %s", dev)
 
 	if err := partition(*overwrite); err != nil {
