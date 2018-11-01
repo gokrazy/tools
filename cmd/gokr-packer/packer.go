@@ -66,6 +66,10 @@ var (
 			"github.com/gokrazy/gokrazy/cmd/randomd",
 		}, ","),
 		"comma-separated list of packages installed to /gokrazy/ (boot and system utilities)")
+
+	sudo = flag.String("sudo",
+		"auto",
+		"whether to elevate privileges using sudo when required (one of auto, always, never, default auto)")
 )
 
 var gokrazyPkgs []string
@@ -152,11 +156,7 @@ func overwriteDevice(dev string, root *fileInfo) error {
 	}
 	log.Printf("partitioning %s", dev)
 
-	if err := partition(*overwrite); err != nil {
-		return err
-	}
-
-	f, err := os.OpenFile(*overwrite, os.O_RDWR, 0644)
+	f, err := partition(*overwrite)
 	if err != nil {
 		return err
 	}
@@ -625,6 +625,13 @@ func main() {
 
 	if *overwrite == "" && *overwriteBoot == "" && *overwriteRoot == "" && *overwriteInit == "" && *update == "" {
 		flag.Usage()
+	}
+
+	if os.Getenv("GOKR_PACKER_FD") != "" { // partitioning child process
+		if _, err := sudoPartition(*overwrite); err != nil {
+			log.Fatal(err)
+		}
+		os.Exit(0)
 	}
 
 	if err := logic(); err != nil {
