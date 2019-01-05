@@ -61,7 +61,7 @@ func writePartitionTable(w io.Writer, devsize uint64) error {
 		invalidCHS,
 		Linux,
 		invalidCHS,
-		uint32(8192 + (1100 * MB / 512)),                   // start after partition 3
+		uint32(8192 + (1100 * MB / 512)), // start after partition 3
 		uint32((devsize / 512) - 8192 - (1100 * MB / 512)), // remainder
 
 		signature,
