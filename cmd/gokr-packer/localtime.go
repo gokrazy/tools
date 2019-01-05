@@ -15,7 +15,7 @@ func hostLocaltime(tmpdir string) (string, error) {
 	}
 
 	// Fallback to time zone “Factory” from Go’s copy of zoneinfo.zip
-	r, err := zip.OpenReader(filepath.Join(runtime.GOROOT(), "lib", "zoneinfo.zip"))
+	r, err := zip.OpenReader(filepath.Join(runtime.GOROOT(), "lib", "time", "zoneinfo.zip"))
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Some Go installations are missing lib/zoneinfo.zip
