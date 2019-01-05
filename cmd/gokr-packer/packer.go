@@ -340,10 +340,21 @@ func logic() error {
 	}
 
 	etc := root.mustFindDirent("etc")
-	etc.dirents = append(etc.dirents, &fileInfo{
-		filename: "localtime",
-		fromHost: "/etc/localtime",
-	})
+	tmpdir, err := ioutil.TempDir("", "gokrazy")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmpdir)
+	hostLocaltime, err := hostLocaltime(tmpdir)
+	if err != nil {
+		return err
+	}
+	if hostLocaltime != "" {
+		etc.dirents = append(etc.dirents, &fileInfo{
+			filename: "localtime",
+			fromHost: hostLocaltime,
+		})
+	}
 	etc.dirents = append(etc.dirents, &fileInfo{
 		filename:    "resolv.conf",
 		symlinkDest: "/tmp/resolv.conf",
