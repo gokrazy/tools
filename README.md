@@ -19,12 +19,12 @@ gokr-packer \
   github.com/gokrazy/hello
 ```
 
-To overwrite the SD card `/dev/sdb`’s partitions with these images,
+To overwrite the SD card `/dev/sdx`’s partitions with these images,
 use:
 
 ```
-sudo dd if=/tmp/boot.fat of=/dev/sdb1 bs=1M
-sudo dd if=/tmp/root.fat of=/dev/sdb2 bs=1M
+sudo dd if=/tmp/boot.fat of=/dev/sdx1 bs=1M
+sudo dd if=/tmp/root.fat of=/dev/sdx2 bs=1M
 ```
 
 If you’re curious, you can also loop-mount the file system images on
@@ -50,10 +50,10 @@ gokr-packer \
   github.com/gokrazy/hello
 ```
 
-To overwrite the SD card `/dev/sdb` with the image, use:
+To overwrite the SD card `/dev/sdx` with the image, use:
 
 ```
-sudo dd if=/tmp/full.img of=/dev/sdb bs=1M
+sudo dd if=/tmp/full.img of=/dev/sdx bs=1M
 ```
 
 If you’re curious, you can also loop-mount the file systems of the
