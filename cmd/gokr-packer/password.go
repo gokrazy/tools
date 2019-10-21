@@ -46,7 +46,7 @@ func homedir() (string, error) {
 	return "", errors.New("$HOME is unset and user.Current failed")
 }
 
-func ensurePasswordFileExists() (password, path string, err error) {
+func ensurePasswordFileExists(defaultPassword string) (password, path string, err error) {
 	home, err := homedir()
 	if err != nil {
 		return "", "", err
@@ -58,9 +58,12 @@ func ensurePasswordFileExists() (password, path string, err error) {
 		return strings.TrimSpace(string(pwb)), pwPath, nil
 	}
 
-	pw, err := randomPassword(20)
-	if err != nil {
-		return "", "", err
+	pw := defaultPassword
+	if pw == "" {
+		pw, err = randomPassword(20)
+		if err != nil {
+			return "", "", err
+		}
 	}
 
 	if err := os.MkdirAll(filepath.Dir(pwPath), 0700); err != nil {

@@ -328,7 +328,13 @@ func logic() error {
 		})
 	}
 
-	pw, pwPath, err := ensurePasswordFileExists()
+	defaultPassword := ""
+	if *update != "" {
+		if u, err := url.Parse(*update); err == nil {
+			defaultPassword, _ = u.User.Password()
+		}
+	}
+	pw, pwPath, err := ensurePasswordFileExists(defaultPassword)
 	if err != nil {
 		return err
 	}
