@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -294,6 +295,21 @@ Flags:
 `
 
 func logic() error {
+	dnsCheck := make(chan error)
+	go func() {
+		defer close(dnsCheck)
+		host, err := os.Hostname()
+		if err != nil {
+			dnsCheck <- fmt.Errorf("finding hostname: %v", err)
+			return
+		}
+		if _, err := net.LookupHost(host); err != nil {
+			dnsCheck <- err
+			return
+		}
+		dnsCheck <- nil
+	}()
+
 	cacerts, err := findCACerts()
 	if err != nil {
 		return err
@@ -487,6 +503,12 @@ func logic() error {
 	fmt.Printf("\thttp://gokrazy:%s@%s/\n", pw, *hostname)
 	fmt.Printf("\n")
 	fmt.Printf("There will not be any other output (no HDMI, no serial console, etc.)\n")
+
+	if err := <-dnsCheck; err != nil {
+		fmt.Printf("\nWARNING: if the above URL does not work, perhaps name resolution (DNS) is broken\n")
+		fmt.Printf("in your local network? Resolving your hostname failed: %v\n", err)
+		fmt.Printf("Did you maybe configure a DNS server other than your router?\n\n")
+	}
 
 	if *update == "" {
 		return nil
