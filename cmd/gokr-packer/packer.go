@@ -11,15 +11,17 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/gokrazy/internal/updater"
-
 	// Imported so that the go tool will download the repositories
 	_ "github.com/gokrazy/gokrazy/empty"
+
+	"github.com/gokrazy/internal/httpclient"
+	"github.com/gokrazy/internal/updater"
 )
 
 const MB = 1024 * 1024
@@ -60,6 +62,20 @@ var (
 	hostname = flag.String("hostname",
 		"gokrazy",
 		"host name to set on the target system. Will be sent when acquiring DHCP leases")
+
+	// TODO: Generate unique hostname on bootstrap e.g. gokrazy-<5-10 random characters>?
+	useTLS = flag.String("tls",
+		"",
+		`TLS certificate for the web interface (-tls=<certificate or full chain path>,<private key path>).
+Use -tls=self-signed to generate a self-signed RSA4096 certificate using the hostname specified with -hostname. In this case, the certificate and key will be placed in your local config folder (on Linux: ~/.config/gokrazy/<hostname>/).
+WARNING: When reusing a hostname, no new certificate will be generated and the stored one will be used.
+When updating a running instance, the specified certificate will be used to verify the connection. Otherwise the updater will load the hostname-specific certificate from your local config folder in addition to the system trust store.
+You can also create your own certificate-key-pair (e.g. by using https://github.com/FiloSottile/mkcert) and place them into your local config folder.`,
+	)
+
+	tlsInsecure = flag.Bool("insecure",
+		false,
+		"Ignore TLS stripping detection.")
 
 	gokrazyPkgList = flag.String("gokrazy_pkgs",
 		strings.Join([]string{
@@ -410,6 +426,25 @@ func logic() error {
 		filename: "ca-bundle.pem",
 		fromHost: cacerts,
 	})
+
+	deployCertFile, deployKeyFile, err := getCertificate()
+	if err != nil {
+		return err
+	}
+	schema := "http"
+	if deployCertFile != "" {
+		// User requested TLS
+		schema = "https"
+		ssl.dirents = append(ssl.dirents, &fileInfo{
+			filename: "gokrazy-web.pem",
+			fromHost: deployCertFile,
+		})
+		ssl.dirents = append(ssl.dirents, &fileInfo{
+			filename: "gokrazy-web.key.pem",
+			fromHost: deployKeyFile,
+		})
+	}
+
 	etc.dirents = append(etc.dirents, ssl)
 
 	etc.dirents = append(etc.dirents, &fileInfo{
@@ -418,22 +453,53 @@ func logic() error {
 	})
 
 	if *update == "yes" {
-		*update = "http://gokrazy:" + pw + "@" + *hostname + "/"
+		*update = schema + "://gokrazy:" + pw + "@" + *hostname + "/"
 	}
 
 	partuuid := derivePartUUID(*hostname)
 	usePartuuid := true
+	var (
+		updateHttpClient         *http.Client
+		foundMatchingCertificate bool
+		updateBaseUrl            *url.URL
+	)
+
 	if *update != "" {
-		// Opt out of PARTUUID= for updating until we can check the remote
-		// userland version is new enough to understand how to set the active
-		// root partition when PARTUUID= is in use.
-		baseUrl, err := url.Parse(*update)
+		updateBaseUrl, err = url.Parse(*update)
 		if err != nil {
 			return err
 		}
-		baseUrl.Path = "/"
 
-		usePartuuid, err = updater.TargetSupports(baseUrl.String(), "partuuid")
+		updateHttpClient, foundMatchingCertificate, err = httpclient.GetTLSHttpClientByTLSFlag(useTLS, updateBaseUrl)
+		if err != nil {
+			return fmt.Errorf("gettting http client by tls flag: %v", err)
+		}
+		remoteScheme, err := httpclient.GetRemoteScheme(updateBaseUrl)
+		if remoteScheme == "https" {
+			updateBaseUrl.Scheme = "https"
+			*update = updateBaseUrl.String()
+		}
+
+		if updateBaseUrl.Scheme != "https" && foundMatchingCertificate {
+			fmt.Printf("\n")
+			fmt.Printf("!!!WARNING!!! Possible SSL-Stripping detected!\n")
+			fmt.Printf("Found certificate for hostname in your client configuration but the host does not offer https!\n")
+			fmt.Printf("\n")
+			if !*tlsInsecure {
+				log.Fatalf("update canceled: TLS certificate found, but negotiating a TLS connection with the target failed")
+			}
+			fmt.Printf("Proceeding anyway as requested (-insecure).\n")
+		}
+
+		// Opt out of PARTUUID= for updating until we can check the remote
+		// userland version is new enough to understand how to set the active
+		// root partition when PARTUUID= is in use.
+		if err != nil {
+			return err
+		}
+		updateBaseUrl.Path = "/"
+
+		usePartuuid, err = updater.TargetSupports(updateBaseUrl.String(), "partuuid", updateHttpClient)
 		if err != nil {
 			return fmt.Errorf("checking target support: %v", err)
 		}
@@ -536,9 +602,24 @@ func logic() error {
 
 	fmt.Printf("To interact with the device, gokrazy provides a web interface reachable at:\n")
 	fmt.Printf("\n")
-	fmt.Printf("\thttp://gokrazy:%s@%s/\n", pw, *hostname)
+	fmt.Printf("\t%s://gokrazy:%s@%s/\n", schema, pw, *hostname)
 	fmt.Printf("\n")
 	fmt.Printf("There will not be any other output (no HDMI, no serial console, etc.)\n")
+	if schema == "https" {
+		certObj, err := getCertificateFromFile(deployCertFile)
+		if err != nil {
+			fmt.Errorf("error loading the certificate at %s", deployCertFile)
+		} else {
+			fmt.Printf("\n")
+			fmt.Printf("The TLS Certificate of the gokrazy web interface is located under\n")
+			fmt.Printf("\t%s\n", deployCertFile)
+			fmt.Printf("The fingerprint of the Certificate is\n")
+			fmt.Printf("\t%x\n", getCertificateFingerprintSHA1(certObj))
+			fmt.Printf("The certificate is valid unitl\n")
+			fmt.Printf("\t%s\n", certObj.NotAfter.String())
+			fmt.Printf("Please verify the certificate, before adding an exception to your browser!\n")
+		}
+	}
 
 	if err := <-dnsCheck; err != nil {
 		fmt.Printf("\nWARNING: if the above URL does not work, perhaps name resolution (DNS) is broken\n")
@@ -646,24 +727,20 @@ func logic() error {
 		}
 	}
 
-	baseUrl, err := url.Parse(*update)
-	if err != nil {
-		return err
-	}
-	baseUrl.Path = "/"
+	updateBaseUrl.Path = "/"
 	log.Printf("Updating %q", *update)
 
 	// Start with the root file system because writing to the non-active
 	// partition cannot break the currently running system.
-	if err := updater.UpdateRoot(baseUrl.String(), rootReader); err != nil {
+	if err := updater.UpdateRoot(updateBaseUrl.String(), rootReader, updateHttpClient); err != nil {
 		return fmt.Errorf("updating root file system: %v", err)
 	}
 
-	if err := updater.UpdateBoot(baseUrl.String(), bootReader); err != nil {
+	if err := updater.UpdateBoot(updateBaseUrl.String(), bootReader, updateHttpClient); err != nil {
 		return fmt.Errorf("updating boot file system: %v", err)
 	}
 
-	if err := updater.UpdateMBR(baseUrl.String(), mbrReader); err != nil {
+	if err := updater.UpdateMBR(updateBaseUrl.String(), mbrReader, updateHttpClient); err != nil {
 		if err == updater.ErrUpdateHandlerNotImplemented {
 			log.Printf("target does not support updating MBR yet, ignoring")
 		} else {
@@ -671,11 +748,11 @@ func logic() error {
 		}
 	}
 
-	if err := updater.Switch(baseUrl.String()); err != nil {
+	if err := updater.Switch(updateBaseUrl.String(), updateHttpClient); err != nil {
 		return fmt.Errorf("switching to non-active partition: %v", err)
 	}
 
-	if err := updater.Reboot(baseUrl.String()); err != nil {
+	if err := updater.Reboot(updateBaseUrl.String(), updateHttpClient); err != nil {
 		return fmt.Errorf("reboot: %v", err)
 	}
 
