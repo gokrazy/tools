@@ -188,11 +188,16 @@ func partition(path string) (*os.File, error) {
 	}
 	o, err := os.Create(path)
 	if err != nil {
-		if pe, ok := err.(*os.PathError); ok && pe.Err == syscall.EACCES && *sudo == "auto" {
+		pe, ok := err.(*os.PathError)
+		if ok && pe.Err == syscall.EACCES && *sudo == "auto" {
 			// permission denied
 			log.Printf("Using sudo to gain permission to format %s", path)
 			log.Printf("If you prefer, cancel and use: sudo setfacl -m u:${USER}:rw %s", path)
 			return sudoPartition(path)
+		}
+		if ok && pe.Err == syscall.EROFS {
+			log.Printf("%s read-only; check if you have a physical write-protect switch on your SD card?", path)
+			return nil, err
 		}
 		return nil, err
 	}
