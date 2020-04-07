@@ -6,6 +6,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"io/ioutil"
 	"log"
@@ -96,13 +97,13 @@ func (cw *countingWriter) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func writeBootFile(bootfilename, mbrfilename string) error {
+func writeBootFile(bootfilename, mbrfilename string, partuuid uint32) error {
 	f, err := os.Create(bootfilename)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	if err := writeBoot(f, mbrfilename); err != nil {
+	if err := writeBoot(f, mbrfilename, partuuid); err != nil {
 		return err
 	}
 	return f.Close()
@@ -151,7 +152,7 @@ func verifyNotMounted(dev string) error {
 	return nil
 }
 
-func overwriteDevice(dev string, root *fileInfo) error {
+func overwriteDevice(dev string, root *fileInfo, partuuid uint32) error {
 	if err := verifyNotMounted(dev); err != nil {
 		return err
 	}
@@ -167,7 +168,11 @@ func overwriteDevice(dev string, root *fileInfo) error {
 		return err
 	}
 
-	if err := writeBoot(f, ""); err != nil {
+	if err := writeBoot(f, "", partuuid); err != nil {
+		return err
+	}
+
+	if err := writeMBR(&offsetReadSeeker{f, 8192 * 512}, f, partuuid); err != nil {
 		return err
 	}
 
@@ -218,7 +223,7 @@ func (ors *offsetReadSeeker) Seek(offset int64, whence int) (int64, error) {
 	return ors.ReadSeeker.Seek(offset, whence)
 }
 
-func overwriteFile(filename string, root *fileInfo) (bootSize int64, rootSize int64, err error) {
+func overwriteFile(filename string, root *fileInfo, partuuid uint32) (bootSize int64, rootSize int64, err error) {
 	f, err := os.Create(*overwrite)
 	if err != nil {
 		return 0, 0, err
@@ -236,11 +241,11 @@ func overwriteFile(filename string, root *fileInfo) (bootSize int64, rootSize in
 		return 0, 0, err
 	}
 	var bs countingWriter
-	if err := writeBoot(io.MultiWriter(f, &bs), ""); err != nil {
+	if err := writeBoot(io.MultiWriter(f, &bs), "", partuuid); err != nil {
 		return 0, 0, err
 	}
 
-	if err := writeMBR(&offsetReadSeeker{f, 8192 * 512}, f); err != nil {
+	if err := writeMBR(&offsetReadSeeker{f, 8192 * 512}, f, partuuid); err != nil {
 		return 0, 0, err
 	}
 
@@ -268,6 +273,12 @@ func overwriteFile(filename string, root *fileInfo) (bootSize int64, rootSize in
 	}
 
 	return int64(bs), int64(rs), f.Close()
+}
+
+func derivePartUUID(hostname string) uint32 {
+	h := fnv.New32a()
+	h.Write([]byte(hostname))
+	return h.Sum32()
 }
 
 const usage = `
@@ -404,6 +415,8 @@ func logic() error {
 		fromHost: pwPath,
 	})
 
+	partuuid := derivePartUUID(*hostname)
+
 	// Determine where to write the boot and root images to.
 	var (
 		isDev                    bool
@@ -420,7 +433,7 @@ func logic() error {
 		isDev = err == nil && st.Mode()&os.ModeDevice == os.ModeDevice
 
 		if isDev {
-			if err := overwriteDevice(*overwrite, root); err != nil {
+			if err := overwriteDevice(*overwrite, root, partuuid); err != nil {
 				return err
 			}
 			fmt.Printf("To boot gokrazy, plug the SD card into a Raspberry Pi 3 (no other model supported)\n")
@@ -438,7 +451,7 @@ func logic() error {
 				return fmt.Errorf("-target_storage_bytes must be at least %d (for boot + 2 root file systems)", lower)
 			}
 
-			bootSize, rootSize, err = overwriteFile(*overwrite, root)
+			bootSize, rootSize, err = overwriteFile(*overwrite, root, partuuid)
 			if err != nil {
 				return err
 			}
@@ -458,7 +471,7 @@ func logic() error {
 				defer os.Remove(tmpMBR.Name())
 				mbrfn = tmpMBR.Name()
 			}
-			if err := writeBootFile(*overwriteBoot, mbrfn); err != nil {
+			if err := writeBootFile(*overwriteBoot, mbrfn, partuuid); err != nil {
 				return err
 			}
 		}
@@ -482,7 +495,7 @@ func logic() error {
 			}
 			defer os.Remove(tmpBoot.Name())
 
-			if err := writeBoot(tmpBoot, tmpMBR.Name()); err != nil {
+			if err := writeBoot(tmpBoot, tmpMBR.Name(), partuuid); err != nil {
 				return err
 			}
 

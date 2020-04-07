@@ -71,7 +71,7 @@ func copyFileSquash(d *squashfs.Directory, dest, src string) error {
 	return w.Close()
 }
 
-func writeCmdline(fw *fat.Writer, src string) error {
+func writeCmdline(fw *fat.Writer, src string, partuuid uint32) error {
 	b, err := ioutil.ReadFile(src)
 	if err != nil {
 		return err
@@ -88,6 +88,15 @@ func writeCmdline(fw *fat.Writer, src string) error {
 	} else {
 		cmdline = string(b)
 	}
+
+	// TODO: change {gokrazy,rtr7}/kernel/cmdline.txt to contain a dummy PARTUUID=
+	cmdline = strings.ReplaceAll(cmdline,
+		"root=/dev/mmcblk0p2",
+		fmt.Sprintf("root=PARTUUID=%08x-02", partuuid))
+	cmdline = strings.ReplaceAll(cmdline,
+		"root=/dev/sda2",
+		fmt.Sprintf("root=PARTUUID=%08x-02", partuuid))
+
 	w, err := fw.File("/cmdline.txt", time.Now())
 	if err != nil {
 		return err
@@ -103,7 +112,7 @@ func writeConfig(fw *fat.Writer, src string) error {
 	}
 	config := string(b)
 	if *serialConsole != "disabled" {
-		config = strings.Replace(config, "enable_uart=0", "enable_uart=1", -1)
+		config = strings.ReplaceAll(config, "enable_uart=0", "enable_uart=1")
 	}
 	w, err := fw.File("/config.txt", time.Now())
 	if err != nil {
@@ -125,7 +134,7 @@ var (
 	}
 )
 
-func writeBoot(f io.Writer, mbrfilename string) error {
+func writeBoot(f io.Writer, mbrfilename string, partuuid uint32) error {
 	log.Printf("writing boot file system")
 	globs := make([]string, 0, len(firmwareGlobs)+len(kernelGlobs))
 	firmwareDir, err := packageDir(*firmwarePackage)
@@ -160,7 +169,7 @@ func writeBoot(f io.Writer, mbrfilename string) error {
 		}
 	}
 
-	if err := writeCmdline(fw, filepath.Join(kernelDir, "cmdline.txt")); err != nil {
+	if err := writeCmdline(fw, filepath.Join(kernelDir, "cmdline.txt"), partuuid); err != nil {
 		return err
 	}
 
@@ -183,7 +192,7 @@ func writeBoot(f io.Writer, mbrfilename string) error {
 			return err
 		}
 		defer fmbr.Close()
-		if err := writeMBR(f.(io.ReadSeeker), fmbr); err != nil {
+		if err := writeMBR(f.(io.ReadSeeker), fmbr, partuuid); err != nil {
 			return err
 		}
 		if err := fmbr.Close(); err != nil {
@@ -312,7 +321,7 @@ func writeRoot(f io.WriteSeeker, root *fileInfo) error {
 	return fw.Flush()
 }
 
-func writeMBR(f io.ReadSeeker, fw io.WriteSeeker) error {
+func writeMBR(f io.ReadSeeker, fw io.WriteSeeker, partuuid uint32) error {
 	rd, err := fat.NewReader(f)
 	if err != nil {
 		return err
@@ -332,8 +341,8 @@ func writeMBR(f io.ReadSeeker, fw io.WriteSeeker) error {
 	vmlinuzLba := uint32((vmlinuzOffset / 512) + 8192)
 	cmdlineTxtLba := uint32((cmdlineOffset / 512) + 8192)
 
-	log.Printf("writing MBR (LBAs: vmlinuz=%d, cmdline.txt=%d)", vmlinuzLba, cmdlineTxtLba)
-	mbr := mbr.Configure(vmlinuzLba, cmdlineTxtLba)
+	log.Printf("writing MBR (LBAs: vmlinuz=%d, cmdline.txt=%d, partuuid=%08x)", vmlinuzLba, cmdlineTxtLba, partuuid)
+	mbr := mbr.Configure(vmlinuzLba, cmdlineTxtLba, partuuid)
 	if _, err := fw.Write(mbr[:]); err != nil {
 		return err
 	}
