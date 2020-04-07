@@ -97,13 +97,13 @@ func (cw *countingWriter) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func writeBootFile(bootfilename, mbrfilename string, partuuid uint32) error {
+func writeBootFile(bootfilename, mbrfilename string, partuuid uint32, usePartuuid bool) error {
 	f, err := os.Create(bootfilename)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	if err := writeBoot(f, mbrfilename, partuuid); err != nil {
+	if err := writeBoot(f, mbrfilename, partuuid, usePartuuid); err != nil {
 		return err
 	}
 	return f.Close()
@@ -152,7 +152,7 @@ func verifyNotMounted(dev string) error {
 	return nil
 }
 
-func overwriteDevice(dev string, root *fileInfo, partuuid uint32) error {
+func overwriteDevice(dev string, root *fileInfo, partuuid uint32, usePartuuid bool) error {
 	if err := verifyNotMounted(dev); err != nil {
 		return err
 	}
@@ -168,7 +168,7 @@ func overwriteDevice(dev string, root *fileInfo, partuuid uint32) error {
 		return err
 	}
 
-	if err := writeBoot(f, "", partuuid); err != nil {
+	if err := writeBoot(f, "", partuuid, usePartuuid); err != nil {
 		return err
 	}
 
@@ -223,7 +223,7 @@ func (ors *offsetReadSeeker) Seek(offset int64, whence int) (int64, error) {
 	return ors.ReadSeeker.Seek(offset, whence)
 }
 
-func overwriteFile(filename string, root *fileInfo, partuuid uint32) (bootSize int64, rootSize int64, err error) {
+func overwriteFile(filename string, root *fileInfo, partuuid uint32, usePartuuid bool) (bootSize int64, rootSize int64, err error) {
 	f, err := os.Create(*overwrite)
 	if err != nil {
 		return 0, 0, err
@@ -241,7 +241,7 @@ func overwriteFile(filename string, root *fileInfo, partuuid uint32) (bootSize i
 		return 0, 0, err
 	}
 	var bs countingWriter
-	if err := writeBoot(io.MultiWriter(f, &bs), "", partuuid); err != nil {
+	if err := writeBoot(io.MultiWriter(f, &bs), "", partuuid, usePartuuid); err != nil {
 		return 0, 0, err
 	}
 
@@ -415,12 +415,27 @@ func logic() error {
 		fromHost: pwPath,
 	})
 
+	if *update == "yes" {
+		*update = "http://gokrazy:" + pw + "@" + *hostname + "/"
+	}
+
 	partuuid := derivePartUUID(*hostname)
+	usePartuuid := true
 	if *update != "" {
 		// Opt out of PARTUUID= for updating until we can check the remote
 		// userland version is new enough to understand how to set the active
 		// root partition when PARTUUID= is in use.
-		partuuid = 0
+		baseUrl, err := url.Parse(*update)
+		if err != nil {
+			return err
+		}
+		baseUrl.Path = "/"
+
+		usePartuuid, err = updater.TargetSupports(baseUrl.String(), "partuuid")
+		if err != nil {
+			return fmt.Errorf("checking target support: %v", err)
+		}
+		log.Printf("target partuuid support: %v", usePartuuid)
 	}
 
 	// Determine where to write the boot and root images to.
@@ -439,7 +454,7 @@ func logic() error {
 		isDev = err == nil && st.Mode()&os.ModeDevice == os.ModeDevice
 
 		if isDev {
-			if err := overwriteDevice(*overwrite, root, partuuid); err != nil {
+			if err := overwriteDevice(*overwrite, root, partuuid, usePartuuid); err != nil {
 				return err
 			}
 			fmt.Printf("To boot gokrazy, plug the SD card into a Raspberry Pi 3 (no other model supported)\n")
@@ -457,7 +472,7 @@ func logic() error {
 				return fmt.Errorf("-target_storage_bytes must be at least %d (for boot + 2 root file systems)", lower)
 			}
 
-			bootSize, rootSize, err = overwriteFile(*overwrite, root, partuuid)
+			bootSize, rootSize, err = overwriteFile(*overwrite, root, partuuid, usePartuuid)
 			if err != nil {
 				return err
 			}
@@ -477,7 +492,7 @@ func logic() error {
 				defer os.Remove(tmpMBR.Name())
 				mbrfn = tmpMBR.Name()
 			}
-			if err := writeBootFile(*overwriteBoot, mbrfn, partuuid); err != nil {
+			if err := writeBootFile(*overwriteBoot, mbrfn, partuuid, usePartuuid); err != nil {
 				return err
 			}
 		}
@@ -501,7 +516,7 @@ func logic() error {
 			}
 			defer os.Remove(tmpBoot.Name())
 
-			if err := writeBoot(tmpBoot, tmpMBR.Name(), partuuid); err != nil {
+			if err := writeBoot(tmpBoot, tmpMBR.Name(), partuuid, usePartuuid); err != nil {
 				return err
 			}
 
@@ -627,10 +642,6 @@ func logic() error {
 			}
 			rootReader = tmpRoot
 		}
-	}
-
-	if *update == "yes" {
-		*update = "http://gokrazy:" + pw + "@" + *hostname + "/"
 	}
 
 	baseUrl, err := url.Parse(*update)

@@ -71,7 +71,7 @@ func copyFileSquash(d *squashfs.Directory, dest, src string) error {
 	return w.Close()
 }
 
-func writeCmdline(fw *fat.Writer, src string, partuuid uint32) error {
+func writeCmdline(fw *fat.Writer, src string, partuuid uint32, usePartuuid bool) error {
 	b, err := ioutil.ReadFile(src)
 	if err != nil {
 		return err
@@ -90,7 +90,7 @@ func writeCmdline(fw *fat.Writer, src string, partuuid uint32) error {
 	}
 
 	// TODO: change {gokrazy,rtr7}/kernel/cmdline.txt to contain a dummy PARTUUID=
-	if partuuid > 0 {
+	if usePartuuid {
 		cmdline = strings.ReplaceAll(cmdline,
 			"root=/dev/mmcblk0p2",
 			fmt.Sprintf("root=PARTUUID=%08x-02", partuuid))
@@ -138,7 +138,7 @@ var (
 	}
 )
 
-func writeBoot(f io.Writer, mbrfilename string, partuuid uint32) error {
+func writeBoot(f io.Writer, mbrfilename string, partuuid uint32, usePartuuid bool) error {
 	log.Printf("writing boot file system")
 	globs := make([]string, 0, len(firmwareGlobs)+len(kernelGlobs))
 	firmwareDir, err := packageDir(*firmwarePackage)
@@ -173,7 +173,7 @@ func writeBoot(f io.Writer, mbrfilename string, partuuid uint32) error {
 		}
 	}
 
-	if err := writeCmdline(fw, filepath.Join(kernelDir, "cmdline.txt"), partuuid); err != nil {
+	if err := writeCmdline(fw, filepath.Join(kernelDir, "cmdline.txt"), partuuid, usePartuuid); err != nil {
 		return err
 	}
 
