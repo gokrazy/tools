@@ -416,6 +416,12 @@ func logic() error {
 	})
 
 	partuuid := derivePartUUID(*hostname)
+	if *update != "" {
+		// Opt out of PARTUUID= for updating until we can check the remote
+		// userland version is new enough to understand how to set the active
+		// root partition when PARTUUID= is in use.
+		partuuid = 0
+	}
 
 	// Determine where to write the boot and root images to.
 	var (

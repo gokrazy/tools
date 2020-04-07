@@ -90,12 +90,16 @@ func writeCmdline(fw *fat.Writer, src string, partuuid uint32) error {
 	}
 
 	// TODO: change {gokrazy,rtr7}/kernel/cmdline.txt to contain a dummy PARTUUID=
-	cmdline = strings.ReplaceAll(cmdline,
-		"root=/dev/mmcblk0p2",
-		fmt.Sprintf("root=PARTUUID=%08x-02", partuuid))
-	cmdline = strings.ReplaceAll(cmdline,
-		"root=/dev/sda2",
-		fmt.Sprintf("root=PARTUUID=%08x-02", partuuid))
+	if partuuid > 0 {
+		cmdline = strings.ReplaceAll(cmdline,
+			"root=/dev/mmcblk0p2",
+			fmt.Sprintf("root=PARTUUID=%08x-02", partuuid))
+		cmdline = strings.ReplaceAll(cmdline,
+			"root=/dev/sda2",
+			fmt.Sprintf("root=PARTUUID=%08x-02", partuuid))
+	} else {
+		log.Printf("(not using PARTUUID= in cmdline.txt yet)")
+	}
 
 	w, err := fw.File("/cmdline.txt", time.Now())
 	if err != nil {
