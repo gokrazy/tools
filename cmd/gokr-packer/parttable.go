@@ -132,6 +132,11 @@ func sudoPartition(path string) (*os.File, error) {
 	}
 	syscall.CloseOnExec(pair[0]) // used in the parent process
 
+	// Use absolute path because $PATH might not be the same when using sudo:
+	if exe, err := os.Executable(); err == nil {
+		os.Args[0] = exe
+	}
+
 	cmd := exec.Command("sudo", append([]string{"--preserve-env"}, os.Args...)...)
 	// We cannot use cmd.ExtraFiles with sudo, as sudo closes all file
 	// descriptors but stdin, stdout and stderr.
