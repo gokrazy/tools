@@ -131,6 +131,8 @@ var (
 		"*.bin",
 		"*.dat",
 		"*.elf",
+		"*.upd",
+		"*.sig",
 	}
 	kernelGlobs = []string{
 		"vmlinuz",
