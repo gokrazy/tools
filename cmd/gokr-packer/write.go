@@ -347,7 +347,7 @@ func writeMBR(f io.ReadSeeker, fw io.WriteSeeker, partuuid uint32) error {
 	vmlinuzLba := uint32((vmlinuzOffset / 512) + 8192)
 	cmdlineTxtLba := uint32((cmdlineOffset / 512) + 8192)
 
-	log.Printf("writing MBR (LBAs: vmlinuz=%d, cmdline.txt=%d, partuuid=%08x)", vmlinuzLba, cmdlineTxtLba, partuuid)
+	log.Printf("writing MBR (LBAs: vmlinuz=%d, cmdline.txt=%d, PARTUUID=%08x)", vmlinuzLba, cmdlineTxtLba, partuuid)
 	mbr := mbr.Configure(vmlinuzLba, cmdlineTxtLba, partuuid)
 	if _, err := fw.Write(mbr[:]); err != nil {
 		return err
