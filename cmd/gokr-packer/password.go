@@ -46,16 +46,42 @@ func homedir() (string, error) {
 	return "", errors.New("$HOME is unset and user.Current failed")
 }
 
-func ensurePasswordFileExists(defaultPassword string) (password, path string, err error) {
-	home, err := homedir()
+func findConfig(gokrazyConfigDir, gokrazyHttpPasswordTxt, fn, hostname string) (string, error) {
+	if hostname == "" {
+		return gokrazyHttpPasswordTxt, nil
+	}
+
+	pwPath := filepath.Join(gokrazyConfigDir, "hosts", hostname, fn)
+	_, err := os.Stat(pwPath)
+	switch {
+	case err == nil:
+		return pwPath, nil // host-specific config exists
+
+	case os.IsNotExist(err):
+		return gokrazyHttpPasswordTxt, nil // fallback
+
+	default:
+		return "", err
+	}
+}
+
+func ensurePasswordFileExists(hostname, defaultPassword string) (password, path string, err error) {
+	userConfigDir, err := os.UserConfigDir()
 	if err != nil {
 		return "", "", err
 	}
+	// Typically ~/.config/gokrazy
+	gokrazyConfigDir := filepath.Join(userConfigDir, "gokrazy")
+	gokrazyHttpPasswordTxt := filepath.Join(gokrazyConfigDir, "http-password.txt")
 
-	pwPath := filepath.Join(home, ".config", "gokrazy", "http-password.txt")
-	pwb, err := ioutil.ReadFile(pwPath)
-	if err == nil {
-		return strings.TrimSpace(string(pwb)), pwPath, nil
+	{
+		path, err := findConfig(gokrazyConfigDir, gokrazyHttpPasswordTxt, "http-password.txt", hostname)
+		if err != nil {
+			return "", "", err
+		}
+		if pwb, err := ioutil.ReadFile(path); err == nil {
+			return strings.TrimSpace(string(pwb)), path, nil
+		}
 	}
 
 	pw := defaultPassword
@@ -66,13 +92,13 @@ func ensurePasswordFileExists(defaultPassword string) (password, path string, er
 		}
 	}
 
-	if err := os.MkdirAll(filepath.Dir(pwPath), 0700); err != nil {
+	if err := os.MkdirAll(gokrazyConfigDir, 0700); err != nil {
 		return "", "", err
 	}
 
-	if err := ioutil.WriteFile(pwPath, []byte(pw+"\n"), 0600); err != nil {
+	if err := ioutil.WriteFile(gokrazyHttpPasswordTxt, []byte(pw+"\n"), 0600); err != nil {
 		return "", "", err
 	}
 
-	return pw, pwPath, nil
+	return pw, gokrazyHttpPasswordTxt, nil
 }

@@ -355,13 +355,15 @@ func logic() error {
 		})
 	}
 
-	defaultPassword := ""
-	if *update != "" {
+	var defaultPassword string
+	updateHostname := *hostname
+	if *update != "" && *update != "yes" {
 		if u, err := url.Parse(*update); err == nil {
 			defaultPassword, _ = u.User.Password()
+			updateHostname = u.Host
 		}
 	}
-	pw, pwPath, err := ensurePasswordFileExists(defaultPassword)
+	pw, pwPath, err := ensurePasswordFileExists(updateHostname, defaultPassword)
 	if err != nil {
 		return err
 	}
