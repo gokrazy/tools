@@ -363,7 +363,7 @@ func logic() error {
 			updateHostname = u.Host
 		}
 	}
-	pw, pwPath, err := ensurePasswordFileExists(updateHostname, defaultPassword)
+	pw, err := ensurePasswordFileExists(updateHostname, defaultPassword)
 	if err != nil {
 		return err
 	}
@@ -413,8 +413,8 @@ func logic() error {
 	etc.dirents = append(etc.dirents, ssl)
 
 	etc.dirents = append(etc.dirents, &fileInfo{
-		filename: "gokr-pw.txt",
-		fromHost: pwPath,
+		filename:    "gokr-pw.txt",
+		fromLiteral: pw,
 	})
 
 	if *update == "yes" {

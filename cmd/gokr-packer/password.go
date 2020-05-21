@@ -8,7 +8,8 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
-	"strings"
+
+	"github.com/gokrazy/internal/config"
 )
 
 func randomChar() (byte, error) {
@@ -46,59 +47,30 @@ func homedir() (string, error) {
 	return "", errors.New("$HOME is unset and user.Current failed")
 }
 
-func findConfig(gokrazyConfigDir, gokrazyHttpPasswordTxt, fn, hostname string) (string, error) {
-	if hostname == "" {
-		return gokrazyHttpPasswordTxt, nil
-	}
-
-	pwPath := filepath.Join(gokrazyConfigDir, "hosts", hostname, fn)
-	_, err := os.Stat(pwPath)
-	switch {
-	case err == nil:
-		return pwPath, nil // host-specific config exists
-
-	case os.IsNotExist(err):
-		return gokrazyHttpPasswordTxt, nil // fallback
-
-	default:
-		return "", err
-	}
-}
-
-func ensurePasswordFileExists(hostname, defaultPassword string) (password, path string, err error) {
-	userConfigDir, err := os.UserConfigDir()
-	if err != nil {
-		return "", "", err
-	}
-	// Typically ~/.config/gokrazy
-	gokrazyConfigDir := filepath.Join(userConfigDir, "gokrazy")
-	gokrazyHttpPasswordTxt := filepath.Join(gokrazyConfigDir, "http-password.txt")
-
-	{
-		path, err := findConfig(gokrazyConfigDir, gokrazyHttpPasswordTxt, "http-password.txt", hostname)
-		if err != nil {
-			return "", "", err
-		}
-		if pwb, err := ioutil.ReadFile(path); err == nil {
-			return strings.TrimSpace(string(pwb)), path, nil
-		}
+func ensurePasswordFileExists(hostname, defaultPassword string) (password string, err error) {
+	const configBaseName = "http-password.txt"
+	if pwb, err := config.HostnameSpecific(hostname).ReadFile(configBaseName); err == nil {
+		return pwb, nil
 	}
 
 	pw := defaultPassword
 	if pw == "" {
 		pw, err = randomPassword(20)
 		if err != nil {
-			return "", "", err
+			return "", err
 		}
 	}
 
-	if err := os.MkdirAll(gokrazyConfigDir, 0700); err != nil {
-		return "", "", err
+	if err := os.MkdirAll(config.Gokrazy(), 0700); err != nil {
+		return "", err
 	}
 
-	if err := ioutil.WriteFile(gokrazyHttpPasswordTxt, []byte(pw+"\n"), 0600); err != nil {
-		return "", "", err
+	// Save the password without a trailing \n so that xclip can be used to
+	// copy&paste the password into a browser:
+	//   % xclip < ~/.config/gokrazy/http-password.txt
+	if err := ioutil.WriteFile(filepath.Join(config.Gokrazy(), configBaseName), []byte(pw), 0600); err != nil {
+		return "", err
 	}
 
-	return pw, gokrazyHttpPasswordTxt, nil
+	return pw, nil
 }
