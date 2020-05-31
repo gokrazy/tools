@@ -472,7 +472,7 @@ func logic() error {
 
 		updateHttpClient, foundMatchingCertificate, err = httpclient.GetTLSHttpClientByTLSFlag(useTLS, updateBaseUrl)
 		if err != nil {
-			return fmt.Errorf("gettting http client by tls flag: %v", err)
+			return fmt.Errorf("getting http client by tls flag: %v", err)
 		}
 		remoteScheme, err := httpclient.GetRemoteScheme(updateBaseUrl)
 		if remoteScheme == "https" {
