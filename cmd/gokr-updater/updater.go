@@ -3,10 +3,12 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net/url"
 	"os"
 
+	"github.com/gokrazy/internal/httpclient"
 	"github.com/gokrazy/internal/updater"
 )
 
@@ -22,6 +24,19 @@ var (
 	update = flag.String("update",
 		os.Getenv("GOKRAZY_UPDATE"),
 		"URL of a gokrazy installation (e.g. http://gokrazy:mypassword@myhostname/) to update")
+
+	useTLS = flag.String("tls",
+		"",
+		`TLS certificate for the web interface (-tls=<certificate or full chain path>,<private key path>).
+Use -tls=self-signed to generate a self-signed RSA4096 certificate using the hostname specified with -hostname. In this case, the certificate and key will be placed in your local config folder (on Linux: ~/.config/gokrazy/<hostname>/).
+WARNING: When reusing a hostname, no new certificate will be generated and the stored one will be used.
+When updating a running instance, the specified certificate will be used to verify the connection. Otherwise the updater will load the hostname-specific certificate from your local config folder in addition to the system trust store.
+You can also create your own certificate-key-pair (e.g. by using https://github.com/FiloSottile/mkcert) and place them into your local config folder.`,
+	)
+
+	tlsInsecure = flag.Bool("insecure",
+		false,
+		"Ignore TLS stripping detection.")
 )
 
 func main() {
@@ -41,7 +56,23 @@ func main() {
 		log.Fatal(err)
 	}
 	baseUrl.Path = "/"
+	httpClient, foundMatchingCertificate, err := httpclient.GetTLSHttpClientByTLSFlag(useTLS, baseUrl)
+	remoteScheme, err := httpclient.GetRemoteScheme(baseUrl)
+	if remoteScheme == "https" {
+		baseUrl.Scheme = "https"
+		*update = baseUrl.String()
+	}
 
+	if baseUrl.Scheme != "https" && foundMatchingCertificate {
+		fmt.Printf("\n")
+		fmt.Printf("!!!WARNING!!! Possible SSL-Stripping detected!\n")
+		fmt.Printf("Found certificate for hostname in your client configuration but the host does not offer https!\n")
+		fmt.Printf("\n")
+		if !*tlsInsecure {
+			log.Fatalf("update canceled: TLS certificate found, but negotiating a TLS connection with the target failed")
+		}
+		fmt.Printf("Proceeding anyway as requested (-insecure).\n")
+	}
 	if *root != "" {
 		log.Printf("Updating %q with root file system %q", *update, *root)
 		// Start with the root file system because writing to the non-active
@@ -50,7 +81,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		if err := updater.UpdateRoot(baseUrl.String(), f); err != nil {
+		if err := updater.UpdateRoot(baseUrl.String(), f, httpClient); err != nil {
 			log.Fatalf("updating root file system: %v", err)
 		}
 	}
@@ -61,16 +92,16 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		if err := updater.UpdateBoot(baseUrl.String(), f); err != nil {
+		if err := updater.UpdateBoot(baseUrl.String(), f, httpClient); err != nil {
 			log.Fatalf("updating boot file system: %v", err)
 		}
 	}
 
-	if err := updater.Switch(baseUrl.String()); err != nil {
+	if err := updater.Switch(baseUrl.String(), httpClient); err != nil {
 		log.Fatalf("switching to non-active partition: %v", err)
 	}
 
-	if err := updater.Reboot(baseUrl.String()); err != nil {
+	if err := updater.Reboot(baseUrl.String(), httpClient); err != nil {
 		log.Fatalf("reboot: %v", err)
 	}
 
