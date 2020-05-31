@@ -435,6 +435,13 @@ func logic() error {
 	if deployCertFile != "" {
 		// User requested TLS
 		schema = "https"
+		if *tlsInsecure {
+			// If -insecure is specified, use http instead of https to make the
+			// process of updating to non-empty -tls= a bit smoother.
+		} else {
+			schema = "https"
+		}
+
 		ssl.dirents = append(ssl.dirents, &fileInfo{
 			filename: "gokrazy-web.pem",
 			fromHost: deployCertFile,
