@@ -477,12 +477,12 @@ func logic() error {
 			return err
 		}
 
-		updateHttpClient, foundMatchingCertificate, err = httpclient.GetTLSHttpClientByTLSFlag(useTLS, updateBaseUrl)
+		updateHttpClient, foundMatchingCertificate, err = httpclient.GetTLSHttpClientByTLSFlag(useTLS, tlsInsecure, updateBaseUrl)
 		if err != nil {
 			return fmt.Errorf("getting http client by tls flag: %v", err)
 		}
 		remoteScheme, err := httpclient.GetRemoteScheme(updateBaseUrl)
-		if remoteScheme == "https" {
+		if remoteScheme == "https" && !*tlsInsecure {
 			updateBaseUrl.Scheme = "https"
 			*update = updateBaseUrl.String()
 		}
@@ -508,7 +508,7 @@ func logic() error {
 
 		usePartuuid, err = updater.TargetSupports(updateBaseUrl.String(), "partuuid", updateHttpClient)
 		if err != nil {
-			return fmt.Errorf("checking target support: %v", err)
+			return fmt.Errorf("checking target partuuid support: %v", err)
 		}
 		log.Printf("target partuuid support: %v", usePartuuid)
 	}
