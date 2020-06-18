@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"crypto/sha256"
 	"flag"
 	"fmt"
 	"io"
@@ -30,6 +31,10 @@ var (
 	firmwarePackage = flag.String("firmware_package",
 		"github.com/gokrazy/firmware",
 		"Go package to copy *.{bin,dat,elf} from for constructing the firmware file system")
+
+	eepromPackage = flag.String("eeprom_package",
+		"github.com/gokrazy/rpi-eeprom",
+		"Go package to copy *.bin from for constructing the firmware file system")
 )
 
 func copyFile(fw *fat.Writer, dest, src string) error {
@@ -150,6 +155,14 @@ func writeBoot(f io.Writer, mbrfilename string, partuuid uint32, usePartuuid boo
 	for _, glob := range firmwareGlobs {
 		globs = append(globs, filepath.Join(firmwareDir, glob))
 	}
+	var eepromDir string
+	if *eepromPackage != "" {
+		var err error
+		eepromDir, err = packageDir(*eepromPackage)
+		if err != nil {
+			return err
+		}
+	}
 	kernelDir, err := packageDir(*kernelPackage)
 	if err != nil {
 		return err
@@ -172,6 +185,70 @@ func writeBoot(f io.Writer, mbrfilename string, partuuid uint32, usePartuuid boo
 			if err := copyFile(fw, "/"+filepath.Base(m), m); err != nil {
 				return err
 			}
+		}
+	}
+
+	// EEPROM update procedure. See also:
+	// https://news.ycombinator.com/item?id=21674550
+	writeEepromUpdateFile := func(globPattern, target string) error {
+		matches, err := filepath.Glob(globPattern)
+		if err != nil {
+			return err
+		}
+		if len(matches) == 0 {
+			return fmt.Errorf("invalid -eeprom_package: no files matching %s", filepath.Base(globPattern))
+		}
+
+		// Select the EEPROM file that sorts last.
+		// This corresponds to most recent for the pieeprom-*.bin files,
+		// which contain the date in yyyy-mm-dd format.
+		sort.Sort(sort.Reverse(sort.StringSlice(matches)))
+
+		f, err := os.Open(matches[0])
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		st, err := f.Stat()
+		if err != nil {
+			return err
+		}
+		// Copy the EEPROM file into the image and calculate its SHA256 hash
+		// while doing so:
+		w, err := fw.File(target, st.ModTime())
+		if err != nil {
+			return err
+		}
+		h := sha256.New()
+		if _, err := io.Copy(w, io.TeeReader(f, h)); err != nil {
+			return err
+		}
+
+		log.Printf("writing EEPROM update file %s (sig %x)", filepath.Base(target), h.Sum(nil))
+
+		// Include the SHA256 hash in the image in an accompanying .sig file:
+		sigFn := target
+		ext := filepath.Ext(sigFn)
+		if ext == "" {
+			return fmt.Errorf("BUG: cannot derive signature file name from matches[0]=%q", matches[0])
+		}
+		sigFn = strings.TrimSuffix(sigFn, ext) + ".sig"
+		w, err = fw.File(sigFn, st.ModTime())
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Fprintf(w, "%x\n", h.Sum(nil))
+		return err
+	}
+	if eepromDir != "" {
+		if err := writeEepromUpdateFile(filepath.Join(eepromDir, "pieeprom-*.bin"), "/pieeprom.upd"); err != nil {
+			return err
+		}
+		if err := writeEepromUpdateFile(filepath.Join(eepromDir, "recovery.bin"), "/recovery.bin"); err != nil {
+			return err
+		}
+		if err := writeEepromUpdateFile(filepath.Join(eepromDir, "vl805-*.bin"), "/vl805.bin"); err != nil {
+			return err
 		}
 	}
 
