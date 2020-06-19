@@ -532,7 +532,7 @@ func logic() error {
 			if err := overwriteDevice(*overwrite, root, partuuid, usePartuuid); err != nil {
 				return err
 			}
-			fmt.Printf("To boot gokrazy, plug the SD card into a Raspberry Pi 3 (no other model supported)\n")
+			fmt.Printf("To boot gokrazy, plug the SD card into a Raspberry Pi 3 or 4 (no other models supported)\n")
 			fmt.Printf("\n")
 		} else {
 			lower := 1100*MB + 8192
@@ -552,7 +552,7 @@ func logic() error {
 				return err
 			}
 
-			fmt.Printf("To boot gokrazy, copy %s to an SD card and plug it into a Raspberry Pi 3 (no other model supported)\n", *overwrite)
+			fmt.Printf("To boot gokrazy, copy %s to an SD card and plug it into a Raspberry Pi 3 or 4 (no other models supported)\n", *overwrite)
 			fmt.Printf("\n")
 		}
 
