@@ -224,6 +224,11 @@ func writeBoot(f io.Writer, mbrfilename string, partuuid uint32, usePartuuid boo
 			return err
 		}
 
+		if filepath.Base(target) == "recovery.bin" {
+			log.Printf("writing EEPROM update file recovery.bin")
+			// No signature required for recovery.bin itself.
+			return nil
+		}
 		log.Printf("writing EEPROM update file %s (sig %x)", filepath.Base(target), h.Sum(nil))
 
 		// Include the SHA256 hash in the image in an accompanying .sig file:
