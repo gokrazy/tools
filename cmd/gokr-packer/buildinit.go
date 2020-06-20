@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"go/format"
 	"io/ioutil"
 	"os"
@@ -122,7 +123,7 @@ func buildInit(root *fileInfo) (tmpdir string, err error) {
 	cmd.Env = env
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return "", err
+		return "", fmt.Errorf("%v: %v", cmd.Args, err)
 	}
 	return tmpdir, nil
 }

@@ -53,7 +53,7 @@ func install() error {
 	cmd.Stderr = os.Stderr
 	output, err := cmd.Output()
 	if err != nil {
-		return err
+		return fmt.Errorf("%v: %v", cmd.Args, err)
 	}
 	var incomplete []string
 	const errorSuffix = " error"
@@ -71,7 +71,7 @@ func install() error {
 		cmd.Env = env
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
-			return err
+			return fmt.Errorf("%v: %v", cmd.Args, err)
 		}
 	}
 
@@ -79,7 +79,10 @@ func install() error {
 		append([]string{"install", "-tags", "gokrazy"}, pkgs...)...)
 	cmd.Env = env
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("%v: %v", cmd.Args, err)
+	}
+	return nil
 }
 
 func mainPackages(paths []string) ([]string, error) {
@@ -90,7 +93,7 @@ func mainPackages(paths []string) ([]string, error) {
 	cmd.Stdout = &buf
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%v: %v", cmd.Args, err)
 	}
 
 	lines := strings.Split(buf.String(), "\n")
@@ -105,9 +108,10 @@ func mainPackages(paths []string) ([]string, error) {
 }
 
 func packageDir(pkg string) (string, error) {
-	b, err := exec.Command("go", "list", "-f", "{{ .Dir }}", pkg).Output()
+	cmd := exec.Command("go", "list", "-f", "{{ .Dir }}", pkg)
+	b, err := cmd.Output()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("%v: %v", cmd.Args, err)
 	}
 	return strings.TrimSpace(string(b)), nil
 }
