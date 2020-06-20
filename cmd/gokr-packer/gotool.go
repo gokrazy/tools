@@ -109,6 +109,7 @@ func mainPackages(paths []string) ([]string, error) {
 
 func packageDir(pkg string) (string, error) {
 	cmd := exec.Command("go", "list", "-f", "{{ .Dir }}", pkg)
+	cmd.Stderr = os.Stderr
 	b, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("%v: %v", cmd.Args, err)
