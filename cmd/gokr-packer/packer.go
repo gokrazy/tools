@@ -220,7 +220,15 @@ func overwriteDevice(dev string, root *fileInfo, partuuid uint32, usePartuuid bo
 
 	fmt.Printf("If your applications need to store persistent data, unplug and re-plug the SD card, then create a file system using e.g.:\n")
 	fmt.Printf("\n")
-	fmt.Printf("\tmkfs.ext4 %s\n", partitionPath(dev, "4"))
+	partition := partitionPath(dev, "4")
+	if usePartuuid {
+		partition = fmt.Sprintf("/dev/disk/by-partuuid/%08x-04", partuuid)
+	} else {
+		if target, err := filepath.EvalSymlinks(dev); err == nil {
+			partition = partitionPath(target, "4")
+		}
+	}
+	fmt.Printf("\tmkfs.ext4 %s\n", partition)
 	fmt.Printf("\n")
 
 	return nil
@@ -521,7 +529,7 @@ func logic() error {
 	)
 	switch {
 	case *overwrite != "":
-		st, err := os.Lstat(*overwrite)
+		st, err := os.Stat(*overwrite)
 		if err != nil && !os.IsNotExist(err) {
 			return err
 		}
