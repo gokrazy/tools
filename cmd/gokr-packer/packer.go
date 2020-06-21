@@ -350,13 +350,19 @@ func logic() error {
 		return err
 	}
 
-	log.Printf("installing %v", flag.Args())
+	log.Printf("building %v", flag.Args())
 
-	if err := install(); err != nil {
+	tmp, err := ioutil.TempDir("", "gokrazy-bins-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmp)
+
+	if err := build(tmp); err != nil {
 		return err
 	}
 
-	root, err := findBins()
+	root, err := findBins(tmp)
 	if err != nil {
 		return err
 	}

@@ -311,7 +311,7 @@ func (fi *fileInfo) mustFindDirent(path string) *fileInfo {
 	return nil
 }
 
-func findBins() (*fileInfo, error) {
+func findBins(bindir string) (*fileInfo, error) {
 	result := fileInfo{filename: ""}
 
 	gokrazyMainPkgs, err := mainPackages(gokrazyPkgs)
@@ -319,10 +319,10 @@ func findBins() (*fileInfo, error) {
 		return nil, err
 	}
 	gokrazy := fileInfo{filename: "gokrazy"}
-	for _, target := range gokrazyMainPkgs {
+	for _, pkg := range gokrazyMainPkgs {
 		gokrazy.dirents = append(gokrazy.dirents, &fileInfo{
-			filename: filepath.Base(target),
-			fromHost: target,
+			filename: pkg.Basename(),
+			fromHost: filepath.Join(bindir, pkg.Basename()),
 		})
 	}
 
@@ -331,14 +331,14 @@ func findBins() (*fileInfo, error) {
 		if err != nil {
 			return nil, err
 		}
-		for _, target := range initMainPkgs {
-			if got, want := filepath.Base(target), "init"; got != want {
+		for _, pkg := range initMainPkgs {
+			if got, want := pkg.Basename(), "init"; got != want {
 				log.Printf("Error: -init_pkg=%q produced unexpected binary name: got %q, want %q", *initPkg, got, want)
 				continue
 			}
 			gokrazy.dirents = append(gokrazy.dirents, &fileInfo{
-				filename: "init",
-				fromHost: target,
+				filename: pkg.Basename(),
+				fromHost: filepath.Join(bindir, pkg.Basename()),
 			})
 		}
 	}
@@ -349,10 +349,10 @@ func findBins() (*fileInfo, error) {
 		return nil, err
 	}
 	user := fileInfo{filename: "user"}
-	for _, target := range mainPkgs {
+	for _, pkg := range mainPkgs {
 		user.dirents = append(user.dirents, &fileInfo{
-			filename: filepath.Base(target),
-			fromHost: target,
+			filename: pkg.Basename(),
+			fromHost: filepath.Join(bindir, pkg.Basename()),
 		})
 	}
 	result.dirents = append(result.dirents, &user)

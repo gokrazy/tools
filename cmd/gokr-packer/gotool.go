@@ -2,12 +2,17 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
+
+	"golang.org/x/sync/errgroup"
 )
 
 var env = goEnv()
@@ -28,14 +33,18 @@ func goEnv() []string {
 		if strings.HasPrefix(e, "CGO_ENABLED=") {
 			env[idx] = "CGO_ENABLED=0"
 		}
+		if strings.HasPrefix(e, "GOBIN=") {
+			env[idx] = "GOBIN="
+		}
 	}
 	return append(env,
 		fmt.Sprintf("GOARCH=%s", goarch),
 		fmt.Sprintf("GOOS=%s", goos),
-		"CGO_ENABLED=0")
+		"CGO_ENABLED=0",
+		"GOBIN=")
 }
 
-func install() error {
+func build(bindir string) error {
 	pkgs := append(gokrazyPkgs, flag.Args()...)
 	if *initPkg != "" {
 		pkgs = append(pkgs, *initPkg)
@@ -75,34 +84,63 @@ func install() error {
 		}
 	}
 
-	cmd = exec.Command("go",
-		append([]string{"install", "-tags", "gokrazy"}, pkgs...)...)
-	cmd.Env = env
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("%v: %v", cmd.Args, err)
+	mainPkgs, err := mainPackages(pkgs)
+	if err != nil {
+		return err
 	}
-	return nil
+	var eg errgroup.Group
+	for _, pkg := range mainPkgs {
+		pkg := pkg // copy
+		eg.Go(func() error {
+			cmd := exec.Command("go",
+				"build",
+				"-tags", "gokrazy",
+				"-o", filepath.Join(bindir, filepath.Base(pkg.Target)),
+				pkg.ImportPath)
+			cmd.Env = env
+			cmd.Stderr = os.Stderr
+			if err := cmd.Run(); err != nil {
+				return fmt.Errorf("%v: %v", cmd.Args, err)
+			}
+			return nil
+		})
+	}
+	return eg.Wait()
 }
 
-func mainPackages(paths []string) ([]string, error) {
+type Pkg struct {
+	Name       string `json:"Name"`
+	ImportPath string `json:"ImportPath"`
+	Target     string `json:"Target"`
+}
+
+func (p *Pkg) Basename() string {
+	return filepath.Base(p.Target)
+}
+
+func mainPackages(paths []string) ([]Pkg, error) {
 	// Shell out to the go tool for path matching (handling “...”)
 	var buf bytes.Buffer
-	cmd := exec.Command("go", append([]string{"list", "-f", "{{ .Name }}/{{ .Target }}"}, paths...)...)
+	cmd := exec.Command("go", append([]string{"list", "-json"}, paths...)...)
 	cmd.Env = env
 	cmd.Stdout = &buf
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("%v: %v", cmd.Args, err)
 	}
-
-	lines := strings.Split(buf.String(), "\n")
-	result := make([]string, 0, len(lines))
-	for _, line := range lines {
-		if !strings.HasPrefix(line, "main/") {
+	var result []Pkg
+	dec := json.NewDecoder(&buf)
+	for {
+		var p Pkg
+		if err := dec.Decode(&p); err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, err
+		}
+		if p.Name != "main" {
 			continue
 		}
-		result = append(result, strings.TrimPrefix(line, "main/"))
+		result = append(result, p)
 	}
 	return result, nil
 }
