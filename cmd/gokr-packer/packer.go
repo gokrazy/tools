@@ -763,7 +763,7 @@ func logic() error {
 		return fmt.Errorf("reboot: %v", err)
 	}
 
-	log.Printf("updated, should be back within 10 seconds")
+	log.Printf("updated, should be back within 10 to 30 seconds")
 	return nil
 }
 
