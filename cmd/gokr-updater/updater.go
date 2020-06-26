@@ -73,6 +73,12 @@ func main() {
 		}
 		fmt.Printf("Proceeding anyway as requested (-insecure).\n")
 	}
+
+	target, err := updater.NewTarget(baseUrl.String(), httpClient)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	if *root != "" {
 		log.Printf("Updating %q with root file system %q", *update, *root)
 		// Start with the root file system because writing to the non-active
@@ -81,7 +87,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		if err := updater.UpdateRoot(baseUrl.String(), f, httpClient); err != nil {
+		if err := target.StreamTo("root", f); err != nil {
 			log.Fatalf("updating root file system: %v", err)
 		}
 	}
@@ -92,16 +98,16 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		if err := updater.UpdateBoot(baseUrl.String(), f, httpClient); err != nil {
+		if err := target.StreamTo("boot", f); err != nil {
 			log.Fatalf("updating boot file system: %v", err)
 		}
 	}
 
-	if err := updater.Switch(baseUrl.String(), httpClient); err != nil {
+	if err := target.Switch(); err != nil {
 		log.Fatalf("switching to non-active partition: %v", err)
 	}
 
-	if err := updater.Reboot(baseUrl.String(), httpClient); err != nil {
+	if err := target.Reboot(); err != nil {
 		log.Fatalf("reboot: %v", err)
 	}
 
