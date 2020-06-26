@@ -18,6 +18,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
 
 	"github.com/gokrazy/gokrazy"
@@ -33,6 +34,12 @@ func main() {
 	fmt.Printf("gokrazy build timestamp %s\n", buildTimestamp)
 	if err := gokrazy.Boot(buildTimestamp); err != nil {
 		log.Fatal(err)
+	}
+	if host, err := os.Hostname(); err == nil {
+		fmt.Printf("hostname %q\n", host)
+	}
+	if model := gokrazy.Model(); model != "" {
+		fmt.Printf("gokrazy device model %s\n", model)
 	}
 
 	cmds := []*exec.Cmd{
