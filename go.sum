@@ -15,6 +15,8 @@ github.com/gokrazy/internal v0.0.0-20200531194636-d96421c60091 h1:gP2Z4WgsQl35ml
 github.com/gokrazy/internal v0.0.0-20200531194636-d96421c60091/go.mod h1:LA5TQy7LcvYGQOy75tkrYkFUhbV2nl5qEBP47PSi2JA=
 github.com/gokrazy/internal v0.0.0-20200601120025-dd941cf69665 h1:gDCysLcCrZM5ynRRO7k0mSEstAt+cIiZp6D/EJ1zv0g=
 github.com/gokrazy/internal v0.0.0-20200601120025-dd941cf69665/go.mod h1:LA5TQy7LcvYGQOy75tkrYkFUhbV2nl5qEBP47PSi2JA=
+github.com/gokrazy/internal v0.0.0-20200626085433-6897d2a79a87 h1:L726tuQgWqwRwD1lByDHdyTNIDBnsCcLFHJl8hMoauo=
+github.com/gokrazy/internal v0.0.0-20200626085433-6897d2a79a87/go.mod h1:LA5TQy7LcvYGQOy75tkrYkFUhbV2nl5qEBP47PSi2JA=
 github.com/google/go-cmp v0.4.0/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
 github.com/google/gopacket v1.1.16/go.mod h1:UCLx9mCmAwsVbn6qQl1WIEt2SO7Nd2fD0th1TBAsqBw=
 github.com/mdlayher/raw v0.0.0-20190303161257-764d452d77af/go.mod h1:rC/yE65s/DoHB6BzVOUBNYBGTg772JVytyAytffIZkY=
