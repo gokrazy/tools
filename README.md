@@ -63,7 +63,7 @@ image on your machine to inspect them:
 sudo kpartx -avs /tmp/full.img
 sudo mkdir /mnt/{boot,root}
 sudo mount -t vfat /dev/mapper/loop0p1 /mnt/boot
-sudo mount -t vfat /dev/mapper/loop0p2 /mnt/root
+sudo mount /dev/mapper/loop0p2 /mnt/root
 ls -lR /mnt/{boot,root}
 sudo umount /mnt/{boot,root}
 sudo kpartx -d /tmp/full.img
