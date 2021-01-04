@@ -448,7 +448,6 @@ func logic() error {
 	schema := "http"
 	if deployCertFile != "" {
 		// User requested TLS
-		schema = "https"
 		if *tlsInsecure {
 			// If -insecure is specified, use http instead of https to make the
 			// process of updating to non-empty -tls= a bit smoother.
