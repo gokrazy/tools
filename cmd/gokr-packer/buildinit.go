@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"text/template"
 	"time"
 )
@@ -45,7 +46,7 @@ func main() {
 	cmds := []*exec.Cmd{
 {{- range $idx, $path := .Binaries }}
 {{- if ne $path "/gokrazy/init" }}
-		exec.Command({{ printf "%#v" $path }}),
+		exec.Command({{ CommandFor $.Flags $path }}),
 {{- end }}
 {{- end }}
 	}
@@ -56,7 +57,16 @@ func main() {
 }
 `
 
-var initTmpl = template.Must(template.New("").Parse(initTmplContents))
+var initTmpl = template.Must(template.New("").Funcs(template.FuncMap{
+	"CommandFor": func(flags map[string]string, path string) string {
+		contents := strings.TrimSpace(flags[filepath.Base(path)])
+		if contents == "" {
+			return fmt.Sprintf("%#v", path) // no flags
+		}
+		lines := strings.Split(contents, "\n")
+		return fmt.Sprintf("%#v, %#v...", path, lines)
+	},
+}).Parse(initTmplContents))
 
 func flattenFiles(prefix string, root *fileInfo) []string {
 	var result []string
@@ -70,63 +80,61 @@ func flattenFiles(prefix string, root *fileInfo) []string {
 	return result
 }
 
-func dumpInit(path string, root *fileInfo) error {
+func genInit(root *fileInfo, flagFileContents map[string]string) ([]byte, error) {
+	var buf bytes.Buffer
+
+	if err := initTmpl.Execute(&buf, struct {
+		Binaries       []string
+		BuildTimestamp string
+		Flags          map[string]string
+	}{
+		Binaries:       flattenFiles("/", root),
+		BuildTimestamp: time.Now().Format(time.RFC3339),
+		Flags:          flagFileContents,
+	}); err != nil {
+		return nil, err
+	}
+
+	return format.Source(buf.Bytes())
+}
+
+func dumpInit(path string, root *fileInfo, flagFileContents map[string]string) error {
 	f, err := os.Create(path)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	var buf bytes.Buffer
-	if err := initTmpl.Execute(&buf, struct {
-		Binaries       []string
-		BuildTimestamp string
-	}{
-		Binaries:       flattenFiles("/", root),
-		BuildTimestamp: time.Now().Format(time.RFC3339),
-	}); err != nil {
-		return err
-	}
-
-	formatted, err := format.Source(buf.Bytes())
+	b, err := genInit(root, flagFileContents)
 	if err != nil {
 		return err
 	}
 
-	if _, err := f.Write(formatted); err != nil {
+	if _, err := f.Write(b); err != nil {
 		return err
 	}
 
 	return f.Close()
 }
 
-func buildInit(root *fileInfo) (tmpdir string, err error) {
+func buildInit(root *fileInfo, flagFileContents map[string]string) (tmpdir string, err error) {
 	tmpdir, err = ioutil.TempDir("", "gokr-packer")
 	if err != nil {
 		return "", err
 	}
 
-	code, err := os.Create(filepath.Join(tmpdir, "init.go"))
+	b, err := genInit(root, flagFileContents)
 	if err != nil {
 		return "", err
 	}
-	defer os.Remove(code.Name())
 
-	if err := initTmpl.Execute(code, struct {
-		Binaries       []string
-		BuildTimestamp string
-	}{
-		Binaries:       flattenFiles("/", root),
-		BuildTimestamp: time.Now().Format(time.RFC3339),
-	}); err != nil {
+	initGo := filepath.Join(tmpdir, "init.go")
+	if err := ioutil.WriteFile(initGo, b, 0644); err != nil {
 		return "", err
 	}
+	defer os.Remove(initGo)
 
-	if err := code.Close(); err != nil {
-		return "", err
-	}
-
-	cmd := exec.Command("go", "build", "-o", filepath.Join(tmpdir, "init"), code.Name())
+	cmd := exec.Command("go", "build", "-o", filepath.Join(tmpdir, "init"), initGo)
 	cmd.Env = env
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {

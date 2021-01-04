@@ -106,6 +106,56 @@ func findCACerts() (string, error) {
 	return "", fmt.Errorf("did not find any of: %s", strings.Join(certFiles, ", "))
 }
 
+func findFlagFiles() (map[string]string, error) {
+	var flagFilePaths []string
+	err := filepath.Walk("flags", func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info != nil && !info.Mode().IsRegular() {
+			return nil
+		}
+		if strings.HasSuffix(path, "/flags.txt") {
+			flagFilePaths = append(flagFilePaths, path)
+		}
+		return nil
+	})
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil // no flags/ directory found
+		}
+	}
+
+	if len(flagFilePaths) == 0 {
+		return nil, nil // no flags.txt files found
+	}
+
+	buildPackages := make(map[string]bool)
+	for _, pkg := range flag.Args() {
+		buildPackages[pkg] = true
+	}
+
+	contents := make(map[string]string)
+	for _, p := range flagFilePaths {
+		pkg := strings.TrimSuffix(strings.TrimPrefix(p, "flags/"), "/flags.txt")
+		if !buildPackages[pkg] {
+			log.Printf("WARNING: flag file %s does not match any specified package (%s)", pkg, flag.Args())
+			continue
+		}
+		log.Printf("package %s will be started with command-line flags from %s", pkg, p)
+
+		b, err := ioutil.ReadFile(p)
+		if err != nil {
+			return nil, err
+		}
+		// NOTE: ideally we would use the full package here, but our init
+		// template only deals with base names right now.
+		contents[filepath.Base(pkg)] = string(b)
+	}
+
+	return contents, nil
+}
+
 type countingWriter int64
 
 func (cw *countingWriter) Write(p []byte) (n int, err error) {
@@ -367,12 +417,17 @@ func logic() error {
 		return err
 	}
 
+	flagFileContents, err := findFlagFiles()
+	if err != nil {
+		return err
+	}
+
 	if *initPkg == "" {
 		if *overwriteInit != "" {
-			return dumpInit(*overwriteInit, root)
+			return dumpInit(*overwriteInit, root, flagFileContents)
 		}
 
-		tmpdir, err := buildInit(root)
+		tmpdir, err := buildInit(root, flagFileContents)
 		if err != nil {
 			return err
 		}
