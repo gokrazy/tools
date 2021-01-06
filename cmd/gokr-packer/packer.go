@@ -16,12 +16,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	// Imported so that the go tool will download the repositories
 	_ "github.com/gokrazy/gokrazy/empty"
 
 	"github.com/gokrazy/internal/httpclient"
-	"github.com/gokrazy/internal/updater"
+	"github.com/gokrazy/updater"
 )
 
 const MB = 1024 * 1024
@@ -838,14 +839,26 @@ func logic() error {
 	updateBaseUrl.Path = "/"
 	log.Printf("Updating %q", *update)
 
-	// Start with the root file system because writing to the non-active
-	// partition cannot break the currently running system.
-	if err := target.StreamTo("root", rootReader); err != nil {
-		return fmt.Errorf("updating root file system: %v", err)
+	{
+		start := time.Now()
+		var cw countingWriter
+		// Start with the root file system because writing to the non-active
+		// partition cannot break the currently running system.
+		if err := target.StreamTo("root", io.TeeReader(rootReader, &cw)); err != nil {
+			return fmt.Errorf("updating root file system: %v", err)
+		}
+		duration := time.Since(start)
+		log.Printf("root update done: %d bytes in %v, i.e. %.2f MiB/s", int64(cw), duration, float64(cw)/duration.Seconds()/1024/1024)
 	}
 
-	if err := target.StreamTo("boot", bootReader); err != nil {
-		return fmt.Errorf("updating boot file system: %v", err)
+	{
+		start := time.Now()
+		var cw countingWriter
+		if err := target.StreamTo("boot", io.TeeReader(bootReader, &cw)); err != nil {
+			return fmt.Errorf("updating boot file system: %v", err)
+		}
+		duration := time.Since(start)
+		log.Printf("boot update done: %d bytes in %v, i.e. %.2f MiB/s", int64(cw), duration, float64(cw)/duration.Seconds()/1024/1024)
 	}
 
 	if err := target.StreamTo("mbr", mbrReader); err != nil {
@@ -860,6 +873,7 @@ func logic() error {
 		return fmt.Errorf("switching to non-active partition: %v", err)
 	}
 
+	log.Printf("triggering reboot")
 	if err := target.Reboot(); err != nil {
 		return fmt.Errorf("reboot: %v", err)
 	}

@@ -2,6 +2,13 @@ github.com/beevik/ntp v0.2.0/go.mod h1:hIHWr+l3+/clUnF44zdK+CWW7fO8dR5cIylAQ76NR
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/gokrazy/gokrazy v0.0.0-20200626095651-fc121e1383ba h1:R6263L0Tu2ZsvhIRi5laouFs9FQa7XrhAg7dEM0hCSQ=
 github.com/gokrazy/gokrazy v0.0.0-20200626095651-fc121e1383ba/go.mod h1:MAXBdw3NnYx7LEQrgebujybMDDpROBGLpeeGxgz9KR4=
+github.com/gokrazy/internal v0.0.0-20200531194636-d96421c60091/go.mod h1:LA5TQy7LcvYGQOy75tkrYkFUhbV2nl5qEBP47PSi2JA=
+github.com/gokrazy/internal v0.0.0-20200626090505-539bb61868de h1:sJ0qBKOIU1j3BLz6TIW3Y1Fg6hR/FZtGEonjkpfTMQQ=
+github.com/gokrazy/internal v0.0.0-20200626090505-539bb61868de/go.mod h1:LA5TQy7LcvYGQOy75tkrYkFUhbV2nl5qEBP47PSi2JA=
+github.com/gokrazy/internal v0.0.0-20200713084155-ab6fc6e02a03 h1:H2GO8vfBaFo6msfPXPoY6KSqO1HmfDe0eiAc0LYKXOI=
+github.com/gokrazy/internal v0.0.0-20200713084155-ab6fc6e02a03/go.mod h1:LA5TQy7LcvYGQOy75tkrYkFUhbV2nl5qEBP47PSi2JA=
+github.com/gokrazy/updater v0.0.0-20210106204351-5f17758382c4 h1:isPYCU9V0SUjXhldZf6oWZfX+a7/zkfAda722cDfwLQ=
+github.com/gokrazy/updater v0.0.0-20210106204351-5f17758382c4/go.mod h1:PYOvzGOL4nlBmuxu7IyKQTFLaxr61+WPRNRzVtuYOHw=
 github.com/google/go-cmp v0.4.0/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
 github.com/google/gopacket v1.1.16/go.mod h1:UCLx9mCmAwsVbn6qQl1WIEt2SO7Nd2fD0th1TBAsqBw=
 github.com/mdlayher/raw v0.0.0-20190303161257-764d452d77af/go.mod h1:rC/yE65s/DoHB6BzVOUBNYBGTg772JVytyAytffIZkY=
