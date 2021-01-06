@@ -9,7 +9,7 @@ import (
 	"os"
 
 	"github.com/gokrazy/internal/httpclient"
-	"github.com/gokrazy/internal/updater"
+	"github.com/gokrazy/updater"
 )
 
 var (
