@@ -88,6 +88,14 @@ You can also create your own certificate-key-pair (e.g. by using https://github.
 	sudo = flag.String("sudo",
 		"auto",
 		"whether to elevate privileges using sudo when required (one of auto, always, never, default auto)")
+
+	httpPort = flag.String("http_port",
+		"80",
+		"HTTP port for gokrazy to listen on")
+
+	httpsPort = flag.String("https_port",
+		"443",
+		"HTTPS (TLS) port for gokrazy to listen on")
 )
 
 var gokrazyPkgs []string
@@ -525,6 +533,16 @@ func logic() error {
 	etc.dirents = append(etc.dirents, &fileInfo{
 		filename:    "gokr-pw.txt",
 		fromLiteral: pw,
+	})
+
+	etc.dirents = append(etc.dirents, &fileInfo{
+		filename:    "http-port.txt",
+		fromLiteral: *httpPort,
+	})
+
+	etc.dirents = append(etc.dirents, &fileInfo{
+		filename:    "https-port.txt",
+		fromLiteral: *httpsPort,
 	})
 
 	if *update == "yes" {
