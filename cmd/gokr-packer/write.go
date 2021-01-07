@@ -292,6 +292,7 @@ func writeBoot(f io.Writer, mbrfilename string, partuuid uint32, usePartuuid boo
 
 type fileInfo struct {
 	filename string
+	mode     os.FileMode
 
 	fromHost    string
 	fromLiteral string
@@ -364,7 +365,11 @@ func writeFileInfo(dir *squashfs.Directory, fi *fileInfo) error {
 		return copyFileSquash(dir, fi.filename, fi.fromHost)
 	}
 	if fi.fromLiteral != "" { // write a regular file
-		w, err := dir.File(fi.filename, time.Now(), 0444)
+		mode := fi.mode
+		if mode == 0 {
+			mode = 0444
+		}
+		w, err := dir.File(fi.filename, time.Now(), mode)
 		if err != nil {
 			return err
 		}

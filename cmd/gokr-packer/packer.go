@@ -533,6 +533,7 @@ func logic() error {
 
 	etc.dirents = append(etc.dirents, &fileInfo{
 		filename:    "gokr-pw.txt",
+		mode:        0400,
 		fromLiteral: pw,
 	})
 
