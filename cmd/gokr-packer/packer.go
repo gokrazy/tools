@@ -696,9 +696,17 @@ func logic() error {
 		}
 	}
 
+	hostPort := *hostname
+	if schema == "http" && *httpPort != "80" {
+		hostPort = fmt.Sprintf("%s:%s", hostPort, *httpPort)
+	}
+	if schema == "https" && *httpsPort != "443" {
+		hostPort = fmt.Sprintf("%s:%s", hostPort, *httpsPort)
+	}
+
 	fmt.Printf("To interact with the device, gokrazy provides a web interface reachable at:\n")
 	fmt.Printf("\n")
-	fmt.Printf("\t%s://gokrazy:%s@%s/\n", schema, pw, *hostname)
+	fmt.Printf("\t%s://gokrazy:%s@%s/\n", schema, pw, hostPort)
 	fmt.Printf("\n")
 	fmt.Printf("In addition, the following Linux consoles are set up:\n")
 	fmt.Printf("\n")
