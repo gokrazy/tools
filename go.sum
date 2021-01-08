@@ -6,6 +6,8 @@ github.com/gokrazy/gokrazy v0.0.0-20210104142720-5a84eb5921dd h1:uft6bFWNtG4j3NB
 github.com/gokrazy/gokrazy v0.0.0-20210104142720-5a84eb5921dd/go.mod h1:3OoNFHeXa97iZAdGQ/Aoe76TxtTPKHVTO+gipPQWGMU=
 github.com/gokrazy/gokrazy v0.0.0-20210106212729-5fc5d0ab5dcc h1:6wQI6tUyFEHcO1aRjNTiXjrC8gsOk8Xa52zPpZn2HQ8=
 github.com/gokrazy/gokrazy v0.0.0-20210106212729-5fc5d0ab5dcc/go.mod h1:3OoNFHeXa97iZAdGQ/Aoe76TxtTPKHVTO+gipPQWGMU=
+github.com/gokrazy/gokrazy v0.0.0-20210108081039-067330db5542 h1:VmLpcayH9h3mGchPoiZKa08jq3iZCG6kwrPjxfVSWmU=
+github.com/gokrazy/gokrazy v0.0.0-20210108081039-067330db5542/go.mod h1:3OoNFHeXa97iZAdGQ/Aoe76TxtTPKHVTO+gipPQWGMU=
 github.com/gokrazy/internal v0.0.0-20200531194636-d96421c60091/go.mod h1:LA5TQy7LcvYGQOy75tkrYkFUhbV2nl5qEBP47PSi2JA=
 github.com/gokrazy/internal v0.0.0-20200626090505-539bb61868de h1:sJ0qBKOIU1j3BLz6TIW3Y1Fg6hR/FZtGEonjkpfTMQQ=
 github.com/gokrazy/internal v0.0.0-20200626090505-539bb61868de/go.mod h1:LA5TQy7LcvYGQOy75tkrYkFUhbV2nl5qEBP47PSi2JA=
