@@ -56,6 +56,10 @@ var (
 		"",
 		"Go package to install as /gokrazy/init instead of the auto-generated one")
 
+	buildArgs = flag.String("build_args",
+		"",
+		"Build arguments to pass to Go for building the client application in addition to `-tags gokrazy`")
+
 	update = flag.String("update",
 		os.Getenv("GOKRAZY_UPDATE"),
 		`URL of a gokrazy installation (e.g. http://gokrazy:mypassword@myhostname/) to update. The special value "yes" uses the stored password and -hostname value to construct the URL`)

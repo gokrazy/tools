@@ -92,11 +92,16 @@ func build(bindir string) error {
 	for _, pkg := range mainPkgs {
 		pkg := pkg // copy
 		eg.Go(func() error {
-			cmd := exec.Command("go",
+			args := []string{
 				"build",
 				"-tags", "gokrazy",
 				"-o", filepath.Join(bindir, filepath.Base(pkg.Target)),
-				pkg.ImportPath)
+			}
+			if *buildArgs != "" {
+				args = append(args, *buildArgs)
+			}
+			args = append(args, pkg.ImportPath)
+			cmd := exec.Command("go", args...)
 			cmd.Env = env
 			cmd.Stderr = os.Stderr
 			if err := cmd.Run(); err != nil {
