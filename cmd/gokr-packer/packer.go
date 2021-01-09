@@ -66,7 +66,7 @@ var (
 
 	hostname = flag.String("hostname",
 		"gokrazy",
-		"host name to set on the target system. Will be sent when acquiring DHCP leases")
+		"Host name to set on the target system. Will be sent when acquiring DHCP leases")
 
 	// TODO: Generate unique hostname on bootstrap e.g. gokrazy-<5-10 random characters>?
 	useTLS = flag.String("tls",
@@ -88,11 +88,11 @@ You can also create your own certificate-key-pair (e.g. by using https://github.
 			"github.com/gokrazy/gokrazy/cmd/ntp",
 			"github.com/gokrazy/gokrazy/cmd/randomd",
 		}, ","),
-		"comma-separated list of packages installed to /gokrazy/ (boot and system utilities)")
+		"Comma-separated list of packages installed to /gokrazy/ (boot and system utilities)")
 
 	sudo = flag.String("sudo",
 		"auto",
-		"whether to elevate privileges using sudo when required (one of auto, always, never, default auto)")
+		"Whether to elevate privileges using sudo when required (one of auto, always, never, default auto)")
 
 	httpPort = flag.String("http_port",
 		"80",
