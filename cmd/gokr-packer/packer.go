@@ -625,7 +625,7 @@ func logic() error {
 			fmt.Printf("To boot gokrazy, plug the SD card into a Raspberry Pi 3 or 4 (no other models supported)\n")
 			fmt.Printf("\n")
 		} else {
-			lower := 1100*MB + 8192
+			lower := 1200*MB + 8192
 
 			if *targetStorageBytes == 0 {
 				return fmt.Errorf("-target_storage_bytes is required (e.g. -target_storage_bytes=%d) when using -overwrite with a file", lower)
@@ -634,7 +634,7 @@ func logic() error {
 				return fmt.Errorf("-target_storage_bytes must be a multiple of 512 (sector size), use e.g. %d", lower)
 			}
 			if *targetStorageBytes < lower {
-				return fmt.Errorf("-target_storage_bytes must be at least %d (for boot + 2 root file systems)", lower)
+				return fmt.Errorf("-target_storage_bytes must be at least %d (for boot + 2 root file systems + 100 MB /perm)", lower)
 			}
 
 			bootSize, rootSize, err = overwriteFile(*overwrite, root, partuuid, usePartuuid)
