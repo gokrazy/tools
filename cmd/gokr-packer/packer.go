@@ -131,11 +131,10 @@ func findPackageFiles(fileType string) ([]string, error) {
 	})
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil // no package/ directory found
+			return nil, nil // no fileType directory found
 		}
 	}
 
-	// no package files found
 	return packageFilePaths, nil
 }
 
@@ -175,13 +174,13 @@ func findFlagFiles() (map[string]string, error) {
 	return contents, nil
 }
 
-func findBuildArgsFiles() (map[string]string, error) {
-	buildArgsFilePaths, err := findPackageFiles("buildargs")
+func findBuildFlagsFiles() (map[string]string, error) {
+	buildFlagsFilePaths, err := findPackageFiles("buildflags")
 	if err != nil {
 		return nil, err
 	}
 
-	if len(buildArgsFilePaths) == 0 {
+	if len(buildFlagsFilePaths) == 0 {
 		return nil, nil // no flags.txt files found
 	}
 
@@ -191,10 +190,10 @@ func findBuildArgsFiles() (map[string]string, error) {
 	}
 
 	contents := make(map[string]string)
-	for _, p := range buildArgsFilePaths {
-		pkg := strings.TrimSuffix(strings.TrimPrefix(p, "buildargs/"), "/buildargs.txt")
+	for _, p := range buildFlagsFilePaths {
+		pkg := strings.TrimSuffix(strings.TrimPrefix(p, "buildflags/"), "/buildflags.txt")
 		if !buildPackages[pkg] {
-			log.Printf("WARNING: buildargs file %s does not match any specified package (%s)", pkg, flag.Args())
+			log.Printf("WARNING: buildflags file %s does not match any specified package (%s)", pkg, flag.Args())
 			continue
 		}
 		log.Printf("package %s will be compiled with build args from %s", pkg, p)
@@ -463,12 +462,12 @@ func logic() error {
 	}
 	defer os.RemoveAll(tmp)
 
-	buildArgsFileContents, err := findBuildArgsFiles()
+	packageBuildArgs, err := findBuildFlagsFiles()
 	if err != nil {
 		return err
 	}
 
-	if err := build(tmp, buildArgsFileContents); err != nil {
+	if err := build(tmp, packageBuildArgs); err != nil {
 		return err
 	}
 
