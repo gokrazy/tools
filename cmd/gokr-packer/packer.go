@@ -20,6 +20,7 @@ import (
 
 	// Imported so that the go tool will download the repositories
 	_ "github.com/gokrazy/gokrazy/empty"
+	"github.com/google/shlex"
 
 	"github.com/gokrazy/internal/httpclient"
 	"github.com/gokrazy/updater"
@@ -174,7 +175,7 @@ func findFlagFiles() (map[string]string, error) {
 	return contents, nil
 }
 
-func findBuildFlagsFiles() (map[string]string, error) {
+func findBuildFlagsFiles() (map[string][]string, error) {
 	buildFlagsFilePaths, err := findPackageFiles("buildflags")
 	if err != nil {
 		return nil, err
@@ -189,7 +190,7 @@ func findBuildFlagsFiles() (map[string]string, error) {
 		buildPackages[pkg] = true
 	}
 
-	contents := make(map[string]string)
+	contents := make(map[string][]string)
 	for _, p := range buildFlagsFilePaths {
 		pkg := strings.TrimSuffix(strings.TrimPrefix(p, "buildflags/"), "/buildflags.txt")
 		if !buildPackages[pkg] {
@@ -203,8 +204,13 @@ func findBuildFlagsFiles() (map[string]string, error) {
 			return nil, err
 		}
 
+		buildFlags, err := shlex.Split(string(b))
+		if err != nil {
+			return nil, err
+		}
+
 		// use full package path opposed to flags
-		contents[pkg] = strings.TrimSpace(string(b))
+		contents[pkg] = buildFlags
 	}
 
 	return contents, nil

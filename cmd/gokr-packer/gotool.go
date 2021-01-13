@@ -101,7 +101,6 @@ func build(bindir string, packageBuildFlags map[string][]string) error {
 				args = append(args, buildFlags...)
 			}
 			args = append(args, pkg.ImportPath)
-			fmt.Println("go", args)
 			cmd := exec.Command("go", args...)
 			cmd.Env = env
 			cmd.Stderr = os.Stderr
