@@ -196,7 +196,7 @@ func findBuildFlagsFiles() (map[string]string, error) {
 			log.Printf("WARNING: buildflags file %s does not match any specified package (%s)", pkg, flag.Args())
 			continue
 		}
-		log.Printf("package %s will be compiled with build args from %s", pkg, p)
+		log.Printf("package %s will be compiled with build flags from %s", pkg, p)
 
 		b, err := ioutil.ReadFile(p)
 		if err != nil {
