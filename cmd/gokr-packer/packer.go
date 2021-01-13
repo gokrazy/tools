@@ -4,6 +4,7 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"hash/fnv"
@@ -20,7 +21,6 @@ import (
 
 	// Imported so that the go tool will download the repositories
 	_ "github.com/gokrazy/gokrazy/empty"
-	"github.com/google/shlex"
 
 	"github.com/gokrazy/internal/httpclient"
 	"github.com/gokrazy/updater"
@@ -204,7 +204,14 @@ func findBuildFlagsFiles() (map[string][]string, error) {
 			return nil, err
 		}
 
-		buildFlags, err := shlex.Split(string(b))
+		var buildFlags []string
+		sc := bufio.NewScanner(strings.NewReader(string(b)))
+		for sc.Scan() {
+			if flag := strings.TrimSpace(sc.Text()); flag != "" {
+				buildFlags = append(buildFlags, flag)
+			}
+		}
+
 		if err != nil {
 			return nil, err
 		}
