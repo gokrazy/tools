@@ -62,7 +62,7 @@ var (
 
 	hostname = flag.String("hostname",
 		"gokrazy",
-		"host name to set on the target system. Will be sent when acquiring DHCP leases")
+		"Host name to set on the target system. Will be sent when acquiring DHCP leases")
 
 	// TODO: Generate unique hostname on bootstrap e.g. gokrazy-<5-10 random characters>?
 	useTLS = flag.String("tls",
@@ -84,11 +84,11 @@ You can also create your own certificate-key-pair (e.g. by using https://github.
 			"github.com/gokrazy/gokrazy/cmd/ntp",
 			"github.com/gokrazy/gokrazy/cmd/randomd",
 		}, ","),
-		"comma-separated list of packages installed to /gokrazy/ (boot and system utilities)")
+		"Comma-separated list of packages installed to /gokrazy/ (boot and system utilities)")
 
 	sudo = flag.String("sudo",
 		"auto",
-		"whether to elevate privileges using sudo when required (one of auto, always, never, default auto)")
+		"Whether to elevate privileges using sudo when required (one of auto, always, never, default auto)")
 
 	httpPort = flag.String("http_port",
 		"80",
@@ -115,24 +115,33 @@ func findCACerts() (string, error) {
 	return "", fmt.Errorf("did not find any of: %s", strings.Join(certFiles, ", "))
 }
 
-func findFlagFiles() (map[string]string, error) {
-	var flagFilePaths []string
-	err := filepath.Walk("flags", func(path string, info os.FileInfo, err error) error {
+func findPackageFiles(fileType string) ([]string, error) {
+	var packageFilePaths []string
+	err := filepath.Walk(fileType, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 		if info != nil && !info.Mode().IsRegular() {
 			return nil
 		}
-		if strings.HasSuffix(path, "/flags.txt") {
-			flagFilePaths = append(flagFilePaths, path)
+		if strings.HasSuffix(path, fmt.Sprintf("/%s.txt", fileType)) {
+			packageFilePaths = append(packageFilePaths, path)
 		}
 		return nil
 	})
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil // no flags/ directory found
+			return nil, nil // no fileType directory found
 		}
+	}
+
+	return packageFilePaths, nil
+}
+
+func findFlagFiles() (map[string]string, error) {
+	flagFilePaths, err := findPackageFiles("flags")
+	if err != nil {
+		return nil, err
 	}
 
 	if len(flagFilePaths) == 0 {
@@ -160,6 +169,42 @@ func findFlagFiles() (map[string]string, error) {
 		// NOTE: ideally we would use the full package here, but our init
 		// template only deals with base names right now.
 		contents[filepath.Base(pkg)] = string(b)
+	}
+
+	return contents, nil
+}
+
+func findBuildFlagsFiles() (map[string]string, error) {
+	buildFlagsFilePaths, err := findPackageFiles("buildflags")
+	if err != nil {
+		return nil, err
+	}
+
+	if len(buildFlagsFilePaths) == 0 {
+		return nil, nil // no flags.txt files found
+	}
+
+	buildPackages := make(map[string]bool)
+	for _, pkg := range flag.Args() {
+		buildPackages[pkg] = true
+	}
+
+	contents := make(map[string]string)
+	for _, p := range buildFlagsFilePaths {
+		pkg := strings.TrimSuffix(strings.TrimPrefix(p, "buildflags/"), "/buildflags.txt")
+		if !buildPackages[pkg] {
+			log.Printf("WARNING: buildflags file %s does not match any specified package (%s)", pkg, flag.Args())
+			continue
+		}
+		log.Printf("package %s will be compiled with build flags from %s", pkg, p)
+
+		b, err := ioutil.ReadFile(p)
+		if err != nil {
+			return nil, err
+		}
+
+		// use full package path opposed to flags
+		contents[pkg] = strings.TrimSpace(string(b))
 	}
 
 	return contents, nil
@@ -417,7 +462,12 @@ func logic() error {
 	}
 	defer os.RemoveAll(tmp)
 
-	if err := build(tmp); err != nil {
+	packageBuildFlags, err := findBuildFlagsFiles()
+	if err != nil {
+		return err
+	}
+
+	if err := build(tmp, packageBuildFlags); err != nil {
 		return err
 	}
 

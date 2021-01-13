@@ -44,7 +44,7 @@ func goEnv() []string {
 		"GOBIN=")
 }
 
-func build(bindir string) error {
+func build(bindir string, packageBuildFlags map[string]string) error {
 	pkgs := append(gokrazyPkgs, flag.Args()...)
 	if *initPkg != "" {
 		pkgs = append(pkgs, *initPkg)
@@ -92,11 +92,16 @@ func build(bindir string) error {
 	for _, pkg := range mainPkgs {
 		pkg := pkg // copy
 		eg.Go(func() error {
-			cmd := exec.Command("go",
+			args := []string{
 				"build",
 				"-tags", "gokrazy",
 				"-o", filepath.Join(bindir, filepath.Base(pkg.Target)),
-				pkg.ImportPath)
+			}
+			if buildFlags := packageBuildFlags[pkg.ImportPath]; buildFlags != "" {
+				args = append(args, buildFlags)
+			}
+			args = append(args, pkg.ImportPath)
+			cmd := exec.Command("go", args...)
 			cmd.Env = env
 			cmd.Stderr = os.Stderr
 			if err := cmd.Run(); err != nil {
