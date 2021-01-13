@@ -462,12 +462,12 @@ func logic() error {
 	}
 	defer os.RemoveAll(tmp)
 
-	packageBuildArgs, err := findBuildFlagsFiles()
+	packageBuildFlags, err := findBuildFlagsFiles()
 	if err != nil {
 		return err
 	}
 
-	if err := build(tmp, packageBuildArgs); err != nil {
+	if err := build(tmp, packageBuildFlags); err != nil {
 		return err
 	}
 
