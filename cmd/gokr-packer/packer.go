@@ -115,8 +115,17 @@ func findCACerts() (string, error) {
 	return "", fmt.Errorf("did not find any of: %s", strings.Join(certFiles, ", "))
 }
 
-func findPackageFiles(fileType string) ([]string, error) {
-	var packageFilePaths []string
+type filePathAndModTime struct {
+	path    string
+	modTime time.Time
+}
+
+func (f *filePathAndModTime) lastModified() string {
+	return fmt.Sprintf("%s (%s ago)", f.modTime.Format(time.RFC3339), time.Since(f.modTime).Round(1*time.Second))
+}
+
+func findPackageFiles(fileType string) ([]filePathAndModTime, error) {
+	var packageFilePaths []filePathAndModTime
 	err := filepath.Walk(fileType, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -125,7 +134,10 @@ func findPackageFiles(fileType string) ([]string, error) {
 			return nil
 		}
 		if strings.HasSuffix(path, fmt.Sprintf("/%s.txt", fileType)) {
-			packageFilePaths = append(packageFilePaths, path)
+			packageFilePaths = append(packageFilePaths, filePathAndModTime{
+				path:    path,
+				modTime: info.ModTime(),
+			})
 		}
 		return nil
 	})
@@ -137,6 +149,15 @@ func findPackageFiles(fileType string) ([]string, error) {
 
 	return packageFilePaths, nil
 }
+
+type packageConfigFile struct {
+	kind         string
+	path         string
+	lastModified string
+}
+
+// packageConfigFiles is a map from package path to packageConfigFile, for constructing output that is keyed per package
+var packageConfigFiles = make(map[string][]packageConfigFile)
 
 func findFlagFiles() (map[string]string, error) {
 	flagFilePaths, err := findPackageFiles("flags")
@@ -155,14 +176,18 @@ func findFlagFiles() (map[string]string, error) {
 
 	contents := make(map[string]string)
 	for _, p := range flagFilePaths {
-		pkg := strings.TrimSuffix(strings.TrimPrefix(p, "flags/"), "/flags.txt")
+		pkg := strings.TrimSuffix(strings.TrimPrefix(p.path, "flags/"), "/flags.txt")
 		if !buildPackages[pkg] {
 			log.Printf("WARNING: flag file %s does not match any specified package (%s)", pkg, flag.Args())
 			continue
 		}
-		log.Printf("package %s will be started with command-line flags from %s", pkg, p)
+		packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
+			kind:         "started with command-line flags",
+			path:         p.path,
+			lastModified: p.lastModified(),
+		})
 
-		b, err := ioutil.ReadFile(p)
+		b, err := ioutil.ReadFile(p.path)
 		if err != nil {
 			return nil, err
 		}
@@ -191,14 +216,18 @@ func findBuildFlagsFiles() (map[string]string, error) {
 
 	contents := make(map[string]string)
 	for _, p := range buildFlagsFilePaths {
-		pkg := strings.TrimSuffix(strings.TrimPrefix(p, "buildflags/"), "/buildflags.txt")
+		pkg := strings.TrimSuffix(strings.TrimPrefix(p.path, "buildflags/"), "/buildflags.txt")
 		if !buildPackages[pkg] {
 			log.Printf("WARNING: buildflags file %s does not match any specified package (%s)", pkg, flag.Args())
 			continue
 		}
-		log.Printf("package %s will be compiled with build flags from %s", pkg, p)
+		packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
+			kind:         "compiled with build flags",
+			path:         p.path,
+			lastModified: p.lastModified(),
+		})
 
-		b, err := ioutil.ReadFile(p)
+		b, err := ioutil.ReadFile(p.path)
 		if err != nil {
 			return nil, err
 		}
@@ -227,14 +256,18 @@ func findEnvFiles() (map[string]string, error) {
 
 	contents := make(map[string]string)
 	for _, p := range buildFlagsFilePaths {
-		pkg := strings.TrimSuffix(strings.TrimPrefix(p, "env/"), "/env.txt")
+		pkg := strings.TrimSuffix(strings.TrimPrefix(p.path, "env/"), "/env.txt")
 		if !buildPackages[pkg] {
 			log.Printf("WARNING: environment variable file %s does not match any specified package (%s)", pkg, flag.Args())
 			continue
 		}
-		log.Printf("package %s will be started with environment variables from %s", pkg, p)
+		packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
+			kind:         "started with environment variables",
+			path:         p.path,
+			lastModified: p.lastModified(),
+		})
 
-		b, err := ioutil.ReadFile(p)
+		b, err := ioutil.ReadFile(p.path)
 		if err != nil {
 			return nil, err
 		}
@@ -520,6 +553,20 @@ func logic() error {
 	envFileContents, err := findEnvFiles()
 	if err != nil {
 		return err
+	}
+
+	for pkg, configFiles := range packageConfigFiles {
+		log.Printf("package %s:", pkg)
+		for _, configFile := range configFiles {
+			log.Printf("  will be %s",
+				configFile.kind)
+			log.Printf("    from %s",
+				configFile.path)
+			log.Printf("    last modified: %s",
+				configFile.lastModified)
+
+		}
+		log.Printf("")
 	}
 
 	if *initPkg == "" {
