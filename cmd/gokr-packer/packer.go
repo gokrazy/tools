@@ -207,7 +207,7 @@ func findBuildFlagsFiles() (map[string][]string, error) {
 		var buildFlags []string
 		sc := bufio.NewScanner(strings.NewReader(string(b)))
 		for sc.Scan() {
-			if flag := strings.TrimSpace(sc.Text()); flag != "" {
+			if flag := sc.Text(); flag != "" {
 				buildFlags = append(buildFlags, flag)
 			}
 		}
