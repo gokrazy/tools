@@ -43,13 +43,20 @@ func main() {
 		fmt.Printf("gokrazy device model %s\n", model)
 	}
 
-	cmds := []*exec.Cmd{
+	var cmds []*exec.Cmd
 {{- range $idx, $path := .Binaries }}
 {{- if ne $path "/gokrazy/init" }}
-		exec.Command({{ CommandFor $.Flags $path }}),
+	{
+		cmd := exec.Command({{ CommandFor $.Flags $path }})
+		cmd.Env = append(os.Environ(),
+{{- range $idx, $env := EnvFor $.Env $path }}
+			{{ printf "%q" $env }},
 {{- end }}
-{{- end }}
+		)
+		cmds = append(cmds, cmd)
 	}
+{{- end }}
+{{- end }}
 	if err := gokrazy.Supervise(cmds); err != nil {
 		log.Fatal(err)
 	}
@@ -66,6 +73,13 @@ var initTmpl = template.Must(template.New("").Funcs(template.FuncMap{
 		lines := strings.Split(contents, "\n")
 		return fmt.Sprintf("%#v, %#v...", path, lines)
 	},
+	"EnvFor": func(env map[string]string, path string) []string {
+		contents := strings.TrimSpace(env[filepath.Base(path)])
+		if contents == "" {
+			return nil // no environment variables
+		}
+		return strings.Split(contents, "\n")
+	},
 }).Parse(initTmplContents))
 
 func flattenFiles(prefix string, root *fileInfo) []string {
@@ -80,17 +94,25 @@ func flattenFiles(prefix string, root *fileInfo) []string {
 	return result
 }
 
-func genInit(root *fileInfo, flagFileContents map[string]string) ([]byte, error) {
+type gokrazyInit struct {
+	root             *fileInfo
+	flagFileContents map[string]string
+	envFileContents  map[string]string
+}
+
+func (g *gokrazyInit) generate() ([]byte, error) {
 	var buf bytes.Buffer
 
 	if err := initTmpl.Execute(&buf, struct {
 		Binaries       []string
 		BuildTimestamp string
 		Flags          map[string]string
+		Env            map[string]string
 	}{
-		Binaries:       flattenFiles("/", root),
+		Binaries:       flattenFiles("/", g.root),
 		BuildTimestamp: time.Now().Format(time.RFC3339),
-		Flags:          flagFileContents,
+		Flags:          g.flagFileContents,
+		Env:            g.envFileContents,
 	}); err != nil {
 		return nil, err
 	}
@@ -98,14 +120,14 @@ func genInit(root *fileInfo, flagFileContents map[string]string) ([]byte, error)
 	return format.Source(buf.Bytes())
 }
 
-func dumpInit(path string, root *fileInfo, flagFileContents map[string]string) error {
+func (g *gokrazyInit) dump(path string) error {
 	f, err := os.Create(path)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	b, err := genInit(root, flagFileContents)
+	b, err := g.generate()
 	if err != nil {
 		return err
 	}
@@ -117,13 +139,13 @@ func dumpInit(path string, root *fileInfo, flagFileContents map[string]string) e
 	return f.Close()
 }
 
-func buildInit(root *fileInfo, flagFileContents map[string]string) (tmpdir string, err error) {
+func (g *gokrazyInit) build() (tmpdir string, err error) {
 	tmpdir, err = ioutil.TempDir("", "gokr-packer")
 	if err != nil {
 		return "", err
 	}
 
-	b, err := genInit(root, flagFileContents)
+	b, err := g.generate()
 	if err != nil {
 		return "", err
 	}

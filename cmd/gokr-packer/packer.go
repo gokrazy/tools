@@ -210,6 +210,42 @@ func findBuildFlagsFiles() (map[string]string, error) {
 	return contents, nil
 }
 
+func findEnvFiles() (map[string]string, error) {
+	buildFlagsFilePaths, err := findPackageFiles("env")
+	if err != nil {
+		return nil, err
+	}
+
+	if len(buildFlagsFilePaths) == 0 {
+		return nil, nil // no flags.txt files found
+	}
+
+	buildPackages := make(map[string]bool)
+	for _, pkg := range flag.Args() {
+		buildPackages[pkg] = true
+	}
+
+	contents := make(map[string]string)
+	for _, p := range buildFlagsFilePaths {
+		pkg := strings.TrimSuffix(strings.TrimPrefix(p, "env/"), "/env.txt")
+		if !buildPackages[pkg] {
+			log.Printf("WARNING: environment variable file %s does not match any specified package (%s)", pkg, flag.Args())
+			continue
+		}
+		log.Printf("package %s will be started with environment variables from %s", pkg, p)
+
+		b, err := ioutil.ReadFile(p)
+		if err != nil {
+			return nil, err
+		}
+		// NOTE: ideally we would use the full package here, but our init
+		// template only deals with base names right now.
+		contents[filepath.Base(pkg)] = string(b)
+	}
+
+	return contents, nil
+}
+
 type countingWriter int64
 
 func (cw *countingWriter) Write(p []byte) (n int, err error) {
@@ -481,12 +517,22 @@ func logic() error {
 		return err
 	}
 
+	envFileContents, err := findEnvFiles()
+	if err != nil {
+		return err
+	}
+
 	if *initPkg == "" {
+		gokrazyInit := &gokrazyInit{
+			root:             root,
+			flagFileContents: flagFileContents,
+			envFileContents:  envFileContents,
+		}
 		if *overwriteInit != "" {
-			return dumpInit(*overwriteInit, root, flagFileContents)
+			return gokrazyInit.dump(*overwriteInit)
 		}
 
-		tmpdir, err := buildInit(root, flagFileContents)
+		tmpdir, err := gokrazyInit.build()
 		if err != nil {
 			return err
 		}
