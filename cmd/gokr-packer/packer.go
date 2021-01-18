@@ -4,6 +4,7 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"hash/fnv"
@@ -199,7 +200,7 @@ func findFlagFiles() (map[string]string, error) {
 	return contents, nil
 }
 
-func findBuildFlagsFiles() (map[string]string, error) {
+func findBuildFlagsFiles() (map[string][]string, error) {
 	buildFlagsFilePaths, err := findPackageFiles("buildflags")
 	if err != nil {
 		return nil, err
@@ -214,7 +215,7 @@ func findBuildFlagsFiles() (map[string]string, error) {
 		buildPackages[pkg] = true
 	}
 
-	contents := make(map[string]string)
+	contents := make(map[string][]string)
 	for _, p := range buildFlagsFilePaths {
 		pkg := strings.TrimSuffix(strings.TrimPrefix(p.path, "buildflags/"), "/buildflags.txt")
 		if !buildPackages[pkg] {
@@ -232,8 +233,20 @@ func findBuildFlagsFiles() (map[string]string, error) {
 			return nil, err
 		}
 
+		var buildFlags []string
+		sc := bufio.NewScanner(strings.NewReader(string(b)))
+		for sc.Scan() {
+			if flag := sc.Text(); flag != "" {
+				buildFlags = append(buildFlags, flag)
+			}
+		}
+
+		if err := sc.Err(); err != nil {
+			return nil, err
+		}
+
 		// use full package path opposed to flags
-		contents[pkg] = strings.TrimSpace(string(b))
+		contents[pkg] = buildFlags
 	}
 
 	return contents, nil
