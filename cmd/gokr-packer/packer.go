@@ -212,7 +212,7 @@ func findBuildFlagsFiles() (map[string][]string, error) {
 			}
 		}
 
-		if err != nil {
+		if err := sc.Err(); err != nil {
 			return nil, err
 		}
 
