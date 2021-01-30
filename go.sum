@@ -8,6 +8,8 @@ github.com/gokrazy/internal v0.0.0-20210106212130-549f1e76c55d h1:TUZrIFKr1PSC0Y
 github.com/gokrazy/internal v0.0.0-20210106212130-549f1e76c55d/go.mod h1:LA5TQy7LcvYGQOy75tkrYkFUhbV2nl5qEBP47PSi2JA=
 github.com/gokrazy/updater v0.0.0-20210106211705-4d92b338dd24 h1:tGm83sgE6OiTIyHylO7ZBsBZcMocwLdvtBIOJbpyUIU=
 github.com/gokrazy/updater v0.0.0-20210106211705-4d92b338dd24/go.mod h1:PYOvzGOL4nlBmuxu7IyKQTFLaxr61+WPRNRzVtuYOHw=
+github.com/gokrazy/updater v0.0.0-20210130175436-d85b92498a28 h1:zIDHUypTINZyypVeJJTMQeiYXJdox4nZXaY90Aq9Lyk=
+github.com/gokrazy/updater v0.0.0-20210130175436-d85b92498a28/go.mod h1:PYOvzGOL4nlBmuxu7IyKQTFLaxr61+WPRNRzVtuYOHw=
 github.com/google/go-cmp v0.4.0/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
 github.com/google/gopacket v1.1.16 h1:u6Afvia5C5srlLcbTwpHaFW918asLYPxieziOaWwz8M=
 github.com/google/gopacket v1.1.16/go.mod h1:UCLx9mCmAwsVbn6qQl1WIEt2SO7Nd2fD0th1TBAsqBw=

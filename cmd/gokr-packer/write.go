@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/sha256"
 	"flag"
 	"fmt"
@@ -110,7 +111,11 @@ func writeCmdline(fw *fat.Writer, src string, partuuid uint32, usePartuuid bool)
 	if err != nil {
 		return err
 	}
-	_, err = w.Write([]byte(cmdline))
+	// Pad the kernel command line with enough whitespace that can be used for
+	// in-place file overwrites to add additional command line flags for the
+	// gokrazy update process:
+	const pad = 64
+	_, err = w.Write(append([]byte(cmdline), bytes.Repeat([]byte{' '}, pad)...))
 	return err
 }
 
