@@ -98,6 +98,10 @@ You can also create your own certificate-key-pair (e.g. by using https://github.
 	httpsPort = flag.String("https_port",
 		"443",
 		"HTTPS (TLS) port for gokrazy to listen on")
+
+	testboot = flag.Bool("testboot",
+		false,
+		"Trigger a testboot instead of switching to the new root partition directly")
 )
 
 var gokrazyPkgs []string
@@ -1034,8 +1038,14 @@ func logic() error {
 		}
 	}
 
-	if err := target.Switch(); err != nil {
-		return fmt.Errorf("switching to non-active partition: %v", err)
+	if *testboot {
+		if err := target.Testboot(); err != nil {
+			return fmt.Errorf("enable testboot of non-active partition: %v", err)
+		}
+	} else {
+		if err := target.Switch(); err != nil {
+			return fmt.Errorf("switching to non-active partition: %v", err)
+		}
 	}
 
 	log.Printf("triggering reboot")
