@@ -486,6 +486,10 @@ func overwriteFile(filename string, root *fileInfo, partuuid uint32, usePartuuid
 		return 0, 0, err
 	}
 
+	fmt.Printf("If your applications need to store persistent data, create a file system using e.g.:\n")
+	fmt.Printf("\t/sbin/mkfs.ext4 %s -F -E offset=%v\n", *overwrite, 8192*512+1100*MB)
+	fmt.Printf("\n")
+
 	return int64(bs), int64(rs), f.Close()
 }
 
