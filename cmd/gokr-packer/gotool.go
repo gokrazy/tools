@@ -57,7 +57,12 @@ func build(bindir string, packageBuildFlags map[string][]string) error {
 
 	// run “go get” for incomplete packages (most likely just not present)
 	cmd := exec.Command("go",
-		append([]string{"list", "-e", "-f", "{{ .ImportPath }} {{ if .Incomplete }}error{{ else }}ok{{ end }}"}, incompletePkgs...)...)
+		append([]string{
+			"list",
+			"-mod=mod",
+			"-e",
+			"-f", "{{ .ImportPath }} {{ if .Incomplete }}error{{ else }}ok{{ end }}",
+		}, incompletePkgs...)...)
 	cmd.Env = env
 	cmd.Stderr = os.Stderr
 	output, err := cmd.Output()
@@ -76,7 +81,10 @@ func build(bindir string, packageBuildFlags map[string][]string) error {
 	if len(incomplete) > 0 {
 		log.Printf("getting incomplete packages %v", incomplete)
 		cmd = exec.Command("go",
-			append([]string{"get"}, incomplete...)...)
+			append([]string{
+				"get",
+				"-mod=mod",
+			}, incomplete...)...)
 		cmd.Env = env
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
@@ -94,6 +102,7 @@ func build(bindir string, packageBuildFlags map[string][]string) error {
 		eg.Go(func() error {
 			args := []string{
 				"build",
+				"-mod=mod",
 				"-tags", "gokrazy",
 				"-o", filepath.Join(bindir, filepath.Base(pkg.Target)),
 			}
