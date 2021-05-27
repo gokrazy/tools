@@ -164,6 +164,17 @@ type packageConfigFile struct {
 // packageConfigFiles is a map from package path to packageConfigFile, for constructing output that is keyed per package
 var packageConfigFiles = make(map[string][]packageConfigFile)
 
+func buildPackagesFromFlags() map[string]bool {
+	buildPackages := make(map[string]bool)
+	for _, pkg := range flag.Args() {
+		buildPackages[pkg] = true
+	}
+	for _, pkg := range gokrazyPkgs {
+		buildPackages[pkg] = true
+	}
+	return buildPackages
+}
+
 func findFlagFiles() (map[string]string, error) {
 	flagFilePaths, err := findPackageFiles("flags")
 	if err != nil {
@@ -174,10 +185,7 @@ func findFlagFiles() (map[string]string, error) {
 		return nil, nil // no flags.txt files found
 	}
 
-	buildPackages := make(map[string]bool)
-	for _, pkg := range flag.Args() {
-		buildPackages[pkg] = true
-	}
+	buildPackages := buildPackagesFromFlags()
 
 	contents := make(map[string]string)
 	for _, p := range flagFilePaths {
@@ -214,10 +222,7 @@ func findBuildFlagsFiles() (map[string][]string, error) {
 		return nil, nil // no flags.txt files found
 	}
 
-	buildPackages := make(map[string]bool)
-	for _, pkg := range flag.Args() {
-		buildPackages[pkg] = true
-	}
+	buildPackages := buildPackagesFromFlags()
 
 	contents := make(map[string][]string)
 	for _, p := range buildFlagsFilePaths {
@@ -266,10 +271,7 @@ func findEnvFiles() (map[string]string, error) {
 		return nil, nil // no flags.txt files found
 	}
 
-	buildPackages := make(map[string]bool)
-	for _, pkg := range flag.Args() {
-		buildPackages[pkg] = true
-	}
+	buildPackages := buildPackagesFromFlags()
 
 	contents := make(map[string]string)
 	for _, p := range buildFlagsFilePaths {
