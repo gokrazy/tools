@@ -29,6 +29,14 @@ var (
 )
 
 func writePartitionTable(w io.Writer, devsize uint64) error {
+	permStart := uint32(8192 + (1100 * MB / 512))
+	permSize := uint32((devsize / 512) - 8192 - (1100 * MB / 512))
+	// LBA -33 to LBA -1 need to remain unused for the secondary GPT header
+	lastAddressable := uint32((devsize / 512) - 1) // 0-indexed
+	if lastLBA := uint32(lastAddressable - 33); permStart+permSize >= lastLBA {
+		permSize -= (permStart + permSize) - lastLBA
+	}
+
 	for _, v := range []interface{}{
 		[446]byte{}, // boot code
 
@@ -61,8 +69,8 @@ func writePartitionTable(w io.Writer, devsize uint64) error {
 		invalidCHS,
 		Linux,
 		invalidCHS,
-		uint32(8192 + (1100 * MB / 512)), // start after partition 3
-		uint32((devsize / 512) - 8192 - (1100 * MB / 512)), // remainder
+		permStart, // start after partition 3
+		permSize,  // remainder
 
 		signature,
 	} {
