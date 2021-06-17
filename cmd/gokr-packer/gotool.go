@@ -53,7 +53,13 @@ func build(bindir string, packageBuildFlags map[string][]string) error {
 		pkgs = append(pkgs, "github.com/gokrazy/gokrazy")
 	}
 
-	incompletePkgs := append(pkgs, *kernelPackage, *firmwarePackage, *eepromPackage)
+	incompletePkgs := append(pkgs, *kernelPackage)
+	if *firmwarePackage != "" {
+		incompletePkgs = append(incompletePkgs, *firmwarePackage)
+	}
+	if *eepromPackage != "" {
+		incompletePkgs = append(incompletePkgs, *eepromPackage)
+	}
 
 	// run “go get” for incomplete packages (most likely just not present)
 	cmd := exec.Command("go",
