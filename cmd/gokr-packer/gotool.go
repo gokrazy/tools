@@ -83,7 +83,6 @@ func build(bindir string, packageBuildFlags map[string][]string) error {
 		cmd = exec.Command("go",
 			append([]string{
 				"get",
-				"-mod=mod",
 			}, incomplete...)...)
 		cmd.Env = env
 		cmd.Stderr = os.Stderr
