@@ -140,7 +140,7 @@ func (p *Pkg) Basename() string {
 func mainPackages(paths []string) ([]Pkg, error) {
 	// Shell out to the go tool for path matching (handling “...”)
 	var buf bytes.Buffer
-	cmd := exec.Command("go", append([]string{"list", "-json"}, paths...)...)
+	cmd := exec.Command("go", append([]string{"list", "-tags", "gokrazy", "-json"}, paths...)...)
 	cmd.Env = env
 	cmd.Stdout = &buf
 	cmd.Stderr = os.Stderr
@@ -165,7 +165,7 @@ func mainPackages(paths []string) ([]Pkg, error) {
 }
 
 func packageDir(pkg string) (string, error) {
-	cmd := exec.Command("go", "list", "-f", "{{ .Dir }}", pkg)
+	cmd := exec.Command("go", "list", "-tags", "gokrazy", "-f", "{{ .Dir }}", pkg)
 	cmd.Stderr = os.Stderr
 	b, err := cmd.Output()
 	if err != nil {
