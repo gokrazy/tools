@@ -298,6 +298,39 @@ func findEnvFiles() (map[string]string, error) {
 	return contents, nil
 }
 
+func addToFileInfo(parent *fileInfo, path string) error {
+	stat, err := os.Stat(path)
+	if err != nil {
+		// non existing entries are ignored
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	entry := &fileInfo{
+		filename: filepath.Base(path),
+		mode:     stat.Mode(),
+	}
+	parent.dirents = append(parent.dirents, entry)
+
+	if stat.IsDir() {
+		entries, err := os.ReadDir(path)
+		if err != nil {
+			return err
+		}
+
+		for _, e := range entries {
+			if err := addToFileInfo(entry, filepath.Join(path, e.Name())); err != nil {
+				return err
+			}
+		}
+	} else {
+		entry.fromHost = path
+	}
+	return nil
+}
+
 type countingWriter int64
 
 func (cw *countingWriter) Write(p []byte) (n int, err error) {
@@ -710,6 +743,12 @@ func logic() error {
 		filename:    "https-port.txt",
 		fromLiteral: *httpsPort,
 	})
+
+	for pkg := range buildPackagesFromFlags() {
+		if err := addToFileInfo(etc, filepath.Join("etc", pkg)); err != nil {
+			return err
+		}
+	}
 
 	if *update == "yes" {
 		*update = schema + "://gokrazy:" + pw + "@" + *hostname + "/"
