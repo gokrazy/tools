@@ -102,6 +102,10 @@ You can also create your own certificate-key-pair (e.g. by using https://github.
 	testboot = flag.Bool("testboot",
 		false,
 		"Trigger a testboot instead of switching to the new root partition directly")
+
+	customRootFiles = flag.String("custom_root_files",
+		"",
+		"Path to directory with additional files to add to the root file system")
 )
 
 var gokrazyPkgs []string
@@ -299,35 +303,50 @@ func findEnvFiles() (map[string]string, error) {
 }
 
 func addToFileInfo(parent *fileInfo, path string) error {
-	stat, err := os.Stat(path)
+	entries, err := os.ReadDir(path)
 	if err != nil {
-		// non existing entries are ignored
-		if os.IsNotExist(err) {
-			return nil
-		}
 		return err
 	}
 
-	entry := &fileInfo{
-		filename: filepath.Base(path),
-		mode:     stat.Mode(),
-	}
-	parent.dirents = append(parent.dirents, entry)
+	for _, entry := range entries {
+		// get existing file info
+		var fi *fileInfo
+		for _, ent := range parent.dirents {
+			if ent.filename == entry.Name() {
+				fi = ent
+				break
+			}
+		}
 
-	if stat.IsDir() {
-		entries, err := os.ReadDir(path)
+		info, err := entry.Info()
 		if err != nil {
 			return err
 		}
 
-		for _, e := range entries {
-			if err := addToFileInfo(entry, filepath.Join(path, e.Name())); err != nil {
-				return err
+		// or create if not exist
+		if fi == nil {
+			fi = &fileInfo{
+				filename: entry.Name(),
+				mode:     info.Mode(),
+			}
+			parent.dirents = append(parent.dirents, fi)
+		} else {
+			// file overwrite is not supported -> return error
+			if !entry.IsDir() || fi.fromHost != "" || fi.fromLiteral != "" {
+				return fmt.Errorf("file alreayd exist in rootfs: %s", filepath.Join(path, entry.Name()))
 			}
 		}
-	} else {
-		entry.fromHost = path
+
+		// add content
+		if entry.IsDir() {
+			if err := addToFileInfo(fi, filepath.Join(path, entry.Name())); err != nil {
+				return err
+			}
+		} else {
+			fi.fromHost = filepath.Join(path, entry.Name())
+		}
 	}
+
 	return nil
 }
 
@@ -744,8 +763,8 @@ func logic() error {
 		fromLiteral: *httpsPort,
 	})
 
-	for pkg := range buildPackagesFromFlags() {
-		if err := addToFileInfo(etc, filepath.Join("etc", pkg)); err != nil {
+	if *customRootFiles != "" {
+		if err := addToFileInfo(root, *customRootFiles); err != nil {
 			return err
 		}
 	}
