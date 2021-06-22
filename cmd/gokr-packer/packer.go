@@ -102,10 +102,6 @@ You can also create your own certificate-key-pair (e.g. by using https://github.
 	testboot = flag.Bool("testboot",
 		false,
 		"Trigger a testboot instead of switching to the new root partition directly")
-
-	customRootFiles = flag.String("custom_root_files",
-		"",
-		"Path to directory with additional files to add to the root file system")
 )
 
 var gokrazyPkgs []string
@@ -127,10 +123,6 @@ func findCACerts() (string, error) {
 type filePathAndModTime struct {
 	path    string
 	modTime time.Time
-}
-
-func (f *filePathAndModTime) lastModified() string {
-	return fmt.Sprintf("%s (%s ago)", f.modTime.Format(time.RFC3339), time.Since(f.modTime).Round(1*time.Second))
 }
 
 func findPackageFiles(fileType string) ([]filePathAndModTime, error) {
@@ -162,7 +154,7 @@ func findPackageFiles(fileType string) ([]filePathAndModTime, error) {
 type packageConfigFile struct {
 	kind         string
 	path         string
-	lastModified string
+	lastModified time.Time
 }
 
 // packageConfigFiles is a map from package path to packageConfigFile, for constructing output that is keyed per package
@@ -201,7 +193,7 @@ func findFlagFiles() (map[string]string, error) {
 		packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
 			kind:         "started with command-line flags",
 			path:         p.path,
-			lastModified: p.lastModified(),
+			lastModified: p.modTime,
 		})
 
 		b, err := ioutil.ReadFile(p.path)
@@ -238,7 +230,7 @@ func findBuildFlagsFiles() (map[string][]string, error) {
 		packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
 			kind:         "compiled with build flags",
 			path:         p.path,
-			lastModified: p.lastModified(),
+			lastModified: p.modTime,
 		})
 
 		b, err := ioutil.ReadFile(p.path)
@@ -287,7 +279,7 @@ func findEnvFiles() (map[string]string, error) {
 		packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
 			kind:         "started with environment variables",
 			path:         p.path,
-			lastModified: p.lastModified(),
+			lastModified: p.modTime,
 		})
 
 		b, err := ioutil.ReadFile(p.path)
@@ -302,12 +294,16 @@ func findEnvFiles() (map[string]string, error) {
 	return contents, nil
 }
 
-func addToFileInfo(parent *fileInfo, path string) error {
+func addToFileInfo(parent *fileInfo, path string) (error, time.Time) {
 	entries, err := os.ReadDir(path)
 	if err != nil {
-		return err
+		if os.IsNotExist(err) {
+			return nil, time.Time{}
+		}
+		return err, time.Time{}
 	}
 
+	var latestTime time.Time
 	for _, entry := range entries {
 		// get existing file info
 		var fi *fileInfo
@@ -320,7 +316,11 @@ func addToFileInfo(parent *fileInfo, path string) error {
 
 		info, err := entry.Info()
 		if err != nil {
-			return err
+			return err, time.Time{}
+		}
+
+		if latestTime.Before(info.ModTime()) {
+			latestTime = info.ModTime()
 		}
 
 		// or create if not exist
@@ -333,21 +333,52 @@ func addToFileInfo(parent *fileInfo, path string) error {
 		} else {
 			// file overwrite is not supported -> return error
 			if !entry.IsDir() || fi.fromHost != "" || fi.fromLiteral != "" {
-				return fmt.Errorf("file alreayd exist in rootfs: %s", filepath.Join(path, entry.Name()))
+				return fmt.Errorf("file alreayd exist in rootfs: %s", filepath.Join(path, entry.Name())), time.Time{}
 			}
 		}
 
 		// add content
 		if entry.IsDir() {
-			if err := addToFileInfo(fi, filepath.Join(path, entry.Name())); err != nil {
-				return err
+			err, modTime := addToFileInfo(fi, filepath.Join(path, entry.Name()))
+			if err != nil {
+				return err, time.Time{}
+			}
+			if latestTime.Before(modTime) {
+				latestTime = modTime
 			}
 		} else {
 			fi.fromHost = filepath.Join(path, entry.Name())
 		}
 	}
 
-	return nil
+	return nil, latestTime
+}
+
+func findExtraFiles() (map[string]*fileInfo, error) {
+	buildPackages := buildPackagesFromFlags()
+	extraFiles := make(map[string]*fileInfo, len(buildPackages))
+	for pkg := range buildPackages {
+		path := filepath.Join("extrafiles", pkg)
+
+		fi := new(fileInfo)
+		err, latestModTime := addToFileInfo(fi, path)
+		if err != nil {
+			return nil, err
+		}
+		if len(fi.dirents) == 0 {
+			continue
+		}
+
+		packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
+			kind:         "started with extra files",
+			path:         path,
+			lastModified: latestModTime,
+		})
+
+		extraFiles[pkg] = fi
+	}
+
+	return extraFiles, nil
 }
 
 type countingWriter int64
@@ -628,6 +659,11 @@ func logic() error {
 		return err
 	}
 
+	extraFiles, err := findExtraFiles()
+	if err != nil {
+		return err
+	}
+
 	for pkg, configFiles := range packageConfigFiles {
 		log.Printf("package %s:", pkg)
 		for _, configFile := range configFiles {
@@ -635,9 +671,9 @@ func logic() error {
 				configFile.kind)
 			log.Printf("    from %s",
 				configFile.path)
-			log.Printf("    last modified: %s",
-				configFile.lastModified)
-
+			log.Printf("    last modified: %s (%s ago)",
+				configFile.lastModified.Format(time.RFC3339),
+				time.Since(configFile.lastModified).Round(1*time.Second))
 		}
 		log.Printf("")
 	}
@@ -763,9 +799,27 @@ func logic() error {
 		fromLiteral: *httpsPort,
 	})
 
-	if *customRootFiles != "" {
-		if err := addToFileInfo(root, *customRootFiles); err != nil {
-			return err
+	for pkg1, fs1 := range extraFiles {
+		// check against root fs
+		paths := getDuplication(root, fs1)
+		if len(paths) > 0 {
+			return fmt.Errorf("extra files of package %s collides with rootfs: %v", pkg1, paths)
+		}
+
+		// check against other packages
+		for pkg2, fs2 := range extraFiles {
+			if pkg1 == pkg2 {
+				continue
+			}
+			paths = getDuplication(fs1, fs2)
+			if len(paths) > 0 {
+				return fmt.Errorf("extra files of package %s collides with package %s: %v", pkg1, pkg2, paths)
+			}
+		}
+
+		// add extra files to rootfs
+		if err = root.combine(fs1); err != nil {
+			return fmt.Errorf("failed to add extra files from package %s: %v", pkg1, err)
 		}
 	}
 

@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -336,6 +337,53 @@ type fileInfo struct {
 	dirents []*fileInfo
 }
 
+func (fi *fileInfo) isFile() bool {
+	return fi.fromHost != "" || fi.fromLiteral != ""
+}
+
+func (fi *fileInfo) pathList() (paths []string) {
+	for _, ent := range fi.dirents {
+		if ent.isFile() {
+			paths = append(paths, ent.filename)
+			continue
+		}
+
+		for _, e := range ent.pathList() {
+			paths = append(paths, path.Join(ent.filename, e))
+		}
+	}
+	return
+}
+
+func (fi *fileInfo) combine(fi2 *fileInfo) error {
+	for _, ent2 := range fi2.dirents {
+		// get existing file info
+		var f *fileInfo
+		for _, ent := range fi.dirents {
+			if ent.filename == ent2.filename {
+				f = ent
+				break
+			}
+		}
+
+		// if not found add complete subtree directly
+		if f == nil {
+			fi.dirents = append(fi.dirents, ent2)
+			continue
+		}
+
+		// file overwrite is not supported -> return error
+		if f.isFile() || ent2.isFile() {
+			return fmt.Errorf("file already exist: %s", ent2.filename)
+		}
+
+		if err := f.combine(ent2); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (fi *fileInfo) mustFindDirent(path string) *fileInfo {
 	for _, ent := range fi.dirents {
 		// TODO: split path into components and compare piecemeal
@@ -476,4 +524,17 @@ func writeMBR(f io.ReadSeeker, fw io.WriteSeeker, partuuid uint32) error {
 	}
 
 	return nil
+}
+
+// getDuplication between the two given filesystems
+func getDuplication(fiA, fiB *fileInfo) (paths []string) {
+	allPaths := append(fiA.pathList(), fiB.pathList()...)
+	checkMap := make(map[string]struct{}, len(allPaths))
+	for _, p := range allPaths {
+		if _, ok := checkMap[p]; ok {
+			paths = append(paths, p)
+		}
+		checkMap[p] = struct{}{}
+	}
+	return
 }
