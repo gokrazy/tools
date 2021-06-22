@@ -529,12 +529,12 @@ func writeMBR(f io.ReadSeeker, fw io.WriteSeeker, partuuid uint32) error {
 // getDuplication between the two given filesystems
 func getDuplication(fiA, fiB *fileInfo) (paths []string) {
 	allPaths := append(fiA.pathList(), fiB.pathList()...)
-	checkMap := make(map[string]struct{}, len(allPaths))
+	checkMap := make(map[string]bool, len(allPaths))
 	for _, p := range allPaths {
 		if _, ok := checkMap[p]; ok {
 			paths = append(paths, p)
 		}
-		checkMap[p] = struct{}{}
+		checkMap[p] = true
 	}
 	return
 }
