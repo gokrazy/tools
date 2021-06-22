@@ -191,7 +191,7 @@ func findFlagFiles() (map[string]string, error) {
 			continue
 		}
 		packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
-			kind:         "started with command-line flags",
+			kind:         "be started with command-line flags",
 			path:         p.path,
 			lastModified: p.modTime,
 		})
@@ -228,7 +228,7 @@ func findBuildFlagsFiles() (map[string][]string, error) {
 			continue
 		}
 		packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
-			kind:         "compiled with build flags",
+			kind:         "be compiled with build flags",
 			path:         p.path,
 			lastModified: p.modTime,
 		})
@@ -277,7 +277,7 @@ func findEnvFiles() (map[string]string, error) {
 			continue
 		}
 		packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
-			kind:         "started with environment variables",
+			kind:         "be started with environment variables",
 			path:         p.path,
 			lastModified: p.modTime,
 		})
@@ -333,7 +333,7 @@ func addToFileInfo(parent *fileInfo, path string) (error, time.Time) {
 		} else {
 			// file overwrite is not supported -> return error
 			if !entry.IsDir() || fi.fromHost != "" || fi.fromLiteral != "" {
-				return fmt.Errorf("file alreayd exist in rootfs: %s", filepath.Join(path, entry.Name())), time.Time{}
+				return fmt.Errorf("file already exists in filesystem: %s", filepath.Join(path, entry.Name())), time.Time{}
 			}
 		}
 
@@ -370,7 +370,7 @@ func findExtraFiles() (map[string]*fileInfo, error) {
 		}
 
 		packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
-			kind:         "started with extra files",
+			kind:         "include extra files in the root file system",
 			path:         path,
 			lastModified: latestModTime,
 		})
@@ -667,7 +667,7 @@ func logic() error {
 	for pkg, configFiles := range packageConfigFiles {
 		log.Printf("package %s:", pkg)
 		for _, configFile := range configFiles {
-			log.Printf("  will be %s",
+			log.Printf("  will %s",
 				configFile.kind)
 			log.Printf("    from %s",
 				configFile.path)
