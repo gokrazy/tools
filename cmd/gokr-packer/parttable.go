@@ -83,12 +83,12 @@ func (p *pack) sudoPartition(path string) (*os.File, error) {
 	// 32 bytes as per
 	// https://github.com/golang/go/blob/21d2e15ee1bed44a7a1b8f775aff4a57cae9533a/src/syscall/syscall_unix_test.go#L177
 	oob := make([]byte, 32)
-	_, oobn, flags, _, err := conn.ReadMsgUnix(nil, oob)
+	_, oobn, _, _, err := conn.ReadMsgUnix(nil, oob)
 	if err != nil {
 		return nil, err
 	}
-	if flags != 0 || oobn <= 0 {
-		return nil, fmt.Errorf("ReadMsgUnix: flags != 0 || oobn <= 0")
+	if oobn <= 0 {
+		return nil, fmt.Errorf("ReadMsgUnix: oobn <= 0")
 	}
 
 	// file descriptors are now open in this process
