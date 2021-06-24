@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"log"
 	"os"
@@ -18,6 +19,7 @@ import (
 	"github.com/gokrazy/internal/fat"
 	"github.com/gokrazy/internal/mbr"
 	"github.com/gokrazy/internal/squashfs"
+	"github.com/gokrazy/tools/third_party/systemd-248.3-2"
 )
 
 var (
@@ -38,12 +40,8 @@ var (
 		"Go package to copy *.bin from for constructing the firmware file system")
 )
 
-func copyFile(fw *fat.Writer, dest, src string) error {
-	f, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	st, err := f.Stat()
+func copyFile(fw *fat.Writer, dest string, src fs.File) error {
+	st, err := src.Stat()
 	if err != nil {
 		return err
 	}
@@ -51,10 +49,10 @@ func copyFile(fw *fat.Writer, dest, src string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := io.Copy(w, f); err != nil {
+	if _, err := io.Copy(w, src); err != nil {
 		return err
 	}
-	return f.Close()
+	return src.Close()
 }
 
 func copyFileSquash(d *squashfs.Directory, dest, src string) error {
@@ -77,7 +75,7 @@ func copyFileSquash(d *squashfs.Directory, dest, src string) error {
 	return w.Close()
 }
 
-func writeCmdline(fw *fat.Writer, src string, partuuid uint32, usePartuuid bool) error {
+func (p *pack) writeCmdline(fw *fat.Writer, src string) error {
 	b, err := ioutil.ReadFile(src)
 	if err != nil {
 		return err
@@ -96,27 +94,45 @@ func writeCmdline(fw *fat.Writer, src string, partuuid uint32, usePartuuid bool)
 	}
 
 	// TODO: change {gokrazy,rtr7}/kernel/cmdline.txt to contain a dummy PARTUUID=
-	if usePartuuid {
-		cmdline = strings.ReplaceAll(cmdline,
-			"root=/dev/mmcblk0p2",
-			fmt.Sprintf("root=PARTUUID=%08x-02", partuuid))
-		cmdline = strings.ReplaceAll(cmdline,
-			"root=/dev/sda2",
-			fmt.Sprintf("root=PARTUUID=%08x-02", partuuid))
+	if p.ModifyCmdlineRoot() {
+		root := "root=" + p.Root()
+		cmdline = strings.ReplaceAll(cmdline, "root=/dev/mmcblk0p2", root)
+		cmdline = strings.ReplaceAll(cmdline, "root=/dev/sda2", root)
 	} else {
 		log.Printf("(not using PARTUUID= in cmdline.txt yet)")
 	}
+
+	// Pad the kernel command line with enough whitespace that can be used for
+	// in-place file overwrites to add additional command line flags for the
+	// gokrazy update process:
+	const pad = 64
+	padded := append([]byte(cmdline), bytes.Repeat([]byte{' '}, pad)...)
 
 	w, err := fw.File("/cmdline.txt", time.Now())
 	if err != nil {
 		return err
 	}
-	// Pad the kernel command line with enough whitespace that can be used for
-	// in-place file overwrites to add additional command line flags for the
-	// gokrazy update process:
-	const pad = 64
-	_, err = w.Write(append([]byte(cmdline), bytes.Repeat([]byte{' '}, pad)...))
-	return err
+	if _, err := w.Write(padded); err != nil {
+		return err
+	}
+
+	if p.UseGPTPartuuid {
+		// In addition to the cmdline.txt for the Raspberry Pi bootloader, also
+		// write a systemd-boot entries configuration file as per
+		// https://systemd.io/BOOT_LOADER_SPECIFICATION/
+		w, err = fw.File("/loader/entries/gokrazy.conf", time.Now())
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(w, `title gokrazy
+linux /vmlinuz
+`)
+		if _, err := w.Write(append([]byte("options "), padded...)); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func writeConfig(fw *fat.Writer, src string) error {
@@ -150,7 +166,7 @@ var (
 	}
 )
 
-func writeBoot(f io.Writer, mbrfilename string, partuuid uint32, usePartuuid bool) error {
+func (p *pack) writeBoot(f io.Writer, mbrfilename string) error {
 	log.Printf("writing boot file system")
 	globs := make([]string, 0, len(firmwareGlobs)+len(kernelGlobs))
 	firmwareDir, err := packageDir(*firmwarePackage)
@@ -187,7 +203,11 @@ func writeBoot(f io.Writer, mbrfilename string, partuuid uint32, usePartuuid boo
 			return err
 		}
 		for _, m := range matches {
-			if err := copyFile(fw, "/"+filepath.Base(m), m); err != nil {
+			src, err := os.Open(m)
+			if err != nil {
+				return err
+			}
+			if err := copyFile(fw, "/"+filepath.Base(m), src); err != nil {
 				return err
 			}
 		}
@@ -262,12 +282,22 @@ func writeBoot(f io.Writer, mbrfilename string, partuuid uint32, usePartuuid boo
 		}
 	}
 
-	if err := writeCmdline(fw, filepath.Join(kernelDir, "cmdline.txt"), partuuid, usePartuuid); err != nil {
+	if err := p.writeCmdline(fw, filepath.Join(kernelDir, "cmdline.txt")); err != nil {
 		return err
 	}
 
 	if err := writeConfig(fw, filepath.Join(kernelDir, "config.txt")); err != nil {
 		return err
+	}
+
+	if p.UseGPTPartuuid {
+		src, err := systemd.SystemdBootX64.Open("systemd-bootx64.efi")
+		if err != nil {
+			return err
+		}
+		if err := copyFile(fw, "/EFI/BOOT/BOOTX64.EFI", src); err != nil {
+			return err
+		}
 	}
 
 	if err := fw.Flush(); err != nil {
@@ -285,7 +315,7 @@ func writeBoot(f io.Writer, mbrfilename string, partuuid uint32, usePartuuid boo
 			return err
 		}
 		defer fmbr.Close()
-		if err := writeMBR(f.(io.ReadSeeker), fmbr, partuuid); err != nil {
+		if err := writeMBR(f.(io.ReadSeeker), fmbr, p.Partuuid); err != nil {
 			return err
 		}
 		if err := fmbr.Close(); err != nil {

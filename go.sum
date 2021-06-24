@@ -6,11 +6,18 @@ github.com/gokrazy/gokrazy v0.0.0-20210108081039-067330db5542/go.mod h1:3OoNFHeX
 github.com/gokrazy/internal v0.0.0-20200531194636-d96421c60091/go.mod h1:LA5TQy7LcvYGQOy75tkrYkFUhbV2nl5qEBP47PSi2JA=
 github.com/gokrazy/internal v0.0.0-20210106212130-549f1e76c55d h1:TUZrIFKr1PSC0YXZnnxWggfpvS3e1DpVD/8YWyTfOEk=
 github.com/gokrazy/internal v0.0.0-20210106212130-549f1e76c55d/go.mod h1:LA5TQy7LcvYGQOy75tkrYkFUhbV2nl5qEBP47PSi2JA=
+github.com/gokrazy/internal v0.0.0-20210620202248-3382b18a329e h1:q0S1NwHP5fUs+s4cZSyu4uOmBzHb7dJ00BPpQ/q7KfI=
+github.com/gokrazy/internal v0.0.0-20210620202248-3382b18a329e/go.mod h1:Gqv1x1DNrObmBvVvblpZbvZizZ0dU5PwiwYHipmtY9Y=
+github.com/gokrazy/internal v0.0.0-20210620204040-8f28a81e300a h1:rukKw2lOpbd4AFF5vbrxbA/jFNy86jcdTfssy8hRD9E=
+github.com/gokrazy/internal v0.0.0-20210620204040-8f28a81e300a/go.mod h1:Gqv1x1DNrObmBvVvblpZbvZizZ0dU5PwiwYHipmtY9Y=
+github.com/gokrazy/internal v0.0.0-20210621162516-1b3b5687a06d h1:qk95CKJfxvU5oi3lbrVkEgID5ak1pOjTyPTdaXs6Q9E=
+github.com/gokrazy/internal v0.0.0-20210621162516-1b3b5687a06d/go.mod h1:Gqv1x1DNrObmBvVvblpZbvZizZ0dU5PwiwYHipmtY9Y=
 github.com/gokrazy/updater v0.0.0-20210106211705-4d92b338dd24 h1:tGm83sgE6OiTIyHylO7ZBsBZcMocwLdvtBIOJbpyUIU=
 github.com/gokrazy/updater v0.0.0-20210106211705-4d92b338dd24/go.mod h1:PYOvzGOL4nlBmuxu7IyKQTFLaxr61+WPRNRzVtuYOHw=
 github.com/gokrazy/updater v0.0.0-20210130175436-d85b92498a28 h1:zIDHUypTINZyypVeJJTMQeiYXJdox4nZXaY90Aq9Lyk=
 github.com/gokrazy/updater v0.0.0-20210130175436-d85b92498a28/go.mod h1:PYOvzGOL4nlBmuxu7IyKQTFLaxr61+WPRNRzVtuYOHw=
 github.com/google/go-cmp v0.4.0/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
+github.com/google/go-cmp v0.5.5/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
 github.com/google/gopacket v1.1.16 h1:u6Afvia5C5srlLcbTwpHaFW918asLYPxieziOaWwz8M=
 github.com/google/gopacket v1.1.16/go.mod h1:UCLx9mCmAwsVbn6qQl1WIEt2SO7Nd2fD0th1TBAsqBw=
 github.com/mdlayher/raw v0.0.0-20190303161257-764d452d77af h1:20h/EjkLGn9mV5nX9MFnGhbbeEhIGnOKPShJfBtVkVQ=
@@ -33,6 +40,8 @@ golang.org/x/sys v0.0.0-20201005065044-765f4ea38db3 h1:9Dt0vhJUQR70NuYBi/EFF+uAO
 golang.org/x/sys v0.0.0-20201005065044-765f4ea38db3/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20210108172913-0df2131ae363 h1:wHn06sgWHMO1VsQ8F+KzDJx/JzqfsNLnc+oEi07qD7s=
 golang.org/x/sys v0.0.0-20210108172913-0df2131ae363/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/sys v0.0.0-20210616094352-59db8d763f22 h1:RqytpXGR1iVNX7psjB3ff8y7sNFinVFvkx1c8SjBkio=
+golang.org/x/sys v0.0.0-20210616094352-59db8d763f22/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=

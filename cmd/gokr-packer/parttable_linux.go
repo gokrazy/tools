@@ -13,10 +13,3 @@ func deviceSize(fd uintptr) (uint64, error) {
 	}
 	return devsize, nil
 }
-
-func rereadPartitions(fd uintptr) error {
-	if _, _, errno := unix.Syscall(unix.SYS_IOCTL, fd, unix.BLKRRPART, 0); errno != 0 {
-		return errno
-	}
-	return nil
-}

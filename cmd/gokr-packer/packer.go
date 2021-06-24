@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"hash/fnv"
 	"io"
 	"io/ioutil"
 	"log"
@@ -23,6 +22,7 @@ import (
 	_ "github.com/gokrazy/gokrazy/empty"
 
 	"github.com/gokrazy/internal/httpclient"
+	"github.com/gokrazy/tools/packer"
 	"github.com/gokrazy/updater"
 )
 
@@ -305,13 +305,13 @@ func (cw *countingWriter) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func writeBootFile(bootfilename, mbrfilename string, partuuid uint32, usePartuuid bool) error {
+func (p *pack) writeBootFile(bootfilename, mbrfilename string) error {
 	f, err := os.Create(bootfilename)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	if err := writeBoot(f, mbrfilename, partuuid, usePartuuid); err != nil {
+	if err := p.writeBoot(f, mbrfilename); err != nil {
 		return err
 	}
 	return f.Close()
@@ -360,13 +360,13 @@ func verifyNotMounted(dev string) error {
 	return nil
 }
 
-func overwriteDevice(dev string, root *fileInfo, partuuid uint32, usePartuuid bool) error {
+func (p *pack) overwriteDevice(dev string, root *fileInfo) error {
 	if err := verifyNotMounted(dev); err != nil {
 		return err
 	}
-	log.Printf("partitioning %s", dev)
+	log.Printf("partitioning %s (GPT + Hybrid MBR)", dev)
 
-	f, err := partition(*overwrite)
+	f, err := p.partition(*overwrite)
 	if err != nil {
 		return err
 	}
@@ -376,11 +376,11 @@ func overwriteDevice(dev string, root *fileInfo, partuuid uint32, usePartuuid bo
 		return err
 	}
 
-	if err := writeBoot(f, "", partuuid, usePartuuid); err != nil {
+	if err := p.writeBoot(f, ""); err != nil {
 		return err
 	}
 
-	if err := writeMBR(&offsetReadSeeker{f, 8192 * 512}, f, partuuid); err != nil {
+	if err := writeMBR(&offsetReadSeeker{f, 8192 * 512}, f, p.Partuuid); err != nil {
 		return err
 	}
 
@@ -413,8 +413,8 @@ func overwriteDevice(dev string, root *fileInfo, partuuid uint32, usePartuuid bo
 	fmt.Printf("If your applications need to store persistent data, unplug and re-plug the SD card, then create a file system using e.g.:\n")
 	fmt.Printf("\n")
 	partition := partitionPath(dev, "4")
-	if usePartuuid {
-		partition = fmt.Sprintf("/dev/disk/by-partuuid/%08x-04", partuuid)
+	if p.ModifyCmdlineRoot() {
+		partition = fmt.Sprintf("/dev/disk/by-partuuid/%s", p.PermUUID())
 	} else {
 		if target, err := filepath.EvalSymlinks(dev); err == nil {
 			partition = partitionPath(target, "4")
@@ -439,7 +439,7 @@ func (ors *offsetReadSeeker) Seek(offset int64, whence int) (int64, error) {
 	return ors.ReadSeeker.Seek(offset, whence)
 }
 
-func overwriteFile(filename string, root *fileInfo, partuuid uint32, usePartuuid bool) (bootSize int64, rootSize int64, err error) {
+func (p *pack) overwriteFile(filename string, root *fileInfo) (bootSize int64, rootSize int64, err error) {
 	f, err := os.Create(*overwrite)
 	if err != nil {
 		return 0, 0, err
@@ -449,7 +449,7 @@ func overwriteFile(filename string, root *fileInfo, partuuid uint32, usePartuuid
 		return 0, 0, err
 	}
 
-	if err := writePartitionTable(f, uint64(*targetStorageBytes)); err != nil {
+	if err := p.Partition(f, uint64(*targetStorageBytes)); err != nil {
 		return 0, 0, err
 	}
 
@@ -457,11 +457,11 @@ func overwriteFile(filename string, root *fileInfo, partuuid uint32, usePartuuid
 		return 0, 0, err
 	}
 	var bs countingWriter
-	if err := writeBoot(io.MultiWriter(f, &bs), "", partuuid, usePartuuid); err != nil {
+	if err := p.writeBoot(io.MultiWriter(f, &bs), ""); err != nil {
 		return 0, 0, err
 	}
 
-	if err := writeMBR(&offsetReadSeeker{f, 8192 * 512}, f, partuuid); err != nil {
+	if err := writeMBR(&offsetReadSeeker{f, 8192 * 512}, f, p.Partuuid); err != nil {
 		return 0, 0, err
 	}
 
@@ -495,12 +495,6 @@ func overwriteFile(filename string, root *fileInfo, partuuid uint32, usePartuuid
 	return int64(bs), int64(rs), f.Close()
 }
 
-func derivePartUUID(hostname string) uint32 {
-	h := fnv.New32a()
-	h.Write([]byte(hostname))
-	return h.Sum32()
-}
-
 const usage = `
 gokr-packer packs gokrazy installations into SD card or file system images.
 
@@ -524,6 +518,10 @@ gokr-packer -overwrite_init=<file> <go-package> [<go-package>…]
 
 Flags:
 `
+
+type pack struct {
+	packer.Pack
+}
 
 func logic() error {
 	dnsCheck := make(chan error)
@@ -717,8 +715,12 @@ func logic() error {
 		*update = schema + "://gokrazy:" + pw + "@" + *hostname + "/"
 	}
 
-	partuuid := derivePartUUID(*hostname)
-	usePartuuid := true
+	newInstallation := *update == ""
+	p := pack{
+		Pack: packer.NewPackForHost(*hostname),
+	}
+	p.Pack.UsePartuuid = newInstallation
+	p.Pack.UseGPTPartuuid = newInstallation
 	var (
 		updateHttpClient         *http.Client
 		foundMatchingCertificate bool
@@ -765,9 +767,12 @@ func logic() error {
 		if err != nil {
 			return fmt.Errorf("checking target partuuid support: %v", err)
 		}
-		usePartuuid := target.Supports("partuuid")
-		log.Printf("target partuuid support: %v", usePartuuid)
+		p.UsePartuuid = target.Supports("partuuid")
+		p.UseGPTPartuuid = target.Supports("gpt")
 	}
+	log.Printf("pack parameters:")
+	log.Printf("  use PARTUUID: %v", p.UsePartuuid)
+	log.Printf("  use GPT PARTUUID: %v", p.UseGPTPartuuid)
 
 	// Determine where to write the boot and root images to.
 	var (
@@ -785,7 +790,7 @@ func logic() error {
 		isDev = err == nil && st.Mode()&os.ModeDevice == os.ModeDevice
 
 		if isDev {
-			if err := overwriteDevice(*overwrite, root, partuuid, usePartuuid); err != nil {
+			if err := p.overwriteDevice(*overwrite, root); err != nil {
 				return err
 			}
 			fmt.Printf("To boot gokrazy, plug the SD card into a Raspberry Pi 3 or 4 (no other models supported)\n")
@@ -803,7 +808,7 @@ func logic() error {
 				return fmt.Errorf("-target_storage_bytes must be at least %d (for boot + 2 root file systems + 100 MB /perm)", lower)
 			}
 
-			bootSize, rootSize, err = overwriteFile(*overwrite, root, partuuid, usePartuuid)
+			bootSize, rootSize, err = p.overwriteFile(*overwrite, root)
 			if err != nil {
 				return err
 			}
@@ -823,7 +828,7 @@ func logic() error {
 				defer os.Remove(tmpMBR.Name())
 				mbrfn = tmpMBR.Name()
 			}
-			if err := writeBootFile(*overwriteBoot, mbrfn, partuuid, usePartuuid); err != nil {
+			if err := p.writeBootFile(*overwriteBoot, mbrfn); err != nil {
 				return err
 			}
 		}
@@ -847,7 +852,7 @@ func logic() error {
 			}
 			defer os.Remove(tmpBoot.Name())
 
-			if err := writeBoot(tmpBoot, tmpMBR.Name(), partuuid, usePartuuid); err != nil {
+			if err := p.writeBoot(tmpBoot, tmpMBR.Name()); err != nil {
 				return err
 			}
 
@@ -1079,7 +1084,11 @@ func main() {
 	}
 
 	if os.Getenv("GOKR_PACKER_FD") != "" { // partitioning child process
-		if _, err := sudoPartition(*overwrite); err != nil {
+		p := pack{
+			Pack: packer.NewPackForHost(*hostname),
+		}
+
+		if _, err := p.sudoPartition(*overwrite); err != nil {
 			log.Fatal(err)
 		}
 		os.Exit(0)

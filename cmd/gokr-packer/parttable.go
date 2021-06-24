@@ -1,88 +1,16 @@
 package main
 
 import (
-	"encoding/binary"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"os"
 	"os/exec"
 	"strconv"
 	"syscall"
-
-	"golang.org/x/sys/unix"
 )
 
-var (
-	active   = byte(0x80)
-	inactive = byte(0x00)
-
-	// invalidCHS results in using the sector values instead
-	invalidCHS = [3]byte{0xFE, 0xFF, 0xFF}
-
-	FAT      = byte(0xc)
-	Linux    = byte(0x83)
-	SquashFS = Linux // SquashFS does not have a dedicated type
-
-	signature = uint16(0xAA55)
-)
-
-func writePartitionTable(w io.Writer, devsize uint64) error {
-	permStart := uint32(8192 + (1100 * MB / 512))
-	permSize := uint32((devsize / 512) - 8192 - (1100 * MB / 512))
-	// LBA -33 to LBA -1 need to remain unused for the secondary GPT header
-	lastAddressable := uint32((devsize / 512) - 1) // 0-indexed
-	if lastLBA := uint32(lastAddressable - 33); permStart+permSize >= lastLBA {
-		permSize -= (permStart + permSize) - lastLBA
-	}
-
-	for _, v := range []interface{}{
-		[446]byte{}, // boot code
-
-		// partition 1
-		active,
-		invalidCHS,
-		FAT,
-		invalidCHS,
-		uint32(8192),           // start at 8192 sectors
-		uint32(100 * MB / 512), // 100MB in size
-
-		// partition 2
-		inactive,
-		invalidCHS,
-		SquashFS,
-		invalidCHS,
-		uint32(8192 + (100 * MB / 512)), // start after partition 1
-		uint32(500 * MB / 512),          // 500MB in size
-
-		// partition 3
-		inactive,
-		invalidCHS,
-		SquashFS,
-		invalidCHS,
-		uint32(8192 + (600 * MB / 512)), // start after partition 2
-		uint32(500 * MB / 512),          // 500MB in size
-
-		// partition 4
-		inactive,
-		invalidCHS,
-		Linux,
-		invalidCHS,
-		permStart, // start after partition 3
-		permSize,  // remainder
-
-		signature,
-	} {
-		if err := binary.Write(w, binary.LittleEndian, v); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func partitionDevice(o *os.File, path string) error {
+func (p *pack) partitionDevice(o *os.File, path string) error {
 	devsize, err := deviceSize(uintptr(o.Fd()))
 	if err != nil {
 		return err
@@ -92,23 +20,11 @@ func partitionDevice(o *os.File, path string) error {
 		return fmt.Errorf("path %s does not seem to be a device", path)
 	}
 
-	if err := writePartitionTable(o, devsize); err != nil {
+	if err := p.Partition(o, devsize); err != nil {
 		return err
 	}
 
-	// Make Linux re-read the partition table. Sequence of system calls like in fdisk(8).
-	unix.Sync()
-
-	if err := rereadPartitions(uintptr(o.Fd())); err != nil {
-		log.Printf("Re-reading partition table failed: %v. Remember to unplug and re-plug the SD card before creating a file system for persistent data, if desired.", err)
-	}
-
-	if err := o.Sync(); err != nil {
-		return err
-	}
-
-	unix.Sync()
-	return nil
+	return p.RereadPartitions(o)
 }
 
 func mustUnixConn(fd uintptr) *net.UnixConn {
@@ -119,7 +35,7 @@ func mustUnixConn(fd uintptr) *net.UnixConn {
 	return fc.(*net.UnixConn)
 }
 
-func sudoPartition(path string) (*os.File, error) {
+func (p *pack) sudoPartition(path string) (*os.File, error) {
 	if fd, err := strconv.Atoi(os.Getenv("GOKR_PACKER_FD")); err == nil {
 		// child process
 		conn := mustUnixConn(uintptr(fd))
@@ -127,7 +43,7 @@ func sudoPartition(path string) (*os.File, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err := partitionDevice(f, path); err != nil {
+		if err := p.partitionDevice(f, path); err != nil {
 			return nil, err
 		}
 		_, _, err = conn.WriteMsgUnix(nil, syscall.UnixRights(int(f.Fd())), nil)
@@ -195,9 +111,9 @@ func sudoPartition(path string) (*os.File, error) {
 	return os.NewFile(uintptr(fds[0]), ""), nil
 }
 
-func partition(path string) (*os.File, error) {
+func (p *pack) partition(path string) (*os.File, error) {
 	if *sudo == "always" {
-		return sudoPartition(path)
+		return p.sudoPartition(path)
 	}
 	o, err := os.Create(path)
 	if err != nil {
@@ -206,7 +122,7 @@ func partition(path string) (*os.File, error) {
 			// permission denied
 			log.Printf("Using sudo to gain permission to format %s", path)
 			log.Printf("If you prefer, cancel and use: sudo setfacl -m u:${USER}:rw %s", path)
-			return sudoPartition(path)
+			return p.sudoPartition(path)
 		}
 		if ok && pe.Err == syscall.EROFS {
 			log.Printf("%s read-only; check if you have a physical write-protect switch on your SD card?", path)
@@ -214,5 +130,5 @@ func partition(path string) (*os.File, error) {
 		}
 		return nil, err
 	}
-	return o, partitionDevice(o, path)
+	return o, p.partitionDevice(o, path)
 }
