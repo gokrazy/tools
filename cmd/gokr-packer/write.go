@@ -352,7 +352,7 @@ func (fi *fileInfo) pathList() (paths []string) {
 			paths = append(paths, path.Join(ent.filename, e))
 		}
 	}
-	return
+	return paths
 }
 
 func (fi *fileInfo) combine(fi2 *fileInfo) error {
@@ -536,5 +536,5 @@ func getDuplication(fiA, fiB *fileInfo) (paths []string) {
 		}
 		checkMap[p] = true
 	}
-	return
+	return paths
 }

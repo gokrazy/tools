@@ -801,9 +801,8 @@ func logic() error {
 
 	for pkg1, fs1 := range extraFiles {
 		// check against root fs
-		paths := getDuplication(root, fs1)
-		if len(paths) > 0 {
-			return fmt.Errorf("extra files of package %s collides with rootfs: %v", pkg1, paths)
+		if paths := getDuplication(root, fs1); len(paths) > 0 {
+			return fmt.Errorf("extra files of package %s collides with root file system: %v", pkg1, paths)
 		}
 
 		// check against other packages
@@ -811,14 +810,14 @@ func logic() error {
 			if pkg1 == pkg2 {
 				continue
 			}
-			paths = getDuplication(fs1, fs2)
-			if len(paths) > 0 {
+
+			if paths := getDuplication(fs1, fs2); len(paths) > 0 {
 				return fmt.Errorf("extra files of package %s collides with package %s: %v", pkg1, pkg2, paths)
 			}
 		}
 
 		// add extra files to rootfs
-		if err = root.combine(fs1); err != nil {
+		if err := root.combine(fs1); err != nil {
 			return fmt.Errorf("failed to add extra files from package %s: %v", pkg1, err)
 		}
 	}
