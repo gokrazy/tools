@@ -703,7 +703,7 @@ func logic() error {
 
 	var defaultPassword string
 	updateHostname := *hostname
-	if *update != "" && *update != "yes" {
+	if *update != "" && *update != "yes" && !strings.HasPrefix(*update, ":") {
 		if u, err := url.Parse(*update); err == nil {
 			defaultPassword, _ = u.User.Password()
 			updateHostname = u.Host
@@ -822,8 +822,16 @@ func logic() error {
 		}
 	}
 
-	if *update == "yes" {
-		*update = schema + "://gokrazy:" + pw + "@" + *hostname + "/"
+	if *update == "yes" || strings.HasPrefix(*update, ":") {
+		port := *httpPort
+		if strings.HasPrefix(*update, ":") {
+			port = strings.TrimPrefix(*update, ":")
+		}
+		*update = schema + "://gokrazy:" + pw + "@" + *hostname
+		if port != "80" {
+			*update += ":" + port
+		}
+		*update += "/"
 	}
 
 	newInstallation := *update == ""
