@@ -15,6 +15,8 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -592,7 +594,23 @@ type pack struct {
 	packer.Pack
 }
 
+func filterGoEnv(env []string) []string {
+	relevant := make([]string, 0, len(env))
+	for _, kv := range env {
+		if strings.HasPrefix(kv, "GOARCH=") ||
+			strings.HasPrefix(kv, "GOOS=") ||
+			strings.HasPrefix(kv, "CGO_ENABLED=") {
+			relevant = append(relevant, kv)
+		}
+	}
+	sort.Strings(relevant)
+	return relevant
+}
+
 func logic() error {
+	fmt.Printf("gokrazy packer v%s on %s/%s\n", version, runtime.GOOS, runtime.GOARCH)
+	fmt.Printf("Build target: %s\n", strings.Join(filterGoEnv(env), " "))
+
 	buildTimestamp := time.Now().Format(time.RFC3339)
 	fmt.Printf("Build timestamp: %s\n", buildTimestamp)
 
