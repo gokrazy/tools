@@ -634,8 +634,6 @@ func logic() error {
 		return err
 	}
 
-	log.Printf("building %v", flag.Args())
-
 	tmp, err := ioutil.TempDir("", "gokrazy-bins-")
 	if err != nil {
 		return err
@@ -644,10 +642,6 @@ func logic() error {
 
 	packageBuildFlags, err := findBuildFlagsFiles()
 	if err != nil {
-		return err
-	}
-
-	if err := build(tmp, packageBuildFlags); err != nil {
 		return err
 	}
 
@@ -671,18 +665,24 @@ func logic() error {
 		return err
 	}
 
-	for pkg, configFiles := range packageConfigFiles {
-		log.Printf("package %s:", pkg)
-		for _, configFile := range configFiles {
-			log.Printf("  will %s",
+	args := flag.Args()
+	fmt.Printf("Building %d Go packages:\n\n", len(args))
+	for _, pkg := range args {
+		fmt.Printf("  %s\n", pkg)
+		for _, configFile := range packageConfigFiles[pkg] {
+			fmt.Printf("    will %s\n",
 				configFile.kind)
-			log.Printf("    from %s",
+			fmt.Printf("      from %s\n",
 				configFile.path)
-			log.Printf("    last modified: %s (%s ago)",
+			fmt.Printf("      last modified: %s (%s ago)\n",
 				configFile.lastModified.Format(time.RFC3339),
 				time.Since(configFile.lastModified).Round(1*time.Second))
 		}
-		log.Printf("")
+		fmt.Printf("\n")
+	}
+
+	if err := build(tmp, packageBuildFlags); err != nil {
+		return err
 	}
 
 	if *initPkg == "" {
@@ -897,9 +897,11 @@ func logic() error {
 		p.UsePartuuid = target.Supports("partuuid")
 		p.UseGPTPartuuid = target.Supports("gpt")
 	}
-	log.Printf("pack parameters:")
-	log.Printf("  use PARTUUID: %v", p.UsePartuuid)
-	log.Printf("  use GPT PARTUUID: %v", p.UseGPTPartuuid)
+	fmt.Printf("\n")
+	fmt.Printf("Feature summary:\n")
+	fmt.Printf("  use PARTUUID: %v\n", p.UsePartuuid)
+	fmt.Printf("  use GPT PARTUUID: %v\n", p.UseGPTPartuuid)
+	fmt.Printf("\n")
 
 	// Determine where to write the boot and root images to.
 	var (
