@@ -24,6 +24,7 @@ import (
 	_ "github.com/gokrazy/gokrazy/empty"
 
 	"github.com/gokrazy/internal/httpclient"
+	"github.com/gokrazy/tools/internal/measure"
 	"github.com/gokrazy/tools/packer"
 	"github.com/gokrazy/updater"
 )
@@ -607,6 +608,17 @@ func filterGoEnv(env []string) []string {
 	return relevant
 }
 
+
+func humanizeBytes(bytes uint64) string {
+	switch {
+	case bytes > (1024 * 1024):
+		return fmt.Sprintf("%.f MiB", float64(bytes)/1024/1024)
+	case bytes > 1024:
+		return fmt.Sprintf("%.f KiB", float64(bytes)/1024)
+	default:
+		return fmt.Sprintf("%d B", bytes)
+	}
+}
 func logic() error {
 	fmt.Printf("gokrazy packer v%s on %s/%s\n", version, runtime.GOOS, runtime.GOARCH)
 	fmt.Printf("Build target: %s\n", strings.Join(filterGoEnv(env), " "))

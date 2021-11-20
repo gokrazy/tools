@@ -20,6 +20,7 @@ import (
 	"github.com/gokrazy/internal/fat"
 	"github.com/gokrazy/internal/mbr"
 	"github.com/gokrazy/internal/squashfs"
+	"github.com/gokrazy/tools/internal/measure"
 	"github.com/gokrazy/tools/third_party/systemd-248.3-2"
 )
 
@@ -177,6 +178,12 @@ var (
 
 func (p *pack) writeBoot(f io.Writer, mbrfilename string) error {
 	fmt.Printf("Creating boot file system\n")
+	done := measure.Interactively("creating boot file system")
+	fragment := ""
+	defer func() {
+		done(fragment)
+	}()
+
 	globs := make([]string, 0, len(firmwareGlobs)+len(kernelGlobs))
 	firmwareDir, err := packageDir(*firmwarePackage)
 	if err != nil {
@@ -316,6 +323,13 @@ func (p *pack) writeBoot(f io.Writer, mbrfilename string) error {
 	}
 	if err := bufw.Flush(); err != nil {
 		return err
+	}
+	if seeker, ok := f.(io.Seeker); ok {
+		off, err := seeker.Seek(0, io.SeekCurrent)
+		if err != nil {
+			return err
+		}
+		fragment = ", " + humanizeBytes(uint64(off))
 	}
 	if mbrfilename != "" {
 		if _, ok := f.(io.ReadSeeker); !ok {
@@ -495,6 +509,11 @@ func writeFileInfo(dir *squashfs.Directory, fi *fileInfo) error {
 
 func writeRoot(f io.WriteSeeker, root *fileInfo) error {
 	fmt.Printf("Creating root file system\n")
+	done := measure.Interactively("creating root file system")
+	defer done("")
+
+	// TODO: make fw.Flush() report the size of the root fs
+
 	fw, err := squashfs.NewWriter(f, time.Now())
 	if err != nil {
 		return err
