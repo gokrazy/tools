@@ -106,20 +106,6 @@ You can also create your own certificate-key-pair (e.g. by using https://github.
 
 var gokrazyPkgs []string
 
-func findCACerts() (string, error) {
-	home, err := homedir()
-	if err != nil {
-		return "", err
-	}
-	certFiles = append(certFiles, filepath.Join(home, ".config", "gokrazy", "cacert.pem"))
-	for _, fn := range certFiles {
-		if _, err := os.Stat(fn); err == nil {
-			return fn, nil
-		}
-	}
-	return "", fmt.Errorf("did not find any of: %s", strings.Join(certFiles, ", "))
-}
-
 type filePathAndModTime struct {
 	path    string
 	modTime time.Time
@@ -622,7 +608,7 @@ func logic() error {
 		dnsCheck <- nil
 	}()
 
-	cacerts, err := findCACerts()
+	systemCertsPEM, err := systemCertsPEM()
 	if err != nil {
 		return err
 	}
@@ -753,8 +739,8 @@ func logic() error {
 
 	ssl := &fileInfo{filename: "ssl"}
 	ssl.dirents = append(ssl.dirents, &fileInfo{
-		filename: "ca-bundle.pem",
-		fromHost: cacerts,
+		filename:    "ca-bundle.pem",
+		fromLiteral: systemCertsPEM,
 	})
 
 	deployCertFile, deployKeyFile, err := getCertificate()
