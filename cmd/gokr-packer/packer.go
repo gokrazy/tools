@@ -5,6 +5,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -16,15 +17,17 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"sort"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	// Imported so that the go tool will download the repositories
 	_ "github.com/gokrazy/gokrazy/empty"
 
 	"github.com/gokrazy/internal/httpclient"
-	"github.com/gokrazy/tools/internal/measure"
 	"github.com/gokrazy/tools/packer"
 	"github.com/gokrazy/updater"
 )
@@ -608,6 +611,25 @@ func filterGoEnv(env []string) []string {
 	return relevant
 }
 
+var bytesTransferred uint64
+
+type progressWriter struct{}
+
+func (w progressWriter) Write(p []byte) (n int, err error) {
+	atomic.AddUint64(&bytesTransferred, uint64(len(p)))
+	return len(p), nil
+}
+
+func humanizeBPS(bps uint64) string {
+	switch {
+	case bps > (1024 * 1024):
+		return fmt.Sprintf("%.f MiB/s", float64(bps)/1024/1024)
+	case bps > 1024:
+		return fmt.Sprintf("%.f KiB/s", float64(bps)/1024)
+	default:
+		return fmt.Sprintf("%d B/s", bps)
+	}
+}
 
 func humanizeBytes(bytes uint64) string {
 	switch {
@@ -619,8 +641,76 @@ func humanizeBytes(bytes uint64) string {
 		return fmt.Sprintf("%d B", bytes)
 	}
 }
+
+type progressReporter struct {
+	total uint64
+
+	mu     sync.Mutex
+	status string
+}
+
+func (p *progressReporter) setStatus(status string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.status = status
+}
+
+func (p *progressReporter) setTotal(total uint64) {
+	atomic.StoreUint64(&p.total, total)
+}
+
+func (p *progressReporter) getStatus() string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.status
+}
+
+func (p *progressReporter) report(ctx context.Context) {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+	last := atomic.LoadUint64(&bytesTransferred)
+	for {
+		select {
+		case <-ticker.C:
+			transferred := atomic.LoadUint64(&bytesTransferred)
+			if transferred < last {
+				// transferred was reset
+				last = 0
+			}
+			bytesPerS := transferred - last
+			last = transferred
+			rate := humanizeBPS(bytesPerS)
+			status := rate
+			if total := atomic.LoadUint64(&p.total); total > 0 {
+				pct := float64(transferred) / float64(total) * 100
+				status = fmt.Sprintf("%02.2f%% of %s, uploading at %s",
+					pct,
+					humanizeBytes(total),
+					rate)
+			}
+			fmt.Printf("\r[%s] %s                 ", p.getStatus(), status)
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 func logic() error {
-	fmt.Printf("gokrazy packer v%s on %s/%s\n", version, runtime.GOOS, runtime.GOARCH)
+	// TODO: go1.18 code to include git revision and git uncommitted status
+	version := "<unknown>"
+	info, ok := debug.ReadBuildInfo()
+	if ok {
+		version = fmt.Sprint(info.Main.Version)
+	}
+	fmt.Printf("gokrazy packer v%s on GOARCH=%s GOOS=%s\n\n", version, runtime.GOARCH, runtime.GOOS)
+
+	// TODO: print the config directories which are used (host-specific config,
+	// gokrazy config)
+
+	// TODO: only if *update is yes:
+	// TODO: fix update URL:
+	fmt.Printf("Updating gokrazy installation on http://%s\n\n", *hostname)
+
 	fmt.Printf("Build target: %s\n", strings.Join(filterGoEnv(env), " "))
 
 	buildTimestamp := time.Now().Format(time.RFC3339)
@@ -913,7 +1003,6 @@ func logic() error {
 	fmt.Printf("Feature summary:\n")
 	fmt.Printf("  use PARTUUID: %v\n", p.UsePartuuid)
 	fmt.Printf("  use GPT PARTUUID: %v\n", p.UseGPTPartuuid)
-	fmt.Printf("\n")
 
 	// Determine where to write the boot and root images to.
 	var (
@@ -1009,6 +1098,8 @@ func logic() error {
 		}
 	}
 
+	fmt.Printf("\nBuild complete!\n")
+
 	hostPort := *hostname
 	if schema == "http" && *httpPort != "80" {
 		hostPort = fmt.Sprintf("%s:%s", hostPort, *httpPort)
@@ -1017,7 +1108,7 @@ func logic() error {
 		hostPort = fmt.Sprintf("%s:%s", hostPort, *httpsPort)
 	}
 
-	fmt.Printf("To interact with the device, gokrazy provides a web interface reachable at:\n")
+	fmt.Printf("\nTo interact with the device, gokrazy provides a web interface reachable at:\n")
 	fmt.Printf("\n")
 	fmt.Printf("\t%s://gokrazy:%s@%s/\n", schema, pw, hostPort)
 	fmt.Printf("\n")
@@ -1158,28 +1249,53 @@ func logic() error {
 	}
 
 	updateBaseUrl.Path = "/"
-	log.Printf("Updating %q", *update)
+	fmt.Printf("Updating %s\n", *update)
+
+	ctx, canc := context.WithCancel(context.Background())
+	defer canc()
+	progress := &progressReporter{}
+	go progress.report(ctx)
 
 	{
 		start := time.Now()
-		var cw countingWriter
+		progress.setStatus("update root file system")
+		progress.setTotal(0)
+		if stater, ok := rootReader.(interface{ Stat() (os.FileInfo, error) }); ok {
+			if st, err := stater.Stat(); err == nil {
+				progress.setTotal(uint64(st.Size()))
+			}
+		}
 		// Start with the root file system because writing to the non-active
 		// partition cannot break the currently running system.
-		if err := target.StreamTo("root", io.TeeReader(rootReader, &cw)); err != nil {
+		if err := target.StreamTo("root", io.TeeReader(rootReader, &progressWriter{})); err != nil {
 			return fmt.Errorf("updating root file system: %v", err)
 		}
 		duration := time.Since(start)
-		log.Printf("root update done: %d bytes in %v, i.e. %.2f MiB/s", int64(cw), duration, float64(cw)/duration.Seconds()/1024/1024)
+		transferred := atomic.SwapUint64(&bytesTransferred, 0)
+		fmt.Printf("\rTransferred root file system (%s) at %.2f MiB/s (total: %v)\n",
+			humanizeBytes(transferred),
+			float64(transferred)/duration.Seconds()/1024/1024,
+			duration.Round(time.Second))
 	}
 
 	{
 		start := time.Now()
-		var cw countingWriter
-		if err := target.StreamTo("boot", io.TeeReader(bootReader, &cw)); err != nil {
+		progress.setStatus("update boot file system")
+		progress.setTotal(0)
+		if stater, ok := bootReader.(interface{ Stat() (os.FileInfo, error) }); ok {
+			if st, err := stater.Stat(); err == nil {
+				progress.setTotal(uint64(st.Size()))
+			}
+		}
+		if err := target.StreamTo("boot", io.TeeReader(bootReader, &progressWriter{})); err != nil {
 			return fmt.Errorf("updating boot file system: %v", err)
 		}
 		duration := time.Since(start)
-		log.Printf("boot update done: %d bytes in %v, i.e. %.2f MiB/s", int64(cw), duration, float64(cw)/duration.Seconds()/1024/1024)
+		transferred := atomic.SwapUint64(&bytesTransferred, 0)
+		fmt.Printf("\rTransferred boot file system (%s) at %.2f MiB/s (total: %v)\n",
+			humanizeBytes(transferred),
+			float64(transferred)/duration.Seconds()/1024/1024,
+			duration.Round(time.Second))
 	}
 
 	if err := target.StreamTo("mbr", mbrReader); err != nil {
@@ -1200,12 +1316,15 @@ func logic() error {
 		}
 	}
 
-	log.Printf("triggering reboot")
+	fmt.Printf("Triggering reboot\n")
 	if err := target.Reboot(); err != nil {
 		return fmt.Errorf("reboot: %v", err)
 	}
 
-	log.Printf("updated, should be back within 10 to 30 seconds")
+	fmt.Printf("Updated, should be back within 10 to 30 seconds\n")
+
+	// TODO: poll target until it comes back healthy when -update is used
+
 	return nil
 }
 

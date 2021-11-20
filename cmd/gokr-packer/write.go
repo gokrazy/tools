@@ -177,6 +177,7 @@ var (
 )
 
 func (p *pack) writeBoot(f io.Writer, mbrfilename string) error {
+	fmt.Printf("\n")
 	fmt.Printf("Creating boot file system\n")
 	done := measure.Interactively("creating boot file system")
 	fragment := ""
@@ -204,7 +205,7 @@ func (p *pack) writeBoot(f io.Writer, mbrfilename string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Kernel directory: %s\n", kernelDir)
+	fmt.Printf("\nKernel directory: %s\n", kernelDir)
 	for _, glob := range kernelGlobs {
 		globs = append(globs, filepath.Join(kernelDir, glob))
 	}
@@ -508,9 +509,12 @@ func writeFileInfo(dir *squashfs.Directory, fi *fileInfo) error {
 }
 
 func writeRoot(f io.WriteSeeker, root *fileInfo) error {
+	fmt.Printf("\n")
 	fmt.Printf("Creating root file system\n")
 	done := measure.Interactively("creating root file system")
-	defer done("")
+	defer func() {
+		done("")
+	}()
 
 	// TODO: make fw.Flush() report the size of the root fs
 
