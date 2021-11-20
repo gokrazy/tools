@@ -593,6 +593,9 @@ type pack struct {
 }
 
 func logic() error {
+	buildTimestamp := time.Now().Format(time.RFC3339)
+	fmt.Printf("Build timestamp: %s\n", buildTimestamp)
+
 	dnsCheck := make(chan error)
 	go func() {
 		defer close(dnsCheck)
@@ -669,6 +672,7 @@ func logic() error {
 			root:             root,
 			flagFileContents: flagFileContents,
 			envFileContents:  envFileContents,
+			buildTimestamp:   buildTimestamp,
 		}
 		if *overwriteInit != "" {
 			return gokrazyInit.dump(*overwriteInit)

@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
-	"time"
 )
 
 const initTmplContents = `
@@ -98,6 +97,7 @@ type gokrazyInit struct {
 	root             *fileInfo
 	flagFileContents map[string]string
 	envFileContents  map[string]string
+	buildTimestamp   string
 }
 
 func (g *gokrazyInit) generate() ([]byte, error) {
@@ -110,7 +110,7 @@ func (g *gokrazyInit) generate() ([]byte, error) {
 		Env            map[string]string
 	}{
 		Binaries:       flattenFiles("/", g.root),
-		BuildTimestamp: time.Now().Format(time.RFC3339),
+		BuildTimestamp: g.buildTimestamp,
 		Flags:          g.flagFileContents,
 		Env:            g.envFileContents,
 	}); err != nil {
