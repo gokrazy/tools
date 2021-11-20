@@ -747,11 +747,6 @@ func logic() error {
 		return err
 	}
 
-	root, err := findBins(tmp)
-	if err != nil {
-		return err
-	}
-
 	flagFileContents, err := findFlagFiles()
 	if err != nil {
 		return err
@@ -784,6 +779,11 @@ func logic() error {
 	}
 
 	if err := build(tmp, packageBuildFlags); err != nil {
+		return err
+	}
+
+	root, err := findBins(tmp)
+	if err != nil {
 		return err
 	}
 
