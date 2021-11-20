@@ -1204,7 +1204,6 @@ func main() {
 		os.Exit(2)
 	}
 	flag.Parse()
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	gokrazyPkgs = strings.Split(*gokrazyPkgList, ",")
 
