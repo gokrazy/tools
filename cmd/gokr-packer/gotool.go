@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -45,6 +46,13 @@ func goEnv() []string {
 }
 
 func build(bindir string, packageBuildFlags map[string][]string) error {
+	const status = "[building (go compiler)]"
+	fmt.Print(status)
+	start := time.Now()
+	defer func() {
+		build := time.Since(start)
+		fmt.Printf("\r[done] in %.2fs"+strings.Repeat(" ", len(status))+"\n", build.Seconds())
+	}()
 	pkgs := append(gokrazyPkgs, flag.Args()...)
 	if *initPkg != "" {
 		pkgs = append(pkgs, *initPkg)
