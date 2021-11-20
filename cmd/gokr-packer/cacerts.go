@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -11,7 +11,7 @@ import (
 func systemCertsPEM() (string, error) {
 	var source string
 	defer func() {
-		log.Printf("Loading system CA certificates from %s", source)
+		fmt.Printf("Loading system CA certificates from %s\n", source)
 	}()
 	// On Linux, we can copy the operating system’s certificate store.
 	// certFiles is defined in cacerts_linux.go (or defined as empty in
