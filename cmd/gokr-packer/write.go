@@ -153,6 +153,14 @@ func writeConfig(fw *fat.Writer, src string) error {
 	return err
 }
 
+func shortenSHA256(sum []byte) string {
+	hash := fmt.Sprintf("%x", sum)
+	if len(hash) > 10 {
+		return hash[:10]
+	}
+	return hash
+}
+
 var (
 	firmwareGlobs = []string{
 		"*.bin",
@@ -168,7 +176,7 @@ var (
 )
 
 func (p *pack) writeBoot(f io.Writer, mbrfilename string) error {
-	log.Printf("writing boot file system")
+	fmt.Printf("Creating boot file system\n")
 	globs := make([]string, 0, len(firmwareGlobs)+len(kernelGlobs))
 	firmwareDir, err := packageDir(*firmwarePackage)
 	if err != nil {
@@ -189,6 +197,7 @@ func (p *pack) writeBoot(f io.Writer, mbrfilename string) error {
 	if err != nil {
 		return err
 	}
+	fmt.Printf("Kernel directory: %s\n", kernelDir)
 	for _, glob := range kernelGlobs {
 		globs = append(globs, filepath.Join(kernelDir, glob))
 	}
@@ -251,11 +260,11 @@ func (p *pack) writeBoot(f io.Writer, mbrfilename string) error {
 		}
 
 		if filepath.Base(target) == "recovery.bin" {
-			log.Printf("writing EEPROM update file recovery.bin")
+			fmt.Printf("  recovery.bin\n")
 			// No signature required for recovery.bin itself.
 			return nil
 		}
-		log.Printf("writing EEPROM update file %s (sig %x)", filepath.Base(target), h.Sum(nil))
+		fmt.Printf("  %s (sig %s)\n", filepath.Base(target), shortenSHA256(h.Sum(nil)))
 
 		// Include the SHA256 hash in the image in an accompanying .sig file:
 		sigFn := target
@@ -272,6 +281,7 @@ func (p *pack) writeBoot(f io.Writer, mbrfilename string) error {
 		return err
 	}
 	if eepromDir != "" {
+		fmt.Printf("EEPROM update summary:\n")
 		if err := writeEepromUpdateFile(filepath.Join(eepromDir, "pieeprom-*.bin"), "/pieeprom.upd"); err != nil {
 			return err
 		}
@@ -484,7 +494,7 @@ func writeFileInfo(dir *squashfs.Directory, fi *fileInfo) error {
 }
 
 func writeRoot(f io.WriteSeeker, root *fileInfo) error {
-	log.Printf("writing root file system")
+	fmt.Printf("Creating root file system\n")
 	fw, err := squashfs.NewWriter(f, time.Now())
 	if err != nil {
 		return err
@@ -517,7 +527,9 @@ func writeMBR(f io.ReadSeeker, fw io.WriteSeeker, partuuid uint32) error {
 	vmlinuzLba := uint32((vmlinuzOffset / 512) + 8192)
 	cmdlineTxtLba := uint32((cmdlineOffset / 512) + 8192)
 
-	log.Printf("writing MBR (LBAs: vmlinuz=%d, cmdline.txt=%d, PARTUUID=%08x)", vmlinuzLba, cmdlineTxtLba, partuuid)
+	fmt.Printf("MBR summary:\n")
+	fmt.Printf("  LBAs: vmlinuz=%d cmdline.txt=%d\n", vmlinuzLba, cmdlineTxtLba)
+	fmt.Printf("  PARTUUID: %08x\n", partuuid)
 	mbr := mbr.Configure(vmlinuzLba, cmdlineTxtLba, partuuid)
 	if _, err := fw.Write(mbr[:]); err != nil {
 		return err
