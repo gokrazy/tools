@@ -96,6 +96,9 @@ func (r *runImplConfig) run(ctx context.Context, args []string) error {
 
 	f, err := os.Open(filepath.Join(tmp, basename))
 	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("binary %s not installed; are you not in a directory where .go files declare “package main”?", basename)
+		}
 		return err
 	}
 	defer f.Close()
