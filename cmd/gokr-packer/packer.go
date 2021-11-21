@@ -711,7 +711,7 @@ func logic() error {
 	// TODO: fix update URL:
 	fmt.Printf("Updating gokrazy installation on http://%s\n\n", *hostname)
 
-	fmt.Printf("Build target: %s\n", strings.Join(filterGoEnv(env), " "))
+	fmt.Printf("Build target: %s\n", strings.Join(filterGoEnv(packer.Env()), " "))
 
 	buildTimestamp := time.Now().Format(time.RFC3339)
 	fmt.Printf("Build timestamp: %s\n", buildTimestamp)
@@ -778,7 +778,14 @@ func logic() error {
 		fmt.Printf("\n")
 	}
 
-	if err := build(tmp, packageBuildFlags); err != nil {
+	pkgs := append(gokrazyPkgs, flag.Args()...)
+	pkgs = append(pkgs, packer.InitDeps(*initPkg)...)
+	noBuildPkgs := []string{
+		*kernelPackage,
+		*firmwarePackage,
+		*eepromPackage,
+	}
+	if err := packer.Build(tmp, pkgs, packageBuildFlags, noBuildPkgs); err != nil {
 		return err
 	}
 

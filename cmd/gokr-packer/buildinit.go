@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+
+	"github.com/gokrazy/tools/packer"
 )
 
 const initTmplContents = `
@@ -157,7 +159,7 @@ func (g *gokrazyInit) build() (tmpdir string, err error) {
 	defer os.Remove(initGo)
 
 	cmd := exec.Command("go", "build", "-o", filepath.Join(tmpdir, "init"), initGo)
-	cmd.Env = env
+	cmd.Env = packer.Env()
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("%v: %v", cmd.Args, err)

@@ -1,9 +1,8 @@
-package main
+package packer
 
 import (
 	"bytes"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -45,24 +44,23 @@ func goEnv() []string {
 		"GOBIN=")
 }
 
-func build(bindir string, packageBuildFlags map[string][]string) error {
+func Env() []string { return env }
+
+func InitDeps(initPkg string) []string {
+	if initPkg != "" {
+		return []string{initPkg}
+	}
+	// The default init template requires github.com/gokrazy/gokrazy:
+	return []string{"github.com/gokrazy/gokrazy"}
+}
+
+func Build(bindir string, packages []string, packageBuildFlags map[string][]string, noBuildPackages []string) error {
 	done := measure.Interactively("building (go compiler)")
 	defer done("")
-	pkgs := append(gokrazyPkgs, flag.Args()...)
-	if *initPkg != "" {
-		pkgs = append(pkgs, *initPkg)
-	} else {
-		// The default init template requires github.com/gokrazy/gokrazy:
-		pkgs = append(pkgs, "github.com/gokrazy/gokrazy")
-	}
 
-	incompletePkgs := append(pkgs, *kernelPackage)
-	if *firmwarePackage != "" {
-		incompletePkgs = append(incompletePkgs, *firmwarePackage)
-	}
-	if *eepromPackage != "" {
-		incompletePkgs = append(incompletePkgs, *eepromPackage)
-	}
+	incompletePkgs := make([]string, 0, len(packages)+len(noBuildPackages))
+	incompletePkgs = append(incompletePkgs, packages...)
+	incompletePkgs = append(incompletePkgs, noBuildPackages...)
 
 	// run “go get” for incomplete packages (most likely just not present)
 	cmd := exec.Command("go",
@@ -100,7 +98,7 @@ func build(bindir string, packageBuildFlags map[string][]string) error {
 		}
 	}
 
-	mainPkgs, err := mainPackages(pkgs)
+	mainPkgs, err := MainPackages(packages)
 	if err != nil {
 		return err
 	}
@@ -140,7 +138,7 @@ func (p *Pkg) Basename() string {
 	return filepath.Base(p.Target)
 }
 
-func mainPackages(paths []string) ([]Pkg, error) {
+func MainPackages(paths []string) ([]Pkg, error) {
 	// Shell out to the go tool for path matching (handling “...”)
 	var buf bytes.Buffer
 	cmd := exec.Command("go", append([]string{"list", "-tags", "gokrazy", "-json"}, paths...)...)
@@ -167,7 +165,7 @@ func mainPackages(paths []string) ([]Pkg, error) {
 	return result, nil
 }
 
-func packageDir(pkg string) (string, error) {
+func PackageDir(pkg string) (string, error) {
 	cmd := exec.Command("go", "list", "-tags", "gokrazy", "-f", "{{ .Dir }}", pkg)
 	cmd.Stderr = os.Stderr
 	b, err := cmd.Output()

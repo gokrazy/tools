@@ -21,6 +21,7 @@ import (
 	"github.com/gokrazy/internal/mbr"
 	"github.com/gokrazy/internal/squashfs"
 	"github.com/gokrazy/tools/internal/measure"
+	"github.com/gokrazy/tools/packer"
 	"github.com/gokrazy/tools/third_party/systemd-248.3-2"
 )
 
@@ -186,7 +187,7 @@ func (p *pack) writeBoot(f io.Writer, mbrfilename string) error {
 	}()
 
 	globs := make([]string, 0, len(firmwareGlobs)+len(kernelGlobs))
-	firmwareDir, err := packageDir(*firmwarePackage)
+	firmwareDir, err := packer.PackageDir(*firmwarePackage)
 	if err != nil {
 		return err
 	}
@@ -196,12 +197,12 @@ func (p *pack) writeBoot(f io.Writer, mbrfilename string) error {
 	var eepromDir string
 	if *eepromPackage != "" {
 		var err error
-		eepromDir, err = packageDir(*eepromPackage)
+		eepromDir, err = packer.PackageDir(*eepromPackage)
 		if err != nil {
 			return err
 		}
 	}
-	kernelDir, err := packageDir(*kernelPackage)
+	kernelDir, err := packer.PackageDir(*kernelPackage)
 	if err != nil {
 		return err
 	}
@@ -423,7 +424,7 @@ func (fi *fileInfo) mustFindDirent(path string) *fileInfo {
 func findBins(bindir string) (*fileInfo, error) {
 	result := fileInfo{filename: ""}
 
-	gokrazyMainPkgs, err := mainPackages(gokrazyPkgs)
+	gokrazyMainPkgs, err := packer.MainPackages(gokrazyPkgs)
 	if err != nil {
 		return nil, err
 	}
@@ -436,7 +437,7 @@ func findBins(bindir string) (*fileInfo, error) {
 	}
 
 	if *initPkg != "" {
-		initMainPkgs, err := mainPackages([]string{*initPkg})
+		initMainPkgs, err := packer.MainPackages([]string{*initPkg})
 		if err != nil {
 			return nil, err
 		}
@@ -453,7 +454,7 @@ func findBins(bindir string) (*fileInfo, error) {
 	}
 	result.dirents = append(result.dirents, &gokrazy)
 
-	mainPkgs, err := mainPackages(flag.Args())
+	mainPkgs, err := packer.MainPackages(flag.Args())
 	if err != nil {
 		return nil, err
 	}
