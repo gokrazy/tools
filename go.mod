@@ -1,6 +1,6 @@
 module github.com/gokrazy/tools
 
-go 1.16
+go 1.17
 
 require (
 	github.com/breml/rootcerts v0.2.0
