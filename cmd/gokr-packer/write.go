@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/gokrazy/internal/fat"
+	"github.com/gokrazy/internal/humanize"
 	"github.com/gokrazy/internal/mbr"
 	"github.com/gokrazy/internal/squashfs"
 	"github.com/gokrazy/tools/internal/measure"
@@ -331,7 +332,7 @@ func (p *pack) writeBoot(f io.Writer, mbrfilename string) error {
 		if err != nil {
 			return err
 		}
-		fragment = ", " + humanizeBytes(uint64(off))
+		fragment = ", " + humanize.Bytes(uint64(off))
 	}
 	if mbrfilename != "" {
 		if _, ok := f.(io.ReadSeeker); !ok {

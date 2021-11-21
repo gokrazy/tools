@@ -20,14 +20,16 @@ import (
 	"runtime/debug"
 	"sort"
 	"strings"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	// Imported so that the go tool will download the repositories
 	_ "github.com/gokrazy/gokrazy/empty"
 
 	"github.com/gokrazy/internal/httpclient"
+	"github.com/gokrazy/internal/humanize"
+	"github.com/gokrazy/internal/progress"
+	"github.com/gokrazy/internal/updateflag"
+	"github.com/gokrazy/tools/internal/measure"
 	"github.com/gokrazy/tools/packer"
 	"github.com/gokrazy/updater"
 )
@@ -62,10 +64,6 @@ var (
 	initPkg = flag.String("init_pkg",
 		"",
 		"Go package to install as /gokrazy/init instead of the auto-generated one")
-
-	update = flag.String("update",
-		os.Getenv("GOKRAZY_UPDATE"),
-		`URL of a gokrazy installation (e.g. http://gokrazy:mypassword@myhostname/) to update. The special value "yes" uses the stored password and -hostname value to construct the URL`)
 
 	hostname = flag.String("hostname",
 		"gokrazy",
@@ -611,90 +609,6 @@ func filterGoEnv(env []string) []string {
 	return relevant
 }
 
-var bytesTransferred uint64
-
-type progressWriter struct{}
-
-func (w progressWriter) Write(p []byte) (n int, err error) {
-	atomic.AddUint64(&bytesTransferred, uint64(len(p)))
-	return len(p), nil
-}
-
-func humanizeBPS(bps uint64) string {
-	switch {
-	case bps > (1024 * 1024):
-		return fmt.Sprintf("%.f MiB/s", float64(bps)/1024/1024)
-	case bps > 1024:
-		return fmt.Sprintf("%.f KiB/s", float64(bps)/1024)
-	default:
-		return fmt.Sprintf("%d B/s", bps)
-	}
-}
-
-func humanizeBytes(bytes uint64) string {
-	switch {
-	case bytes > (1024 * 1024):
-		return fmt.Sprintf("%.f MiB", float64(bytes)/1024/1024)
-	case bytes > 1024:
-		return fmt.Sprintf("%.f KiB", float64(bytes)/1024)
-	default:
-		return fmt.Sprintf("%d B", bytes)
-	}
-}
-
-type progressReporter struct {
-	total uint64
-
-	mu     sync.Mutex
-	status string
-}
-
-func (p *progressReporter) setStatus(status string) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.status = status
-}
-
-func (p *progressReporter) setTotal(total uint64) {
-	atomic.StoreUint64(&p.total, total)
-}
-
-func (p *progressReporter) getStatus() string {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return p.status
-}
-
-func (p *progressReporter) report(ctx context.Context) {
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-	last := atomic.LoadUint64(&bytesTransferred)
-	for {
-		select {
-		case <-ticker.C:
-			transferred := atomic.LoadUint64(&bytesTransferred)
-			if transferred < last {
-				// transferred was reset
-				last = 0
-			}
-			bytesPerS := transferred - last
-			last = transferred
-			rate := humanizeBPS(bytesPerS)
-			status := rate
-			if total := atomic.LoadUint64(&p.total); total > 0 {
-				pct := float64(transferred) / float64(total) * 100
-				status = fmt.Sprintf("%02.2f%% of %s, uploading at %s",
-					pct,
-					humanizeBytes(total),
-					rate)
-			}
-			fmt.Printf("\r[%s] %s                 ", p.getStatus(), status)
-		case <-ctx.Done():
-			return
-		}
-	}
-}
-
 func logic() error {
 	// TODO: go1.18 code to include git revision and git uncommitted status
 	version := "<unknown>"
@@ -818,14 +732,7 @@ func logic() error {
 		})
 	}
 
-	var defaultPassword string
-	updateHostname := *hostname
-	if *update != "" && *update != "yes" && !strings.HasPrefix(*update, ":") {
-		if u, err := url.Parse(*update); err == nil {
-			defaultPassword, _ = u.User.Password()
-			updateHostname = u.Host
-		}
-	}
+	defaultPassword, updateHostname := updateflag.GetUpdateTarget(*hostname)
 	pw, err := ensurePasswordFileExists(updateHostname, defaultPassword)
 	if err != nil {
 		return err
@@ -939,19 +846,7 @@ func logic() error {
 		}
 	}
 
-	if *update == "yes" || strings.HasPrefix(*update, ":") {
-		port := *httpPort
-		if strings.HasPrefix(*update, ":") {
-			port = strings.TrimPrefix(*update, ":")
-		}
-		*update = schema + "://gokrazy:" + pw + "@" + *hostname
-		if port != "80" {
-			*update += ":" + port
-		}
-		*update += "/"
-	}
-
-	newInstallation := *update == ""
+	newInstallation := updateflag.NewInstallation()
 	p := pack{
 		Pack: packer.NewPackForHost(*hostname),
 	}
@@ -964,8 +859,8 @@ func logic() error {
 		target                   *updater.Target
 	)
 
-	if *update != "" {
-		updateBaseUrl, err = url.Parse(*update)
+	if !updateflag.NewInstallation() {
+		updateBaseUrl, err = updateflag.BaseURL(*httpPort, schema, *hostname, pw)
 		if err != nil {
 			return err
 		}
@@ -974,10 +869,12 @@ func logic() error {
 		if err != nil {
 			return fmt.Errorf("getting http client by tls flag: %v", err)
 		}
+		done := measure.Interactively("probing https")
 		remoteScheme, err := httpclient.GetRemoteScheme(updateBaseUrl)
+		done("")
 		if remoteScheme == "https" && !*tlsInsecure {
 			updateBaseUrl.Scheme = "https"
-			*update = updateBaseUrl.String()
+			updateflag.SetUpdate(updateBaseUrl.String())
 		}
 
 		if updateBaseUrl.Scheme != "https" && foundMatchingCertificate {
@@ -1155,7 +1052,7 @@ func logic() error {
 		fmt.Printf("Did you maybe configure a DNS server other than your router?\n\n")
 	}
 
-	if *update == "" {
+	if updateflag.NewInstallation() {
 		return nil
 	}
 
@@ -1256,51 +1153,51 @@ func logic() error {
 	}
 
 	updateBaseUrl.Path = "/"
-	fmt.Printf("Updating %s\n", *update)
+	fmt.Printf("Updating %s\n", updateBaseUrl.String())
 
 	ctx, canc := context.WithCancel(context.Background())
 	defer canc()
-	progress := &progressReporter{}
-	go progress.report(ctx)
+	prog := &progress.Reporter{}
+	go prog.Report(ctx)
 
 	{
 		start := time.Now()
-		progress.setStatus("update root file system")
-		progress.setTotal(0)
+		prog.SetStatus("update root file system")
+		prog.SetTotal(0)
 		if stater, ok := rootReader.(interface{ Stat() (os.FileInfo, error) }); ok {
 			if st, err := stater.Stat(); err == nil {
-				progress.setTotal(uint64(st.Size()))
+				prog.SetTotal(uint64(st.Size()))
 			}
 		}
 		// Start with the root file system because writing to the non-active
 		// partition cannot break the currently running system.
-		if err := target.StreamTo("root", io.TeeReader(rootReader, &progressWriter{})); err != nil {
+		if err := target.StreamTo("root", io.TeeReader(rootReader, &progress.Writer{})); err != nil {
 			return fmt.Errorf("updating root file system: %v", err)
 		}
 		duration := time.Since(start)
-		transferred := atomic.SwapUint64(&bytesTransferred, 0)
+		transferred := progress.Reset()
 		fmt.Printf("\rTransferred root file system (%s) at %.2f MiB/s (total: %v)\n",
-			humanizeBytes(transferred),
+			humanize.Bytes(transferred),
 			float64(transferred)/duration.Seconds()/1024/1024,
 			duration.Round(time.Second))
 	}
 
 	{
 		start := time.Now()
-		progress.setStatus("update boot file system")
-		progress.setTotal(0)
+		prog.SetStatus("update boot file system")
+		prog.SetTotal(0)
 		if stater, ok := bootReader.(interface{ Stat() (os.FileInfo, error) }); ok {
 			if st, err := stater.Stat(); err == nil {
-				progress.setTotal(uint64(st.Size()))
+				prog.SetTotal(uint64(st.Size()))
 			}
 		}
-		if err := target.StreamTo("boot", io.TeeReader(bootReader, &progressWriter{})); err != nil {
+		if err := target.StreamTo("boot", io.TeeReader(bootReader, &progress.Writer{})); err != nil {
 			return fmt.Errorf("updating boot file system: %v", err)
 		}
 		duration := time.Since(start)
-		transferred := atomic.SwapUint64(&bytesTransferred, 0)
+		transferred := progress.Reset()
 		fmt.Printf("\rTransferred boot file system (%s) at %.2f MiB/s (total: %v)\n",
-			humanizeBytes(transferred),
+			humanize.Bytes(transferred),
 			float64(transferred)/duration.Seconds()/1024/1024,
 			duration.Round(time.Second))
 	}
@@ -1341,11 +1238,12 @@ func main() {
 		flag.PrintDefaults()
 		os.Exit(2)
 	}
+	updateflag.RegisterFlags(flag.CommandLine)
 	flag.Parse()
 
 	gokrazyPkgs = strings.Split(*gokrazyPkgList, ",")
 
-	if *overwrite == "" && *overwriteBoot == "" && *overwriteRoot == "" && *overwriteInit == "" && *update == "" {
+	if *overwrite == "" && *overwriteBoot == "" && *overwriteRoot == "" && *overwriteInit == "" && updateflag.NewInstallation() {
 		flag.Usage()
 	}
 

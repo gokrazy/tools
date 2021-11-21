@@ -79,10 +79,11 @@ github.com/godbus/dbus/v5 v5.0.4/go.mod h1:xhWf0FNVPg57R7Z0UbKHbJfkEywrmjJnf7w5x
 github.com/gogo/protobuf v1.3.2/go.mod h1:P1XiOD3dCwIKUDQYPy72D8LYyHL2YPYrpS2s69NZV8Q=
 github.com/gokrazy/gokrazy v0.0.0-20211024151958-b718dd90ae71 h1:NHLkr4NYMY9gZGTI+jzIo38ZffMHkPbBzMcUDkyHs0g=
 github.com/gokrazy/gokrazy v0.0.0-20211024151958-b718dd90ae71/go.mod h1:eq2ROPhZJtxxEi21P8cbNqP8pwRBSpW/4LGKwNiQg2Y=
-github.com/gokrazy/internal v0.0.0-20210621162516-1b3b5687a06d h1:qk95CKJfxvU5oi3lbrVkEgID5ak1pOjTyPTdaXs6Q9E=
 github.com/gokrazy/internal v0.0.0-20210621162516-1b3b5687a06d/go.mod h1:Gqv1x1DNrObmBvVvblpZbvZizZ0dU5PwiwYHipmtY9Y=
-github.com/gokrazy/updater v0.0.0-20210130175436-d85b92498a28 h1:zIDHUypTINZyypVeJJTMQeiYXJdox4nZXaY90Aq9Lyk=
-github.com/gokrazy/updater v0.0.0-20210130175436-d85b92498a28/go.mod h1:PYOvzGOL4nlBmuxu7IyKQTFLaxr61+WPRNRzVtuYOHw=
+github.com/gokrazy/internal v0.0.0-20211121154348-81842290f34c h1:92mRiu1sN5FKQXn8xF44o0++mEmkwjr+EX1bVYgwGYs=
+github.com/gokrazy/internal v0.0.0-20211121154348-81842290f34c/go.mod h1:Gc9sU6yJ/qxg3gJZ1pjfcTAULa0swdTa4TH51g1e00E=
+github.com/gokrazy/updater v0.0.0-20211121155532-30ae8cd650ea h1:NM/sLCKWWc9mnMtJZGbwOtaAwEpCEe6tlcXWKp3LEKk=
+github.com/gokrazy/updater v0.0.0-20211121155532-30ae8cd650ea/go.mod h1:PYOvzGOL4nlBmuxu7IyKQTFLaxr61+WPRNRzVtuYOHw=
 github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b/go.mod h1:SBH7ygxi8pfUlaOkMMuAQtPIUF8ecWP5IEl/CR7VP2Q=
 github.com/golang/groupcache v0.0.0-20190702054246-869f871628b6/go.mod h1:cIg4eruTrX1D+g88fzRXU5OdNfaM+9IcxsU14FzY7Hc=
 github.com/golang/groupcache v0.0.0-20191227052852-215e87163ea7/go.mod h1:cIg4eruTrX1D+g88fzRXU5OdNfaM+9IcxsU14FzY7Hc=
