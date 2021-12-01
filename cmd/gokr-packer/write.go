@@ -188,12 +188,14 @@ func (p *pack) writeBoot(f io.Writer, mbrfilename string) error {
 	}()
 
 	globs := make([]string, 0, len(firmwareGlobs)+len(kernelGlobs))
-	firmwareDir, err := packer.PackageDir(*firmwarePackage)
-	if err != nil {
-		return err
-	}
-	for _, glob := range firmwareGlobs {
-		globs = append(globs, filepath.Join(firmwareDir, glob))
+	if *firmwarePackage != "" {
+		firmwareDir, err := packer.PackageDir(*firmwarePackage)
+		if err != nil {
+			return err
+		}
+		for _, glob := range firmwareGlobs {
+			globs = append(globs, filepath.Join(firmwareDir, glob))
+		}
 	}
 	var eepromDir string
 	if *eepromPackage != "" {
