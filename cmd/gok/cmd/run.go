@@ -85,9 +85,11 @@ func (r *runImplConfig) run(ctx context.Context, args []string) error {
 		return err
 	}
 	updateBaseUrl, err := updateflag.BaseURL("80", "http", updateHostname, pw)
+	if err != nil {
+		return err
+	}
 	target, err := updater.NewTarget(updateBaseUrl.String(), http.DefaultClient)
 	if err != nil {
-		log.Printf("%s", updateBaseUrl.String())
 		return fmt.Errorf("checking target partuuid support: %v", err)
 	}
 
