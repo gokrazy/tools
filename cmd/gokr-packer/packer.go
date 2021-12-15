@@ -1155,10 +1155,10 @@ func logic() error {
 	updateBaseUrl.Path = "/"
 	fmt.Printf("Updating %s\n", updateBaseUrl.String())
 
-	ctx, canc := context.WithCancel(context.Background())
+	progctx, canc := context.WithCancel(context.Background())
 	defer canc()
 	prog := &progress.Reporter{}
-	go prog.Report(ctx)
+	go prog.Report(progctx)
 
 	{
 		start := time.Now()
@@ -1225,9 +1225,27 @@ func logic() error {
 		return fmt.Errorf("reboot: %v", err)
 	}
 
-	fmt.Printf("Updated, should be back within 10 to 30 seconds\n")
+	// Stop progress reporting to not mess up the following logs output.
+	canc()
 
-	// TODO: poll target until it comes back healthy when -update is used
+	const polltimeout = 1 * time.Minute
+	fmt.Printf("Updated, waiting %v for the device to become reachable (cancel with Ctrl-C any time)\n", polltimeout)
+
+	pollctx, canc := context.WithTimeout(context.Background(), polltimeout)
+	defer canc()
+	for {
+		if err := pollctx.Err(); err != nil {
+			return fmt.Errorf("device did not become healthy after update (%v)", err)
+		}
+		if err := pollUpdated1(pollctx, updateHttpClient, updateBaseUrl.String(), buildTimestamp); err != nil {
+			log.Printf("device not yet reachable: %v", err)
+			time.Sleep(1 * time.Second)
+			continue
+		}
+
+		fmt.Printf("Device ready to use!\n")
+		break
+	}
 
 	return nil
 }
