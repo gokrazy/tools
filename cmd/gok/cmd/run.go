@@ -93,8 +93,10 @@ func (r *runImplConfig) run(ctx context.Context, args []string) error {
 		return fmt.Errorf("checking target partuuid support: %v", err)
 	}
 
+	progctx, canc := context.WithCancel(ctx)
+	defer canc()
 	prog := &progress.Reporter{}
-	go prog.Report(ctx)
+	go prog.Report(progctx)
 
 	f, err := os.Open(filepath.Join(tmp, basename))
 	if err != nil {
@@ -134,7 +136,13 @@ func (r *runImplConfig) run(ctx context.Context, args []string) error {
 		}
 	}
 
-	// TODO: stream logs (separate gok subcommand)
+	// Stop progress reporting to not mess up the following logs output.
+	canc()
 
-	return nil
+	// stream stdout/stderr logs
+	logsCfg := &logsImplConfig{
+		service:  basename,
+		instance: r.instance,
+	}
+	return logsCfg.run(ctx, nil)
 }
