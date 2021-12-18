@@ -44,7 +44,7 @@ func main() {
 		fmt.Printf("gokrazy device model %s\n", model)
 	}
 
-	var cmds []*exec.Cmd
+	var services []*gokrazy.Service
 {{- range $idx, $path := .Binaries }}
 {{- if ne $path "/gokrazy/init" }}
 	{
@@ -54,11 +54,16 @@ func main() {
 			{{ printf "%q" $env }},
 {{- end }}
 		)
-		cmds = append(cmds, cmd)
+{{ if DontStart $.DontStart $path }}
+		svc := gokrazy.NewStoppedService(cmd)
+{{ else }}
+		svc := gokrazy.NewService(cmd)
+{{ end }}
+		services = append(services, svc)
 	}
 {{- end }}
 {{- end }}
-	if err := gokrazy.Supervise(cmds); err != nil {
+	if err := gokrazy.SuperviseServices(services); err != nil {
 		log.Fatal(err)
 	}
 	select {}
@@ -74,12 +79,17 @@ var initTmpl = template.Must(template.New("").Funcs(template.FuncMap{
 		lines := strings.Split(contents, "\n")
 		return fmt.Sprintf("%#v, %#v...", path, lines)
 	},
+
 	"EnvFor": func(env map[string]string, path string) []string {
 		contents := strings.TrimSpace(env[filepath.Base(path)])
 		if contents == "" {
 			return nil // no environment variables
 		}
 		return strings.Split(contents, "\n")
+	},
+
+	"DontStart": func(dontStart map[string]bool, path string) bool {
+		return dontStart[filepath.Base(path)]
 	},
 }).Parse(initTmplContents))
 
@@ -99,6 +109,7 @@ type gokrazyInit struct {
 	root             *fileInfo
 	flagFileContents map[string]string
 	envFileContents  map[string]string
+	dontStart        map[string]bool
 	buildTimestamp   string
 }
 
@@ -110,11 +121,13 @@ func (g *gokrazyInit) generate() ([]byte, error) {
 		BuildTimestamp string
 		Flags          map[string]string
 		Env            map[string]string
+		DontStart      map[string]bool
 	}{
 		Binaries:       flattenFiles("/", g.root),
 		BuildTimestamp: g.buildTimestamp,
 		Flags:          g.flagFileContents,
 		Env:            g.envFileContents,
+		DontStart:      g.dontStart,
 	}); err != nil {
 		return nil, err
 	}

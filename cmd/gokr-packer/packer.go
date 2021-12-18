@@ -371,6 +371,39 @@ func findExtraFiles() (map[string]*fileInfo, error) {
 	return extraFiles, nil
 }
 
+func findDontStart() (map[string]bool, error) {
+	dontStartPaths, err := findPackageFiles("dontstart")
+	if err != nil {
+		return nil, err
+	}
+
+	if len(dontStartPaths) == 0 {
+		return nil, nil // no dontstart.txt files found
+	}
+
+	buildPackages := buildPackagesFromFlags()
+
+	contents := make(map[string]bool)
+	for _, p := range dontStartPaths {
+		pkg := strings.TrimSuffix(strings.TrimPrefix(p.path, "dontstart/"), "/dontstart.txt")
+		if !buildPackages[pkg] {
+			log.Printf("WARNING: environment variable file %s does not match any specified package (%s)", pkg, flag.Args())
+			continue
+		}
+		packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
+			kind:         "not be started at boot",
+			path:         p.path,
+			lastModified: p.modTime,
+		})
+
+		// NOTE: ideally we would use the full package here, but our init
+		// template only deals with base names right now.
+		contents[filepath.Base(pkg)] = true
+	}
+
+	return contents, nil
+}
+
 type countingWriter int64
 
 func (cw *countingWriter) Write(p []byte) (n int, err error) {
@@ -676,6 +709,11 @@ func logic() error {
 		return err
 	}
 
+	dontStart, err := findDontStart()
+	if err != nil {
+		return err
+	}
+
 	args := flag.Args()
 	fmt.Printf("Building %d Go packages:\n\n", len(args))
 	for _, pkg := range args {
@@ -714,6 +752,7 @@ func logic() error {
 			flagFileContents: flagFileContents,
 			envFileContents:  envFileContents,
 			buildTimestamp:   buildTimestamp,
+			dontStart:        dontStart,
 		}
 		if *overwriteInit != "" {
 			return gokrazyInit.dump(*overwriteInit)
