@@ -1267,7 +1267,7 @@ func logic() error {
 	// Stop progress reporting to not mess up the following logs output.
 	canc()
 
-	const polltimeout = 1 * time.Minute
+	const polltimeout = 5 * time.Minute
 	fmt.Printf("Updated, waiting %v for the device to become reachable (cancel with Ctrl-C any time)\n", polltimeout)
 
 	pollctx, canc := context.WithTimeout(context.Background(), polltimeout)
