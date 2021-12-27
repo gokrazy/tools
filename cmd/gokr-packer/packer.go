@@ -734,8 +734,12 @@ func logic() error {
 	pkgs = append(pkgs, packer.InitDeps(*initPkg)...)
 	noBuildPkgs := []string{
 		*kernelPackage,
-		*firmwarePackage,
-		*eepromPackage,
+	}
+	if *firmwarePackage != "" {
+		noBuildPkgs = append(noBuildPkgs, *firmwarePackage)
+	}
+	if *eepromPackage != "" {
+		noBuildPkgs = append(noBuildPkgs, *eepromPackage)
 	}
 	if err := packer.Build(tmp, pkgs, packageBuildFlags, noBuildPkgs); err != nil {
 		return err
