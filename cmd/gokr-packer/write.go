@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gokrazy/internal/deviceconfig"
 	"github.com/gokrazy/internal/fat"
 	"github.com/gokrazy/internal/humanize"
 	"github.com/gokrazy/internal/mbr"
@@ -173,6 +174,7 @@ var (
 		"*.sig",
 	}
 	kernelGlobs = []string{
+		"boot.scr", // u-boot script file
 		"vmlinuz",
 		"*.dtb",
 	}
@@ -209,6 +211,7 @@ func (p *pack) writeBoot(f io.Writer, mbrfilename string) error {
 	if err != nil {
 		return err
 	}
+
 	fmt.Printf("\nKernel directory: %s\n", kernelDir)
 	for _, glob := range kernelGlobs {
 		globs = append(globs, filepath.Join(kernelDir, glob))
@@ -532,6 +535,30 @@ func writeRoot(f io.WriteSeeker, root *fileInfo) error {
 	}
 
 	return fw.Flush()
+}
+
+func writeRootDeviceFiles(f io.WriteSeeker, rootDeviceFiles []deviceconfig.RootFile) error {
+	kernelDir, err := packer.PackageDir(*kernelPackage)
+	if err != nil {
+		return err
+	}
+
+	for _, rootFile := range rootDeviceFiles {
+		if _, err := f.Seek(rootFile.Offset, io.SeekStart); err != nil {
+			return err
+		}
+
+		source, err := os.Open(filepath.Join(kernelDir, rootFile.Name))
+		if err != nil {
+			return err
+		}
+		if _, err := io.Copy(f, source); err != nil {
+			return err
+		}
+		_ = source.Close()
+	}
+
+	return nil
 }
 
 func writeMBR(f io.ReadSeeker, fw io.WriteSeeker, partuuid uint32) error {
