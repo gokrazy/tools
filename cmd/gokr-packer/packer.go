@@ -395,11 +395,44 @@ func findDontStart() (map[string]bool, error) {
 	for _, p := range dontStartPaths {
 		pkg := strings.TrimSuffix(strings.TrimPrefix(p.path, "dontstart/"), "/dontstart.txt")
 		if !buildPackages[pkg] {
-			log.Printf("WARNING: environment variable file %s does not match any specified package (%s)", pkg, flag.Args())
+			log.Printf("WARNING: dontstart.txt file %s does not match any specified package (%s)", pkg, flag.Args())
 			continue
 		}
 		packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
 			kind:         "not be started at boot",
+			path:         p.path,
+			lastModified: p.modTime,
+		})
+
+		// NOTE: ideally we would use the full package here, but our init
+		// template only deals with base names right now.
+		contents[filepath.Base(pkg)] = true
+	}
+
+	return contents, nil
+}
+
+func findWaitForClock() (map[string]bool, error) {
+	waitForClockPaths, err := findPackageFiles("waitforclock")
+	if err != nil {
+		return nil, err
+	}
+
+	if len(waitForClockPaths) == 0 {
+		return nil, nil // no waitforclock.txt files found
+	}
+
+	buildPackages := buildPackagesFromFlags()
+
+	contents := make(map[string]bool)
+	for _, p := range waitForClockPaths {
+		pkg := strings.TrimSuffix(strings.TrimPrefix(p.path, "waitforclock/"), "/waitforclock.txt")
+		if !buildPackages[pkg] {
+			log.Printf("WARNING: waitforclock.txt file %s does not match any specified package (%s)", pkg, flag.Args())
+			continue
+		}
+		packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
+			kind:         "wait for clock synchronization before start",
 			path:         p.path,
 			lastModified: p.modTime,
 		})
@@ -734,6 +767,11 @@ func logic() error {
 		return err
 	}
 
+	waitForClock, err := findWaitForClock()
+	if err != nil {
+		return err
+	}
+
 	var mbrOnlyWithoutGpt bool
 	var rootDeviceFiles []deviceconfig.RootFile
 	if *deviceType != "" {
@@ -788,6 +826,7 @@ func logic() error {
 			envFileContents:  envFileContents,
 			buildTimestamp:   buildTimestamp,
 			dontStart:        dontStart,
+			waitForClock:     waitForClock,
 		}
 		if *overwriteInit != "" {
 			return gokrazyInit.dump(*overwriteInit)

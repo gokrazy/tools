@@ -79,8 +79,8 @@ github.com/go-gl/glfw/v3.3/glfw v0.0.0-20191125211704-12ad95a8df72/go.mod h1:tQ2
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
 github.com/godbus/dbus/v5 v5.0.4/go.mod h1:xhWf0FNVPg57R7Z0UbKHbJfkEywrmjJnf7w5xrFpKfA=
 github.com/gogo/protobuf v1.3.2/go.mod h1:P1XiOD3dCwIKUDQYPy72D8LYyHL2YPYrpS2s69NZV8Q=
-github.com/gokrazy/gokrazy v0.0.0-20220111192931-e42cbd86b3f2 h1:8tFhu/kSaoxF6IGLkI5qtKIE2zaR1vqjTIFiAL+iGo4=
-github.com/gokrazy/gokrazy v0.0.0-20220111192931-e42cbd86b3f2/go.mod h1:z9nzDhiz6f52Zp21WSGnRzW2MlLBrsJdNLxXZoMti2w=
+github.com/gokrazy/gokrazy v0.0.0-20220113081925-ca0fa4174944 h1:aZgg4MvvoNdhEgfKxCNi3eCjvtfcJBS3GklxM09Ob4I=
+github.com/gokrazy/gokrazy v0.0.0-20220113081925-ca0fa4174944/go.mod h1:z9nzDhiz6f52Zp21WSGnRzW2MlLBrsJdNLxXZoMti2w=
 github.com/gokrazy/internal v0.0.0-20220111191949-698f19a074ef/go.mod h1:Gc9sU6yJ/qxg3gJZ1pjfcTAULa0swdTa4TH51g1e00E=
 github.com/gokrazy/internal v0.0.0-20220113080712-36e28c66122e h1:L1StUIenFuTgn5tPTOrqjgbGY33pPXST1swQ1YzHJbY=
 github.com/gokrazy/internal v0.0.0-20220113080712-36e28c66122e/go.mod h1:Gc9sU6yJ/qxg3gJZ1pjfcTAULa0swdTa4TH51g1e00E=

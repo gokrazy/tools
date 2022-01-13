@@ -5,7 +5,7 @@ go 1.17
 require (
 	github.com/breml/rootcerts v0.2.0
 	github.com/donovanhide/eventsource v0.0.0-20210830082556-c59027999da0
-	github.com/gokrazy/gokrazy v0.0.0-20220111192931-e42cbd86b3f2
+	github.com/gokrazy/gokrazy v0.0.0-20220113081925-ca0fa4174944
 	github.com/gokrazy/internal v0.0.0-20220113080712-36e28c66122e
 	github.com/gokrazy/updater v0.0.0-20211121155532-30ae8cd650ea
 	github.com/spf13/cobra v1.2.1
