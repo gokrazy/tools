@@ -387,7 +387,7 @@ func findDontStart() (map[string]bool, error) {
 	for _, p := range dontStartPaths {
 		pkg := strings.TrimSuffix(strings.TrimPrefix(p.path, "dontstart/"), "/dontstart.txt")
 		if !buildPackages[pkg] {
-			log.Printf("WARNING: environment variable file %s does not match any specified package (%s)", pkg, flag.Args())
+			log.Printf("WARNING: dontstart.txt file %s does not match any specified package (%s)", pkg, flag.Args())
 			continue
 		}
 		packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
