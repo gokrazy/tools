@@ -21,6 +21,7 @@ type Pack struct {
 	Partuuid       uint32
 	UsePartuuid    bool
 	UseGPTPartuuid bool
+	UseGPT         bool
 }
 
 func NewPackForHost(hostname string) Pack {
@@ -30,6 +31,7 @@ func NewPackForHost(hostname string) Pack {
 		Partuuid:       h.Sum32(),
 		UsePartuuid:    true,
 		UseGPTPartuuid: true,
+		UseGPT:         true,
 	}
 }
 
@@ -125,6 +127,57 @@ func writePartitionTable(w io.Writer, devsize uint64) error {
 
 		[16]byte{}, // partition 3
 		[16]byte{}, // partition 4
+
+		signature,
+	} {
+		if err := binary.Write(w, binary.LittleEndian, v); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// writeMBRPartitionTable writes an MBR-only partition table. This is useful
+// when the device requires blobs to be present in disk sectors otherwise occupied
+// by GPT metadata. For example, Odroid HC2 clobbers sectors 1-2046 with binary blobs
+// required for booting - these devices are incompatible with GPT. See
+// https://wiki.odroid.com/odroid-xu4/software/partition_table#ubuntu_partition_table.
+func writeMBRPartitionTable(w io.Writer, devsize uint64) error {
+	for _, v := range []interface{}{
+		[446]byte{}, // boot code
+
+		// Partition 1 must be present for the Raspberry Pi bootloader
+		active,
+		invalidCHS,
+		FAT,
+		invalidCHS,
+		uint32(8192),           // start at 8192 sectors
+		uint32(100 * MB / 512), // 100MB in size
+
+		// Partition 2 is squash partition 1.
+		inactive,
+		invalidCHS,
+		Linux,
+		invalidCHS,
+		uint32(8192 + 100*MB/512),
+		uint32(500 * MB / 512),
+
+		// Partition 3 is squash partition 2.
+		inactive,
+		invalidCHS,
+		Linux,
+		invalidCHS,
+		uint32(8192 + 600*MB/512),
+		uint32(500 * MB / 512),
+
+		// Partition 4 is the perm partition.
+		inactive,
+		invalidCHS,
+		Linux,
+		invalidCHS,
+		uint32(8192 + 1100*MB/512),
+		uint32(devsize/512 - 8192 - 1100*MB/512),
 
 		signature,
 	} {
@@ -359,6 +412,10 @@ func (p *Pack) writeGPT(w io.Writer, devsize uint64, primary bool) error {
 }
 
 func (p *Pack) Partition(o *os.File, devsize uint64) error {
+	if !p.UseGPT {
+		return writeMBRPartitionTable(o, devsize)
+	}
+
 	if err := writePartitionTable(o, devsize); err != nil {
 		return err
 	}
