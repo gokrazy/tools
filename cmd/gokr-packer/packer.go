@@ -424,7 +424,7 @@ func findWaitForClock() (map[string]bool, error) {
 			continue
 		}
 		packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
-			kind:         "wait for the clock before start",
+			kind:         "wait for clock synchronization before start",
 			path:         p.path,
 			lastModified: p.modTime,
 		})

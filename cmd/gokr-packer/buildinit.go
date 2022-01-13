@@ -57,7 +57,7 @@ func main() {
 {{ if DontStart $.DontStart $path }}
 		svc := gokrazy.NewStoppedService(cmd)
 {{ else if WaitForClock $.WaitForClock $path }}
-		svc := gokrazy.NewDelayedService(cmd)
+		svc := gokrazy.NewWaitForClockService(cmd)
 {{ else }}
 		svc := gokrazy.NewService(cmd)
 {{ end }}
