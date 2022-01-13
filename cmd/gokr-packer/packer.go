@@ -6,6 +6,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -25,6 +26,7 @@ import (
 	// Imported so that the go tool will download the repositories
 	_ "github.com/gokrazy/gokrazy/empty"
 
+	"github.com/gokrazy/internal/deviceconfig"
 	"github.com/gokrazy/internal/httpclient"
 	"github.com/gokrazy/internal/humanize"
 	"github.com/gokrazy/internal/progress"
@@ -106,6 +108,12 @@ You can also create your own certificate-key-pair (e.g. by using https://github.
 	testboot = flag.Bool("testboot",
 		false,
 		"Trigger a testboot instead of switching to the new root partition directly")
+
+	deviceType = flag.String("device_type",
+		"",
+		`Device type identifier (defined in github.com/gokrazy/internal/deviceconfig) used for applying device-specific modifications to gokrazy.
+e.g. -device_type=odroidhc1 to apply MBR changes and device-specific bootloader files for Odroid XU4/HC1/HC2.
+Defaults to an empty string.`)
 )
 
 var gokrazyPkgs []string
@@ -499,11 +507,15 @@ func verifyNotMounted(dev string) error {
 	return nil
 }
 
-func (p *pack) overwriteDevice(dev string, root *fileInfo) error {
+func (p *pack) overwriteDevice(dev string, root *fileInfo, rootDeviceFiles []deviceconfig.RootFile) error {
 	if err := verifyNotMounted(dev); err != nil {
 		return err
 	}
-	log.Printf("partitioning %s (GPT + Hybrid MBR)", dev)
+	parttable := "GPT + Hybrid MBR"
+	if !p.UseGPT {
+		parttable = "no GPT, only MBR"
+	}
+	log.Printf("partitioning %s (%s)", dev, parttable)
 
 	f, err := p.partition(*overwrite)
 	if err != nil {
@@ -545,6 +557,10 @@ func (p *pack) overwriteDevice(dev string, root *fileInfo) error {
 		return err
 	}
 
+	if err := writeRootDeviceFiles(f, rootDeviceFiles); err != nil {
+		return err
+	}
+
 	if err := f.Close(); err != nil {
 		return err
 	}
@@ -578,7 +594,7 @@ func (ors *offsetReadSeeker) Seek(offset int64, whence int) (int64, error) {
 	return ors.ReadSeeker.Seek(offset, whence)
 }
 
-func (p *pack) overwriteFile(filename string, root *fileInfo) (bootSize int64, rootSize int64, err error) {
+func (p *pack) overwriteFile(filename string, root *fileInfo, rootDeviceFiles []deviceconfig.RootFile) (bootSize int64, rootSize int64, err error) {
 	f, err := os.Create(*overwrite)
 	if err != nil {
 		return 0, 0, err
@@ -624,6 +640,10 @@ func (p *pack) overwriteFile(filename string, root *fileInfo) (bootSize int64, r
 
 	var rs countingWriter
 	if _, err := io.Copy(io.MultiWriter(f, &rs), tmp); err != nil {
+		return 0, 0, err
+	}
+
+	if err := writeRootDeviceFiles(f, rootDeviceFiles); err != nil {
 		return 0, 0, err
 	}
 
@@ -750,6 +770,17 @@ func logic() error {
 	waitForClock, err := findWaitForClock()
 	if err != nil {
 		return err
+	}
+
+	var mbrOnlyWithoutGpt bool
+	var rootDeviceFiles []deviceconfig.RootFile
+	if *deviceType != "" {
+		if cfg, ok := deviceconfig.GetDeviceConfigBySlug(*deviceType); ok {
+			rootDeviceFiles = cfg.RootDeviceFiles
+			mbrOnlyWithoutGpt = cfg.MBROnlyWithoutGPT
+		} else {
+			return fmt.Errorf("unknown device slug %q", *deviceType)
+		}
 	}
 
 	args := flag.Args()
@@ -928,12 +959,17 @@ func logic() error {
 		}
 	}
 
-	newInstallation := updateflag.NewInstallation()
 	p := pack{
 		Pack: packer.NewPackForHost(*hostname),
 	}
+
+	newInstallation := updateflag.NewInstallation()
+	useGPT := newInstallation && !mbrOnlyWithoutGpt
+
 	p.Pack.UsePartuuid = newInstallation
-	p.Pack.UseGPTPartuuid = newInstallation
+	p.Pack.UseGPTPartuuid = useGPT
+	p.Pack.UseGPT = useGPT
+
 	var (
 		updateHttpClient         *http.Client
 		foundMatchingCertificate bool
@@ -984,9 +1020,11 @@ func logic() error {
 		}
 		p.UsePartuuid = target.Supports("partuuid")
 		p.UseGPTPartuuid = target.Supports("gpt")
+		p.UseGPT = target.Supports("gpt")
 	}
 	fmt.Printf("\n")
 	fmt.Printf("Feature summary:\n")
+	fmt.Printf("  use GPT: %v\n", p.UseGPT)
 	fmt.Printf("  use PARTUUID: %v\n", p.UsePartuuid)
 	fmt.Printf("  use GPT PARTUUID: %v\n", p.UseGPTPartuuid)
 
@@ -1006,7 +1044,7 @@ func logic() error {
 		isDev = err == nil && st.Mode()&os.ModeDevice == os.ModeDevice
 
 		if isDev {
-			if err := p.overwriteDevice(*overwrite, root); err != nil {
+			if err := p.overwriteDevice(*overwrite, root, rootDeviceFiles); err != nil {
 				return err
 			}
 			fmt.Printf("To boot gokrazy, plug the SD card into a Raspberry Pi 3 or 4 (no other models supported)\n")
@@ -1024,7 +1062,7 @@ func logic() error {
 				return fmt.Errorf("-target_storage_bytes must be at least %d (for boot + 2 root file systems + 100 MB /perm)", lower)
 			}
 
-			bootSize, rootSize, err = p.overwriteFile(*overwrite, root)
+			bootSize, rootSize, err = p.overwriteFile(*overwrite, root, rootDeviceFiles)
 			if err != nil {
 				return err
 			}
@@ -1242,46 +1280,36 @@ func logic() error {
 	prog := &progress.Reporter{}
 	go prog.Report(progctx)
 
-	{
-		start := time.Now()
-		prog.SetStatus("update root file system")
-		prog.SetTotal(0)
-		if stater, ok := rootReader.(interface{ Stat() (os.FileInfo, error) }); ok {
-			if st, err := stater.Stat(); err == nil {
-				prog.SetTotal(uint64(st.Size()))
-			}
-		}
-		// Start with the root file system because writing to the non-active
-		// partition cannot break the currently running system.
-		if err := target.StreamTo("root", io.TeeReader(rootReader, &progress.Writer{})); err != nil {
-			return fmt.Errorf("updating root file system: %v", err)
-		}
-		duration := time.Since(start)
-		transferred := progress.Reset()
-		fmt.Printf("\rTransferred root file system (%s) at %.2f MiB/s (total: %v)\n",
-			humanize.Bytes(transferred),
-			float64(transferred)/duration.Seconds()/1024/1024,
-			duration.Round(time.Second))
+	// Start with the root file system because writing to the non-active
+	// partition cannot break the currently running system.
+	if err := updateWithProgress(prog, rootReader, target, "root file system", "root"); err != nil {
+		return err
 	}
 
-	{
-		start := time.Now()
-		prog.SetStatus("update boot file system")
-		prog.SetTotal(0)
-		if stater, ok := bootReader.(interface{ Stat() (os.FileInfo, error) }); ok {
-			if st, err := stater.Stat(); err == nil {
-				prog.SetTotal(uint64(st.Size()))
+	kernelDir, err := packer.PackageDir(*kernelPackage)
+	if err != nil {
+		return err
+	}
+	for _, rootDeviceFile := range rootDeviceFiles {
+		f, err := os.Open(filepath.Join(kernelDir, rootDeviceFile.Name))
+		if err != nil {
+			return err
+		}
+
+		if err := updateWithProgress(
+			prog, f, target, fmt.Sprintf("root device file %s", rootDeviceFile.Name),
+			filepath.Join("device-specific", rootDeviceFile.Name),
+		); err != nil {
+			if errors.As(err, updater.ErrUpdateHandlerNotImplemented) {
+				log.Printf("target does not support updating device file %s yet, ignoring", rootDeviceFile.Name)
+				continue
 			}
+			return err
 		}
-		if err := target.StreamTo("boot", io.TeeReader(bootReader, &progress.Writer{})); err != nil {
-			return fmt.Errorf("updating boot file system: %v", err)
-		}
-		duration := time.Since(start)
-		transferred := progress.Reset()
-		fmt.Printf("\rTransferred boot file system (%s) at %.2f MiB/s (total: %v)\n",
-			humanize.Bytes(transferred),
-			float64(transferred)/duration.Seconds()/1024/1024,
-			duration.Round(time.Second))
+	}
+
+	if err := updateWithProgress(prog, bootReader, target, "boot file system", "boot"); err != nil {
+		return err
 	}
 
 	if err := target.StreamTo("mbr", mbrReader); err != nil {
@@ -1328,6 +1356,30 @@ func logic() error {
 		fmt.Printf("Device ready to use!\n")
 		break
 	}
+
+	return nil
+}
+
+func updateWithProgress(prog *progress.Reporter, reader io.Reader, target *updater.Target, logStr string, stream string) error {
+	start := time.Now()
+	prog.SetStatus(fmt.Sprintf("update %s", logStr))
+	prog.SetTotal(0)
+
+	if stater, ok := reader.(interface{ Stat() (os.FileInfo, error) }); ok {
+		if st, err := stater.Stat(); err == nil {
+			prog.SetTotal(uint64(st.Size()))
+		}
+	}
+	if err := target.StreamTo(stream, io.TeeReader(reader, &progress.Writer{})); err != nil {
+		return fmt.Errorf("updating %s: %w", logStr, err)
+	}
+	duration := time.Since(start)
+	transferred := progress.Reset()
+	fmt.Printf("\rTransferred %s (%s) at %.2f MiB/s (total: %v)\n",
+		logStr,
+		humanize.Bytes(transferred),
+		float64(transferred)/duration.Seconds()/1024/1024,
+		duration.Round(time.Second))
 
 	return nil
 }
