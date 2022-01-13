@@ -1261,7 +1261,7 @@ func logic() error {
 			prog, f, target, fmt.Sprintf("root device file %s", rootDeviceFile.Name),
 			filepath.Join("device-specific", rootDeviceFile.Name),
 		); err != nil {
-			if errors.As(err, updater.ErrUpdateHandlerNotImplemented) {
+			if errors.Is(err, updater.ErrUpdateHandlerNotImplemented) {
 				log.Printf("target does not support updating device file %s yet, ignoring", rootDeviceFile.Name)
 				continue
 			}
