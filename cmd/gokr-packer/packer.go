@@ -851,10 +851,29 @@ func logic() error {
 		return err
 	}
 
-	for _, dir := range []string{"dev", "etc", "proc", "sys", "tmp", "perm"} {
+	for _, dir := range []string{"dev", "etc", "proc", "sys", "tmp", "perm", "lib"} {
 		root.dirents = append(root.dirents, &fileInfo{
 			filename: dir,
 		})
+	}
+
+	// include lib/modules from kernelPackage dir, if present
+	kernelDir, err := packer.PackageDir(*kernelPackage)
+	if err != nil {
+		return err
+	}
+	modulesDir := filepath.Join(kernelDir, "lib", "modules")
+	if _, err := os.Stat(modulesDir); err == nil {
+		log.Printf("Adding loadable kernel modules from modulesDir=%s", modulesDir)
+		modules := &fileInfo{
+			filename: "modules",
+		}
+		err, _ := addToFileInfo(modules, modulesDir)
+		if err != nil {
+			return err
+		}
+		lib := root.mustFindDirent("lib")
+		lib.dirents = append(lib.dirents, modules)
 	}
 
 	etc := root.mustFindDirent("etc")
@@ -1286,10 +1305,6 @@ func logic() error {
 		return err
 	}
 
-	kernelDir, err := packer.PackageDir(*kernelPackage)
-	if err != nil {
-		return err
-	}
 	for _, rootDeviceFile := range rootDeviceFiles {
 		f, err := os.Open(filepath.Join(kernelDir, rootDeviceFile.Name))
 		if err != nil {
