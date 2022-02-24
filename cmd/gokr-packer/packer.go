@@ -303,10 +303,11 @@ func addToFileInfo(parent *fileInfo, path string) (error, time.Time) {
 
 	var latestTime time.Time
 	for _, entry := range entries {
+		filename := entry.Name()
 		// get existing file info
 		var fi *fileInfo
 		for _, ent := range parent.dirents {
-			if ent.filename == entry.Name() {
+			if ent.filename == filename {
 				fi = ent
 				break
 			}
@@ -316,6 +317,12 @@ func addToFileInfo(parent *fileInfo, path string) (error, time.Time) {
 		if err != nil {
 			return err, time.Time{}
 		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			info, err = os.Stat(filepath.Join(path, filename))
+			if err != nil {
+				return err, time.Time{}
+			}
+		}
 
 		if latestTime.Before(info.ModTime()) {
 			latestTime = info.ModTime()
@@ -324,20 +331,20 @@ func addToFileInfo(parent *fileInfo, path string) (error, time.Time) {
 		// or create if not exist
 		if fi == nil {
 			fi = &fileInfo{
-				filename: entry.Name(),
+				filename: filename,
 				mode:     info.Mode(),
 			}
 			parent.dirents = append(parent.dirents, fi)
 		} else {
 			// file overwrite is not supported -> return error
-			if !entry.IsDir() || fi.fromHost != "" || fi.fromLiteral != "" {
-				return fmt.Errorf("file already exists in filesystem: %s", filepath.Join(path, entry.Name())), time.Time{}
+			if !info.IsDir() || fi.fromHost != "" || fi.fromLiteral != "" {
+				return fmt.Errorf("file already exists in filesystem: %s", filepath.Join(path, filename)), time.Time{}
 			}
 		}
 
 		// add content
-		if entry.IsDir() {
-			err, modTime := addToFileInfo(fi, filepath.Join(path, entry.Name()))
+		if info.IsDir() {
+			err, modTime := addToFileInfo(fi, filepath.Join(path, filename))
 			if err != nil {
 				return err, time.Time{}
 			}
@@ -345,7 +352,7 @@ func addToFileInfo(parent *fileInfo, path string) (error, time.Time) {
 				latestTime = modTime
 			}
 		} else {
-			fi.fromHost = filepath.Join(path, entry.Name())
+			fi.fromHost = filepath.Join(path, filename)
 		}
 	}
 
