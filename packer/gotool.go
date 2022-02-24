@@ -166,7 +166,7 @@ func MainPackages(paths []string) ([]Pkg, error) {
 }
 
 func PackageDir(pkg string) (string, error) {
-	cmd := exec.Command("go", "list", "-tags", "gokrazy", "-f", "{{ .Dir }}", pkg)
+	cmd := exec.Command("go", "list", "-mod=mod", "-tags", "gokrazy", "-f", "{{ .Dir }}", pkg)
 	cmd.Stderr = os.Stderr
 	b, err := cmd.Output()
 	if err != nil {
@@ -176,7 +176,7 @@ func PackageDir(pkg string) (string, error) {
 }
 
 func PackageDirs(pkgs []string) ([]string, error) {
-	cmd := exec.Command("go", append([]string{"list", "-tags", "gokrazy", "-f", "{{ .Dir }}"}, pkgs...)...)
+	cmd := exec.Command("go", append([]string{"list", "-mod=mod", "-tags", "gokrazy", "-f", "{{ .Dir }}"}, pkgs...)...)
 	cmd.Stderr = os.Stderr
 	b, err := cmd.Output()
 	if err != nil {
