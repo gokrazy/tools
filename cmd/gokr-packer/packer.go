@@ -158,13 +158,24 @@ type packageConfigFile struct {
 // packageConfigFiles is a map from package path to packageConfigFile, for constructing output that is keyed per package
 var packageConfigFiles = make(map[string][]packageConfigFile)
 
-func buildPackagesFromFlags() map[string]bool {
+func buildPackageMapFromFlags() map[string]bool {
 	buildPackages := make(map[string]bool)
 	for _, pkg := range flag.Args() {
 		buildPackages[pkg] = true
 	}
 	for _, pkg := range gokrazyPkgs {
 		buildPackages[pkg] = true
+	}
+	return buildPackages
+}
+
+func buildPackagesFromFlags() []string {
+	var buildPackages []string
+	for _, pkg := range flag.Args() {
+		buildPackages = append(buildPackages, pkg)
+	}
+	for _, pkg := range gokrazyPkgs {
+		buildPackages = append(buildPackages, pkg)
 	}
 	return buildPackages
 }
@@ -179,7 +190,7 @@ func findFlagFiles() (map[string]string, error) {
 		return nil, nil // no flags.txt files found
 	}
 
-	buildPackages := buildPackagesFromFlags()
+	buildPackages := buildPackageMapFromFlags()
 
 	contents := make(map[string]string)
 	for _, p := range flagFilePaths {
@@ -216,7 +227,7 @@ func findBuildFlagsFiles() (map[string][]string, error) {
 		return nil, nil // no flags.txt files found
 	}
 
-	buildPackages := buildPackagesFromFlags()
+	buildPackages := buildPackageMapFromFlags()
 
 	contents := make(map[string][]string)
 	for _, p := range buildFlagsFilePaths {
@@ -265,7 +276,7 @@ func findEnvFiles() (map[string]string, error) {
 		return nil, nil // no flags.txt files found
 	}
 
-	buildPackages := buildPackagesFromFlags()
+	buildPackages := buildPackageMapFromFlags()
 
 	contents := make(map[string]string)
 	for _, p := range buildFlagsFilePaths {
@@ -359,28 +370,49 @@ func addToFileInfo(parent *fileInfo, path string) (error, time.Time) {
 	return nil, latestTime
 }
 
+func findExtraFilesInDir(pkg, dir string, extraFiles map[string]*fileInfo) error {
+	fi := new(fileInfo)
+	err, latestModTime := addToFileInfo(fi, dir)
+	if err != nil {
+		return err
+	}
+	if len(fi.dirents) == 0 {
+		return nil
+	}
+
+	packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
+		kind:         "include extra files in the root file system",
+		path:         dir,
+		lastModified: latestModTime,
+	})
+
+	extraFiles[pkg] = fi
+	return nil
+}
+
 func findExtraFiles() (map[string]*fileInfo, error) {
 	buildPackages := buildPackagesFromFlags()
 	extraFiles := make(map[string]*fileInfo, len(buildPackages))
-	for pkg := range buildPackages {
-		path := filepath.Join("extrafiles", pkg)
-
-		fi := new(fileInfo)
-		err, latestModTime := addToFileInfo(fi, path)
-		if err != nil {
-			return nil, err
+	packageDirs, err := packer.PackageDirs(buildPackages)
+	if err != nil {
+		return nil, err
+	}
+	for idx, pkg := range buildPackages {
+		{
+			// Look for extra files in $PWD/extrafiles/<pkg>/
+			dir := filepath.Join("extrafiles", pkg)
+			if err := findExtraFilesInDir(pkg, dir, extraFiles); err != nil {
+				return nil, err
+			}
 		}
-		if len(fi.dirents) == 0 {
-			continue
+		{
+			// Look for extra files in <pkg>/_gokrazy/extrafiles/
+			dir := packageDirs[idx]
+			subdir := filepath.Join(dir, "_gokrazy", "extrafiles")
+			if err := findExtraFilesInDir(pkg, subdir, extraFiles); err != nil {
+				return nil, err
+			}
 		}
-
-		packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
-			kind:         "include extra files in the root file system",
-			path:         path,
-			lastModified: latestModTime,
-		})
-
-		extraFiles[pkg] = fi
 	}
 
 	return extraFiles, nil
@@ -396,7 +428,7 @@ func findDontStart() (map[string]bool, error) {
 		return nil, nil // no dontstart.txt files found
 	}
 
-	buildPackages := buildPackagesFromFlags()
+	buildPackages := buildPackageMapFromFlags()
 
 	contents := make(map[string]bool)
 	for _, p := range dontStartPaths {
@@ -429,7 +461,7 @@ func findWaitForClock() (map[string]bool, error) {
 		return nil, nil // no waitforclock.txt files found
 	}
 
-	buildPackages := buildPackagesFromFlags()
+	buildPackages := buildPackageMapFromFlags()
 
 	contents := make(map[string]bool)
 	for _, p := range waitForClockPaths {

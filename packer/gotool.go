@@ -174,3 +174,13 @@ func PackageDir(pkg string) (string, error) {
 	}
 	return strings.TrimSpace(string(b)), nil
 }
+
+func PackageDirs(pkgs []string) ([]string, error) {
+	cmd := exec.Command("go", append([]string{"list", "-tags", "gokrazy", "-f", "{{ .Dir }}"}, pkgs...)...)
+	cmd.Stderr = os.Stderr
+	b, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("%v: %v", cmd.Args, err)
+	}
+	return strings.Split(strings.TrimSpace(string(b)), "\n"), nil
+}
