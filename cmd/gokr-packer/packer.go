@@ -164,6 +164,9 @@ func buildPackageMapFromFlags() map[string]bool {
 		buildPackages[pkg] = true
 	}
 	for _, pkg := range gokrazyPkgs {
+		if strings.TrimSpace(pkg) == "" {
+			continue
+		}
 		buildPackages[pkg] = true
 	}
 	return buildPackages
@@ -175,6 +178,9 @@ func buildPackagesFromFlags() []string {
 		buildPackages = append(buildPackages, pkg)
 	}
 	for _, pkg := range gokrazyPkgs {
+		if strings.TrimSpace(pkg) == "" {
+			continue
+		}
 		buildPackages = append(buildPackages, pkg)
 	}
 	return buildPackages
