@@ -741,7 +741,7 @@ func logic() error {
 	if ok {
 		version = fmt.Sprint(info.Main.Version)
 	}
-	fmt.Printf("gokrazy packer v%s on GOARCH=%s GOOS=%s\n\n", version, runtime.GOARCH, runtime.GOOS)
+	fmt.Printf("gokrazy packer %s on GOARCH=%s GOOS=%s\n\n", version, runtime.GOARCH, runtime.GOOS)
 
 	// TODO: print the config directories which are used (host-specific config,
 	// gokrazy config)
