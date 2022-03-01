@@ -1,10 +1,19 @@
 package packer
 
-import "golang.org/x/sys/unix"
+import (
+	"os"
 
-func rereadPartitions(fd uintptr) error {
-	if _, _, errno := unix.Syscall(unix.SYS_IOCTL, fd, unix.BLKRRPART, 0); errno != 0 {
+	"golang.org/x/sys/unix"
+)
+
+func rereadPartitions(o *os.File) error {
+	if _, _, errno := unix.Syscall(unix.SYS_IOCTL, uintptr(o.Fd()), unix.BLKRRPART, 0); errno != 0 {
 		return errno
 	}
+
+	if err := o.Sync(); err != nil {
+		return err
+	}
+
 	return nil
 }
