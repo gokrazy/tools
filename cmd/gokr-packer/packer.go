@@ -376,7 +376,7 @@ func addToFileInfo(parent *fileInfo, path string) (error, time.Time) {
 	return nil, latestTime
 }
 
-func findExtraFilesInDir(pkg, dir string, extraFiles map[string]*fileInfo) error {
+func findExtraFilesInDir(pkg, dir string, extraFiles map[string][]*fileInfo) error {
 	fi := new(fileInfo)
 	err, latestModTime := addToFileInfo(fi, dir)
 	if err != nil {
@@ -392,13 +392,13 @@ func findExtraFilesInDir(pkg, dir string, extraFiles map[string]*fileInfo) error
 		lastModified: latestModTime,
 	})
 
-	extraFiles[pkg] = fi
+	extraFiles[pkg] = append(extraFiles[pkg], fi)
 	return nil
 }
 
-func findExtraFiles() (map[string]*fileInfo, error) {
+func findExtraFiles() (map[string][]*fileInfo, error) {
 	buildPackages := buildPackagesFromFlags()
-	extraFiles := make(map[string]*fileInfo, len(buildPackages))
+	extraFiles := make(map[string][]*fileInfo, len(buildPackages))
 	packageDirs, err := packer.PackageDirs(buildPackages)
 	if err != nil {
 		return nil, err
@@ -1000,26 +1000,30 @@ func logic() error {
 		fromLiteral: *httpsPort,
 	})
 
-	for pkg1, fs1 := range extraFiles {
-		// check against root fs
-		if paths := getDuplication(root, fs1); len(paths) > 0 {
-			return fmt.Errorf("extra files of package %s collides with root file system: %v", pkg1, paths)
-		}
-
-		// check against other packages
-		for pkg2, fs2 := range extraFiles {
-			if pkg1 == pkg2 {
-				continue
+	for pkg1, fs := range extraFiles {
+		for _, fs1 := range fs {
+			// check against root fs
+			if paths := getDuplication(root, fs1); len(paths) > 0 {
+				return fmt.Errorf("extra files of package %s collides with root file system: %v", pkg1, paths)
 			}
 
-			if paths := getDuplication(fs1, fs2); len(paths) > 0 {
-				return fmt.Errorf("extra files of package %s collides with package %s: %v", pkg1, pkg2, paths)
-			}
-		}
+			// check against other packages
+			for pkg2, fs := range extraFiles {
+				for _, fs2 := range fs {
+					if pkg1 == pkg2 {
+						continue
+					}
 
-		// add extra files to rootfs
-		if err := root.combine(fs1); err != nil {
-			return fmt.Errorf("failed to add extra files from package %s: %v", pkg1, err)
+					if paths := getDuplication(fs1, fs2); len(paths) > 0 {
+						return fmt.Errorf("extra files of package %s collides with package %s: %v", pkg1, pkg2, paths)
+					}
+				}
+			}
+
+			// add extra files to rootfs
+			if err := root.combine(fs1); err != nil {
+				return fmt.Errorf("failed to add extra files from package %s: %v", pkg1, err)
+			}
 		}
 	}
 
