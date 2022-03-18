@@ -29,8 +29,8 @@ import (
 
 var (
 	serialConsole = flag.String("serial_console",
-		"ttyAMA0,115200",
-		`"ttyAMA0,115200" enables UART0 as a serial console, "disabled" allows applications to use UART0 instead`)
+		"serial0,115200",
+		`"serial0,115200" enables UART0 as a serial console, "disabled" allows applications to use UART0 instead, "off" sets enable_uart=0 in config.txt for the Raspberry Pi firmware`)
 
 	kernelPackage = flag.String("kernel_package",
 		"github.com/gokrazy/kernel",
@@ -89,8 +89,8 @@ func (p *pack) writeCmdline(fw *fat.Writer, src string) error {
 	if *serialConsole != "disabled" && *serialConsole != "off" {
 		if *serialConsole == "UART0" {
 			// For backwards compatibility, treat the special value UART0 as
-			// ttyAMA0,115200:
-			cmdline += "console=ttyAMA0,115200 "
+			// serial0,115200:
+			cmdline += "console=serial0,115200 "
 		} else {
 			cmdline += "console=" + *serialConsole + " "
 		}
