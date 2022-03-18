@@ -85,18 +85,17 @@ func (p *pack) writeCmdline(fw *fat.Writer, src string) error {
 	if err != nil {
 		return err
 	}
-	var cmdline string
+	cmdline := "console=tty1 "
 	if *serialConsole != "disabled" && *serialConsole != "off" {
 		if *serialConsole == "UART0" {
 			// For backwards compatibility, treat the special value UART0 as
 			// ttyAMA0,115200:
-			cmdline = "console=ttyAMA0,115200 " + string(b)
+			cmdline += "console=ttyAMA0,115200 "
 		} else {
-			cmdline = "console=" + *serialConsole + " " + string(b)
+			cmdline += "console=" + *serialConsole + " "
 		}
-	} else {
-		cmdline = string(b)
 	}
+	cmdline += string(b)
 
 	// TODO: change {gokrazy,rtr7}/kernel/cmdline.txt to contain a dummy PARTUUID=
 	if p.ModifyCmdlineRoot() {
