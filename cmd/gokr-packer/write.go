@@ -86,7 +86,7 @@ func (p *pack) writeCmdline(fw *fat.Writer, src string) error {
 		return err
 	}
 	var cmdline string
-	if *serialConsole != "disabled" {
+	if *serialConsole != "disabled" && *serialConsole != "off" {
 		if *serialConsole == "UART0" {
 			// For backwards compatibility, treat the special value UART0 as
 			// ttyAMA0,115200:
@@ -146,7 +146,7 @@ func writeConfig(fw *fat.Writer, src string) error {
 		return err
 	}
 	config := string(b)
-	if *serialConsole != "disabled" {
+	if *serialConsole != "off" {
 		config = strings.ReplaceAll(config, "enable_uart=0", "enable_uart=1")
 	}
 	w, err := fw.File("/config.txt", time.Now())
