@@ -84,7 +84,14 @@ func (r *runImplConfig) run(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	updateBaseUrl, err := updateflag.BaseURL("80", "http", updateHostname, pw)
+	port, err := config.HostnameSpecific(updateHostname).ReadFile("http-port.txt")
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if port == "" {
+		port = "80"
+	}
+	updateBaseUrl, err := updateflag.BaseURL(port, "http", updateHostname, pw)
 	if err != nil {
 		return err
 	}
