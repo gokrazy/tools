@@ -412,6 +412,10 @@ func (p *Pack) writeGPT(w io.Writer, devsize uint64, primary bool) error {
 }
 
 func (p *Pack) Partition(o *os.File, devsize uint64) error {
+	minsize := uint64(1100 * MB)
+	if devsize < minsize {
+		return fmt.Errorf("device is too small (at least %d MB needed, %d MB available)", minsize/MB, devsize/MB)
+	}
 	if !p.UseGPT {
 		return writeMBRPartitionTable(o, devsize)
 	}
