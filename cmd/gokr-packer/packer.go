@@ -896,7 +896,7 @@ func logic() error {
 		return err
 	}
 
-	for _, dir := range []string{"dev", "etc", "proc", "sys", "tmp", "perm", "lib"} {
+	for _, dir := range []string{"dev", "etc", "proc", "sys", "tmp", "perm", "lib", "run", "var"} {
 		root.dirents = append(root.dirents, &fileInfo{
 			filename: dir,
 		})
