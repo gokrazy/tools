@@ -4,6 +4,7 @@
 package main
 
 import (
+	"archive/tar"
 	"bufio"
 	"context"
 	"errors"
@@ -376,14 +377,86 @@ func addToFileInfo(parent *fileInfo, path string) (error, time.Time) {
 	return nil, latestTime
 }
 
+type archiveExtraction struct {
+	dirs map[string]*fileInfo
+}
+
+func (ae *archiveExtraction) extractArchive(path string) (error, time.Time) {
+	f, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, time.Time{}
+		}
+		return err, time.Time{}
+	}
+	defer f.Close()
+	rd := tar.NewReader(f)
+
+	var latestTime time.Time
+	for {
+		header, err := rd.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err, time.Time{}
+		}
+
+		// header.Name is e.g. usr/lib/aarch64-linux-gnu/xtables/libebt_mark.so
+		// for files, but e.g. usr/lib/ (note the trailing /) for directories.
+		filename := strings.TrimSuffix(header.Name, "/")
+
+		fi := &fileInfo{
+			filename: filepath.Base(filename),
+			mode:     os.FileMode(header.Mode),
+		}
+
+		if latestTime.Before(header.ModTime) {
+			latestTime = header.ModTime
+		}
+
+		parent := ae.dirs[filepath.Dir(filename)]
+		parent.dirents = append(parent.dirents, fi)
+
+		switch header.Typeflag {
+		case tar.TypeSymlink:
+			fi.symlinkDest = header.Linkname
+
+		case tar.TypeDir:
+			ae.dirs[filename] = fi
+
+		default:
+			// TODO(optimization): do not hold file data in memory, instead
+			// stream the archive contents lazily to conserve RAM
+			b, err := ioutil.ReadAll(rd)
+			if err != nil {
+				return err, time.Time{}
+			}
+			fi.fromLiteral = string(b)
+		}
+	}
+
+	return nil, latestTime
+}
+
 func findExtraFilesInDir(pkg, dir string, extraFiles map[string][]*fileInfo) error {
 	fi := new(fileInfo)
-	err, latestModTime := addToFileInfo(fi, dir)
+	ae := archiveExtraction{
+		dirs: make(map[string]*fileInfo),
+	}
+	ae.dirs["."] = fi // root
+	err, latestModTime := ae.extractArchive(dir + ".tar")
 	if err != nil {
 		return err
 	}
 	if len(fi.dirents) == 0 {
-		return nil
+		err, latestModTime = addToFileInfo(fi, dir)
+		if err != nil {
+			return err
+		}
+		if len(fi.dirents) == 0 {
+			return nil
+		}
 	}
 
 	packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
