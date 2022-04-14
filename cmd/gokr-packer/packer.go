@@ -445,12 +445,24 @@ func findExtraFilesInDir(pkg, dir string, extraFiles map[string][]*fileInfo) err
 		dirs: make(map[string]*fileInfo),
 	}
 	ae.dirs["."] = fi // root
-	err, latestModTime := ae.extractArchive(dir + ".tar")
+
+	targetArch := packer.TargetArch()
+
+	effectivePath := dir + "_" + targetArch + ".tar"
+	err, latestModTime := ae.extractArchive(effectivePath)
 	if err != nil {
 		return err
 	}
 	if len(fi.dirents) == 0 {
-		err, latestModTime = addToFileInfo(fi, dir)
+		effectivePath = dir + ".tar"
+		err, latestModTime = ae.extractArchive(effectivePath)
+		if err != nil {
+			return err
+		}
+	}
+	if len(fi.dirents) == 0 {
+		effectivePath = dir
+		err, latestModTime = addToFileInfo(fi, effectivePath)
 		if err != nil {
 			return err
 		}
@@ -461,7 +473,7 @@ func findExtraFilesInDir(pkg, dir string, extraFiles map[string][]*fileInfo) err
 
 	packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
 		kind:         "include extra files in the root file system",
-		path:         dir,
+		path:         effectivePath,
 		lastModified: latestModTime,
 	})
 

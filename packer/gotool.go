@@ -15,13 +15,17 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+func TargetArch() string {
+	if arch := os.Getenv("GOARCH"); arch != "" {
+		return arch
+	}
+	return "arm64" // Raspberry Pi 3
+}
+
 var env = goEnv()
 
 func goEnv() []string {
-	goarch := "arm64" // Raspberry Pi 3
-	if e := os.Getenv("GOARCH"); e != "" {
-		goarch = e
-	}
+	goarch := TargetArch()
 
 	goos := "linux" // Raspberry Pi 3
 	if e := os.Getenv("GOOS"); e != "" {
