@@ -109,6 +109,13 @@ func Build(bindir string, packages []string, packageBuildFlags map[string][]stri
 	if err != nil {
 		return err
 	}
+	hasTags := false
+	for _, e := range env {
+		if strings.HasPrefix(e, "GOFLAGS=") && strings.Contains(e, "-tags") {
+			hasTags = true
+			break
+		}
+	}
 	var eg errgroup.Group
 	for _, pkg := range mainPkgs {
 		pkg := pkg // copy
@@ -116,8 +123,10 @@ func Build(bindir string, packages []string, packageBuildFlags map[string][]stri
 			args := []string{
 				"build",
 				"-mod=mod",
-				"-tags", "gokrazy",
 				"-o", filepath.Join(bindir, filepath.Base(pkg.Target)),
+			}
+			if !hasTags {
+				args = append(args, "-tags=gokrazy")
 			}
 			if buildFlags := packageBuildFlags[pkg.ImportPath]; len(buildFlags) > 0 {
 				args = append(args, buildFlags...)
