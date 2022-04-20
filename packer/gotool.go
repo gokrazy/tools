@@ -32,19 +32,22 @@ func goEnv() []string {
 		goos = e
 	}
 
+	cgoEnabledFound := false
 	env := os.Environ()
 	for idx, e := range env {
 		if strings.HasPrefix(e, "CGO_ENABLED=") {
-			env[idx] = "CGO_ENABLED=0"
+			cgoEnabledFound = true
 		}
 		if strings.HasPrefix(e, "GOBIN=") {
 			env[idx] = "GOBIN="
 		}
 	}
+	if !cgoEnabledFound {
+		env = append(env, "CGO_ENABLED=0")
+	}
 	return append(env,
 		fmt.Sprintf("GOARCH=%s", goarch),
 		fmt.Sprintf("GOOS=%s", goos),
-		"CGO_ENABLED=0",
 		"GOBIN=")
 }
 
