@@ -15,6 +15,14 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+func DefaultTags() []string {
+	return []string{
+		"gokrazy",
+		"netgo",
+		"osusergo",
+	}
+}
+
 func TargetArch() string {
 	if arch := os.Getenv("GOARCH"); arch != "" {
 		return arch
@@ -118,11 +126,7 @@ func Build(bindir string, packages []string, packageBuildFlags, packageBuildTags
 				"-mod=mod",
 				"-o", filepath.Join(bindir, filepath.Base(pkg.Target)),
 			}
-			tags := append([]string{
-				"gokrazy",
-				"netgo",
-				"osusergo",
-			}, packageBuildTags[pkg.ImportPath]...)
+			tags := append(DefaultTags(), packageBuildTags[pkg.ImportPath]...)
 			args = append(args, "-tags="+strings.Join(tags, ","))
 			if buildFlags := packageBuildFlags[pkg.ImportPath]; len(buildFlags) > 0 {
 				args = append(args, buildFlags...)

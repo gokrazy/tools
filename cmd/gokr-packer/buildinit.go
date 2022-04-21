@@ -180,7 +180,13 @@ func (g *gokrazyInit) build() (tmpdir string, err error) {
 	}
 	defer os.Remove(initGo)
 
-	cmd := exec.Command("go", "build", "-o", filepath.Join(tmpdir, "init"), initGo)
+	tags := packer.DefaultTags()
+	cmd := exec.Command("go",
+		"build",
+		"-mod=mod",
+		"-o", filepath.Join(tmpdir, "init"),
+		"-tags="+strings.Join(tags, ","),
+		initGo)
 	cmd.Env = packer.Env()
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
