@@ -73,7 +73,9 @@ func (r *runImplConfig) run(ctx context.Context, args []string) error {
 	var noBuildPkgs []string
 	// TODO: gather packageBuildFlags
 	var packageBuildFlags map[string][]string
-	if err := packer.Build(tmp, pkgs, packageBuildFlags, noBuildPkgs); err != nil {
+	// TODO: gather packageBuildTags
+	var packageBuildTags map[string][]string
+	if err := packer.Build(tmp, pkgs, packageBuildFlags, packageBuildTags, noBuildPkgs); err != nil {
 		return err
 	}
 

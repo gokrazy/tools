@@ -273,6 +273,55 @@ func findBuildFlagsFiles() (map[string][]string, error) {
 	return contents, nil
 }
 
+func findBuildTagsFiles() (map[string][]string, error) {
+	buildTagsFiles, err := findPackageFiles("buildtags")
+	if err != nil {
+		return nil, err
+	}
+
+	if len(buildTagsFiles) == 0 {
+		return nil, nil // no flags.txt files found
+	}
+
+	buildPackages := buildPackageMapFromFlags()
+
+	contents := make(map[string][]string)
+	for _, p := range buildTagsFiles {
+		pkg := strings.TrimSuffix(strings.TrimPrefix(p.path, "buildtags/"), "/buildtags.txt")
+		if !buildPackages[pkg] {
+			log.Printf("WARNING: buildtags file %s does not match any specified package (%s)", pkg, flag.Args())
+			continue
+		}
+		packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
+			kind:         "be compiled with build tags",
+			path:         p.path,
+			lastModified: p.modTime,
+		})
+
+		b, err := ioutil.ReadFile(p.path)
+		if err != nil {
+			return nil, err
+		}
+
+		var buildTags []string
+		sc := bufio.NewScanner(strings.NewReader(string(b)))
+		for sc.Scan() {
+			if flag := sc.Text(); flag != "" {
+				buildTags = append(buildTags, flag)
+			}
+		}
+
+		if err := sc.Err(); err != nil {
+			return nil, err
+		}
+
+		// use full package path opposed to flags
+		contents[pkg] = buildTags
+	}
+
+	return contents, nil
+}
+
 func findEnvFiles() (map[string]string, error) {
 	buildFlagsFilePaths, err := findPackageFiles("env")
 	if err != nil {
@@ -877,6 +926,11 @@ func logic() error {
 		return err
 	}
 
+	packageBuildTags, err := findBuildTagsFiles()
+	if err != nil {
+		return err
+	}
+
 	flagFileContents, err := findFlagFiles()
 	if err != nil {
 		return err
@@ -940,7 +994,7 @@ func logic() error {
 	if *eepromPackage != "" {
 		noBuildPkgs = append(noBuildPkgs, *eepromPackage)
 	}
-	if err := packer.Build(tmp, pkgs, packageBuildFlags, noBuildPkgs); err != nil {
+	if err := packer.Build(tmp, pkgs, packageBuildFlags, packageBuildTags, noBuildPkgs); err != nil {
 		return err
 	}
 
