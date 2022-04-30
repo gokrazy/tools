@@ -1582,7 +1582,7 @@ func main() {
 		flag.PrintDefaults()
 		os.Exit(2)
 	}
-	updateflag.RegisterFlags(flag.CommandLine)
+	updateflag.RegisterFlags(flag.CommandLine, "update")
 	tlsflag.RegisterFlags(flag.CommandLine)
 	flag.Parse()
 

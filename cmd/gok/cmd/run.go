@@ -41,7 +41,7 @@ var runImpl runImplConfig
 func init() {
 	runCmd.Flags().BoolVarP(&runImpl.keep, "keep", "k", false, "keep temporary binary")
 	runCmd.Flags().StringVarP(&runImpl.instance, "instance", "i", "gokrazy", "instance, identified by hostname")
-	updateflag.RegisterPflags(runCmd.Flags())
+	updateflag.RegisterPflags(runCmd.Flags(), "update")
 }
 
 func (r *runImplConfig) run(ctx context.Context, args []string) error {

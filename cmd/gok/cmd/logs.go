@@ -39,7 +39,7 @@ var logsImpl logsImplConfig
 func init() {
 	logsCmd.Flags().StringVarP(&logsImpl.service, "service", "s", "", "gokrazy service to fetch logs for")
 	logsCmd.Flags().StringVarP(&logsImpl.instance, "instance", "i", "gokrazy", "instance, identified by hostname")
-	updateflag.RegisterPflags(logsCmd.Flags())
+	updateflag.RegisterPflags(logsCmd.Flags(), "update")
 }
 
 func (l *logsImplConfig) run(ctx context.Context, args []string) error {
