@@ -31,6 +31,7 @@ import (
 	"github.com/gokrazy/internal/httpclient"
 	"github.com/gokrazy/internal/humanize"
 	"github.com/gokrazy/internal/progress"
+	"github.com/gokrazy/internal/tlsflag"
 	"github.com/gokrazy/internal/updateflag"
 	"github.com/gokrazy/tools/internal/measure"
 	"github.com/gokrazy/tools/packer"
@@ -73,18 +74,6 @@ var (
 		"Host name to set on the target system. Will be sent when acquiring DHCP leases")
 
 	// TODO: Generate unique hostname on bootstrap e.g. gokrazy-<5-10 random characters>?
-	useTLS = flag.String("tls",
-		"",
-		`TLS certificate for the web interface (-tls=<certificate or full chain path>,<private key path>).
-Use -tls=self-signed to generate a self-signed RSA4096 certificate using the hostname specified with -hostname. In this case, the certificate and key will be placed in your local config folder (on Linux: ~/.config/gokrazy/<hostname>/).
-WARNING: When reusing a hostname, no new certificate will be generated and the stored one will be used.
-When updating a running instance, the specified certificate will be used to verify the connection. Otherwise the updater will load the hostname-specific certificate from your local config folder in addition to the system trust store.
-You can also create your own certificate-key-pair (e.g. by using https://github.com/FiloSottile/mkcert) and place them into your local config folder.`,
-	)
-
-	tlsInsecure = flag.Bool("insecure",
-		false,
-		"Ignore TLS stripping detection.")
 
 	gokrazyPkgList = flag.String("gokrazy_pkgs",
 		strings.Join([]string{
@@ -1104,7 +1093,7 @@ func logic() error {
 	schema := "http"
 	if deployCertFile != "" {
 		// User requested TLS
-		if *tlsInsecure {
+		if tlsflag.Insecure() {
 			// If -insecure is specified, use http instead of https to make the
 			// process of updating to non-empty -tls= a bit smoother.
 		} else {
@@ -1190,14 +1179,14 @@ func logic() error {
 			return err
 		}
 
-		updateHttpClient, foundMatchingCertificate, err = httpclient.GetTLSHttpClientByTLSFlag(useTLS, tlsInsecure, updateBaseUrl)
+		updateHttpClient, foundMatchingCertificate, err = tlsflag.GetTLSHttpClient(updateBaseUrl)
 		if err != nil {
 			return fmt.Errorf("getting http client by tls flag: %v", err)
 		}
 		done := measure.Interactively("probing https")
 		remoteScheme, err := httpclient.GetRemoteScheme(updateBaseUrl)
 		done("")
-		if remoteScheme == "https" && !*tlsInsecure {
+		if remoteScheme == "https" && !tlsflag.Insecure() {
 			updateBaseUrl.Scheme = "https"
 			updateflag.SetUpdate(updateBaseUrl.String())
 		}
@@ -1207,7 +1196,7 @@ func logic() error {
 			fmt.Printf("!!!WARNING!!! Possible SSL-Stripping detected!\n")
 			fmt.Printf("Found certificate for hostname in your client configuration but the host does not offer https!\n")
 			fmt.Printf("\n")
-			if !*tlsInsecure {
+			if !tlsflag.Insecure() {
 				log.Fatalf("update canceled: TLS certificate found, but negotiating a TLS connection with the target failed")
 			}
 			fmt.Printf("Proceeding anyway as requested (-insecure).\n")
@@ -1594,6 +1583,7 @@ func main() {
 		os.Exit(2)
 	}
 	updateflag.RegisterFlags(flag.CommandLine)
+	tlsflag.RegisterFlags(flag.CommandLine)
 	flag.Parse()
 
 	gokrazyPkgs = strings.Split(*gokrazyPkgList, ",")

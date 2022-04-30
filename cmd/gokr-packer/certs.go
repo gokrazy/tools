@@ -7,15 +7,14 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/big"
 	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
-	"github.com/gokrazy/internal/config"
+	"github.com/gokrazy/internal/tlsflag"
 )
 
 func generateAndSignCert() ([]byte, *rsa.PrivateKey, error) {
@@ -93,41 +92,15 @@ func generateAndStoreSelfSignedCertificate(hostConfigPath, certPath, keyPath str
 }
 
 func getCertificate() (string, string, error) {
-	hostConfigPath := config.HostnameSpecific(*hostname)
-	var certPath, keyPath string
-	switch *useTLS {
-	case "self-signed":
-		certPath = filepath.Join(string(hostConfigPath), "cert.pem")
-		keyPath = filepath.Join(string(hostConfigPath), "key.pem")
-		gen := false
-		exist := true
-		if _, err := os.Stat(certPath); os.IsNotExist(err) {
-			gen = true
-			exist = false
-		}
-		if _, err := os.Stat(keyPath); os.IsNotExist(err) {
-			gen = true
-			exist = false
-		}
-		if exist {
-			// TODO: Check validity dates of existing certificate
-		}
-		if gen {
-			if err := generateAndStoreSelfSignedCertificate(string(hostConfigPath), certPath, keyPath); err != nil {
+	certPath, keyPath, err := tlsflag.CertificatePathsFor(*hostname)
+	if err != nil {
+		var nycerr *tlsflag.ErrNotYetCreated
+		if errors.As(err, &nycerr) {
+			if err := generateAndStoreSelfSignedCertificate(nycerr.HostConfigPath, nycerr.CertPath, nycerr.KeyPath); err != nil {
 				return "", "", err
 			}
+			return nycerr.CertPath, nycerr.KeyPath, nil
 		}
-	case "":
-		return "", "", nil
-	default:
-		parts := strings.Split(*useTLS, ",")
-		certPath = parts[0]
-		if len(parts) > 1 {
-			keyPath = parts[1]
-		} else {
-			return "", "", fmt.Errorf("no private key supplied")
-		}
-		// TODO: Check validity
 	}
 	return certPath, keyPath, nil
 }
