@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha1"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
@@ -102,7 +103,18 @@ func getCertificate() (string, string, error) {
 			return nycerr.CertPath, nycerr.KeyPath, nil
 		}
 	}
+	if err := validateCertificate(certPath, keyPath); err != nil {
+		return "", "", err
+	}
 	return certPath, keyPath, nil
+}
+
+func validateCertificate(certPath, keyPath string) error {
+	if certPath == "" && keyPath == "" {
+		return nil
+	}
+	_, err := tls.LoadX509KeyPair(certPath, keyPath)
+	return err
 }
 
 func getCertificateFromFile(certPath string) (*x509.Certificate, error) {
