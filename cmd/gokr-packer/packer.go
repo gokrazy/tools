@@ -864,6 +864,10 @@ func filterGoEnv(env []string) []string {
 }
 
 func logic() error {
+	if !updateflag.NewInstallation() && *overwrite != "" {
+		return fmt.Errorf("both -update and -overwrite are specified; use either one, not both")
+	}
+
 	// TODO: go1.18 code to include git revision and git uncommitted status
 	version := "<unknown>"
 	info, ok := debug.ReadBuildInfo()
