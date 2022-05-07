@@ -24,7 +24,7 @@ import (
 	"github.com/gokrazy/internal/squashfs"
 	"github.com/gokrazy/tools/internal/measure"
 	"github.com/gokrazy/tools/packer"
-	"github.com/gokrazy/tools/third_party/systemd-248.3-2"
+	"github.com/gokrazy/tools/third_party/systemd-250.5-1"
 )
 
 var (
@@ -316,11 +316,19 @@ func (p *pack) writeBoot(f io.Writer, mbrfilename string) error {
 	}
 
 	if p.UseGPTPartuuid {
-		src, err := systemd.SystemdBootX64.Open("systemd-bootx64.efi")
+		srcX86, err := systemd.SystemdBootX64.Open("systemd-bootx64.efi")
 		if err != nil {
 			return err
 		}
-		if err := copyFile(fw, "/EFI/BOOT/BOOTX64.EFI", src); err != nil {
+		if err := copyFile(fw, "/EFI/BOOT/BOOTX64.EFI", srcX86); err != nil {
+			return err
+		}
+
+		srcAA86, err := systemd.SystemdBootAA64.Open("systemd-bootaa64.efi")
+		if err != nil {
+			return err
+		}
+		if err := copyFile(fw, "/EFI/BOOT/BOOTAA64.EFI", srcAA86); err != nil {
 			return err
 		}
 	}
