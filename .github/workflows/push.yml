@@ -30,3 +30,13 @@ jobs:
         go install -mod=mod ./cmd/...
         go test -mod=mod -v ./...
         gokr-packer -overwrite=full.img -target_storage_bytes=1610612736 github.com/gokrazy/hello
+
+  index-and-upload:
+    runs-on: ubuntu-latest
+    container: sourcegraph/lsif-go:latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Generate LSIF data
+        run: lsif-go
+      - name: Upload LSIF data to sourcegraph.com
+        run: src lsif upload -github-token=${{ secrets.GH_AUTH_TOKEN }} -ignore-upload-failure
