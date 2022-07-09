@@ -82,12 +82,8 @@ github.com/gogo/protobuf v1.3.2/go.mod h1:P1XiOD3dCwIKUDQYPy72D8LYyHL2YPYrpS2s69
 github.com/gokrazy/gokrazy v0.0.0-20220113081925-ca0fa4174944 h1:aZgg4MvvoNdhEgfKxCNi3eCjvtfcJBS3GklxM09Ob4I=
 github.com/gokrazy/gokrazy v0.0.0-20220113081925-ca0fa4174944/go.mod h1:z9nzDhiz6f52Zp21WSGnRzW2MlLBrsJdNLxXZoMti2w=
 github.com/gokrazy/internal v0.0.0-20220111191949-698f19a074ef/go.mod h1:Gc9sU6yJ/qxg3gJZ1pjfcTAULa0swdTa4TH51g1e00E=
-github.com/gokrazy/internal v0.0.0-20220129150711-9ed298107648 h1:kBuLicM0xJw3xEe4607WlnzGL+qSwPqdyh5/LUiCdq0=
-github.com/gokrazy/internal v0.0.0-20220129150711-9ed298107648/go.mod h1:Gc9sU6yJ/qxg3gJZ1pjfcTAULa0swdTa4TH51g1e00E=
-github.com/gokrazy/internal v0.0.0-20220430192058-b97ccfa731f4 h1:xspWD0j6o6lWJvmLmRxf1IVArrc0Z+eOetyvbfQR+Kk=
-github.com/gokrazy/internal v0.0.0-20220430192058-b97ccfa731f4/go.mod h1:Gc9sU6yJ/qxg3gJZ1pjfcTAULa0swdTa4TH51g1e00E=
-github.com/gokrazy/internal v0.0.0-20220430192544-1821f343e404 h1:2VNhTnO4DjxaH6U/hpFMzllkSyBL4aPRabMxMVuuhJs=
-github.com/gokrazy/internal v0.0.0-20220430192544-1821f343e404/go.mod h1:Gc9sU6yJ/qxg3gJZ1pjfcTAULa0swdTa4TH51g1e00E=
+github.com/gokrazy/internal v0.0.0-20220709172510-3a50f98beeea h1:zj2YbSnHCoADuvEUJOPXNVexuZsNd6y/oQBs0vBJIuU=
+github.com/gokrazy/internal v0.0.0-20220709172510-3a50f98beeea/go.mod h1:Gc9sU6yJ/qxg3gJZ1pjfcTAULa0swdTa4TH51g1e00E=
 github.com/gokrazy/updater v0.0.0-20211121155532-30ae8cd650ea h1:NM/sLCKWWc9mnMtJZGbwOtaAwEpCEe6tlcXWKp3LEKk=
 github.com/gokrazy/updater v0.0.0-20211121155532-30ae8cd650ea/go.mod h1:PYOvzGOL4nlBmuxu7IyKQTFLaxr61+WPRNRzVtuYOHw=
 github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b/go.mod h1:SBH7ygxi8pfUlaOkMMuAQtPIUF8ecWP5IEl/CR7VP2Q=
