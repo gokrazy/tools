@@ -437,6 +437,9 @@ func (fi *fileInfo) mustFindDirent(path string) *fileInfo {
 func findBins(bindir string) (*fileInfo, error) {
 	result := fileInfo{filename: ""}
 
+	// TODO: doing all three packer.MainPackages calls concurrently hides go
+	// module proxy latency
+
 	gokrazyMainPkgs, err := packer.MainPackages(gokrazyPkgs)
 	if err != nil {
 		return nil, err

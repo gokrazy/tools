@@ -908,11 +908,11 @@ func logic() error {
 		return err
 	}
 
-	tmp, err := ioutil.TempDir("", "gokrazy-bins-")
+	bindir, err := ioutil.TempDir("", "gokrazy-bins-")
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tmp)
+	defer os.RemoveAll(bindir)
 
 	packageBuildFlags, err := findBuildFlagsFiles()
 	if err != nil {
@@ -930,11 +930,6 @@ func logic() error {
 	}
 
 	envFileContents, err := findEnvFiles()
-	if err != nil {
-		return err
-	}
-
-	extraFiles, err := findExtraFiles()
 	if err != nil {
 		return err
 	}
@@ -987,13 +982,42 @@ func logic() error {
 	if *eepromPackage != "" {
 		noBuildPkgs = append(noBuildPkgs, *eepromPackage)
 	}
-	if err := packer.Build(tmp, pkgs, packageBuildFlags, packageBuildTags, noBuildPkgs); err != nil {
+	if err := packer.Build(bindir, pkgs, packageBuildFlags, packageBuildTags, noBuildPkgs); err != nil {
 		return err
 	}
 
-	root, err := findBins(tmp)
+	fmt.Println()
+
+	root, err := findBins(bindir)
 	if err != nil {
 		return err
+	}
+
+	packageConfigFiles = make(map[string][]packageConfigFile)
+
+	extraFiles, err := findExtraFiles()
+	if err != nil {
+		return err
+	}
+
+	if len(packageConfigFiles) > 0 {
+		fmt.Printf("Including extra files for Go packages:\n\n")
+		for _, pkg := range args {
+			if len(packageConfigFiles[pkg]) == 0 {
+				continue
+			}
+			fmt.Printf("  %s\n", pkg)
+			for _, configFile := range packageConfigFiles[pkg] {
+				fmt.Printf("    will %s\n",
+					configFile.kind)
+				fmt.Printf("      from %s\n",
+					configFile.path)
+				fmt.Printf("      last modified: %s (%s ago)\n",
+					configFile.lastModified.Format(time.RFC3339),
+					time.Since(configFile.lastModified).Round(1*time.Second))
+			}
+			fmt.Printf("\n")
+		}
 	}
 
 	if *initPkg == "" {
@@ -1041,7 +1065,7 @@ func logic() error {
 	}
 	modulesDir := filepath.Join(kernelDir, "lib", "modules")
 	if _, err := os.Stat(modulesDir); err == nil {
-		log.Printf("Adding loadable kernel modules from modulesDir=%s", modulesDir)
+		fmt.Printf("Including loadable kernel modules from:\n%s\n", modulesDir)
 		modules := &fileInfo{
 			filename: "modules",
 		}

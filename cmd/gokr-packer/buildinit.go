@@ -164,6 +164,12 @@ func (g *gokrazyInit) dump(path string) error {
 }
 
 func (g *gokrazyInit) build() (tmpdir string, err error) {
+	const pkg = "init"
+	buildDir, err := packer.BuildDir(pkg)
+	if err != nil {
+		return "", fmt.Errorf("PackageDirs(%s): %v", pkg, err)
+	}
+
 	tmpdir, err = ioutil.TempDir("", "gokr-packer")
 	if err != nil {
 		return "", err
@@ -187,6 +193,7 @@ func (g *gokrazyInit) build() (tmpdir string, err error) {
 		"-o", filepath.Join(tmpdir, "init"),
 		"-tags="+strings.Join(tags, ","),
 		initGo)
+	cmd.Dir = buildDir
 	cmd.Env = packer.Env()
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
