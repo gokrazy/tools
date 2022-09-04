@@ -1,4 +1,4 @@
-name: Push
+name: gokrazy CI
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 jobs:
 
   build:
-    name: CI
+    name: build-and-test
     runs-on: ubuntu-latest
     steps:
 
@@ -25,7 +25,7 @@ jobs:
       run: |
         [ "$(gofmt -l $(find . -name '*.go') 2>&1)" = "" ]
 
-    - name: Get dependencies
+    - name: Build, Test and Create Disk Image
       run: |
         go install -mod=mod ./cmd/...
         go test -mod=mod -v ./...
