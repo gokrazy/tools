@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/donovanhide/eventsource"
-	"github.com/gokrazy/internal/config"
+	"github.com/gokrazy/internal/httpclient"
 	"github.com/gokrazy/internal/updateflag"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
@@ -48,17 +48,11 @@ func (l *logsImplConfig) run(ctx context.Context, args []string, stdout, stderr 
 		return fmt.Errorf("the -service flag is empty, but required")
 	}
 
-	// copy the binary over to the running installation
-	_, updateHostname := updateflag.GetUpdateTarget(l.instance)
-	const configBaseName = "http-password.txt"
-	pw, err := config.HostnameSpecific(updateHostname).ReadFile(configBaseName)
+	httpClient, logsUrl, err := httpclient.GetHTTPClientForInstance(l.instance)
 	if err != nil {
 		return err
 	}
-	logsUrl, err := updateflag.BaseURL("80", "http", updateHostname, pw)
-	if err != nil {
-		return err
-	}
+
 	q := logsUrl.Query()
 	if strings.HasPrefix(l.service, "/") {
 		q.Set("path", l.service)
@@ -73,13 +67,13 @@ func (l *logsImplConfig) run(ctx context.Context, args []string, stdout, stderr 
 	logsUrl.RawQuery = q.Encode()
 	stderrUrl := logsUrl.String()
 
-	log.Printf("streaming logs of service %q from gokrazy instance %q", l.service, updateHostname)
+	log.Printf("streaming logs of service %q from gokrazy instance %q", l.service, l.instance)
 	var eg errgroup.Group
 	eg.Go(func() error {
-		return l.streamLog(ctx, stdout, stdoutUrl)
+		return l.streamLog(ctx, stdout, stdoutUrl, httpClient)
 	})
 	eg.Go(func() error {
-		return l.streamLog(ctx, stderr, stderrUrl)
+		return l.streamLog(ctx, stderr, stderrUrl, httpClient)
 	})
 	if err := eg.Wait(); err != nil {
 		var se eventsource.SubscriptionError
@@ -93,12 +87,18 @@ func (l *logsImplConfig) run(ctx context.Context, args []string, stdout, stderr 
 	return nil
 }
 
-func (r *logsImplConfig) streamLog(ctx context.Context, w io.Writer, url string) error {
-	stream, err := eventsource.Subscribe(url, "")
+func (r *logsImplConfig) streamLog(ctx context.Context, w io.Writer, url string, httpClient *http.Client) error {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return err
+	}
+
+	stream, err := eventsource.SubscribeWith("", httpClient, req)
 	if err != nil {
 		return err
 	}
 	defer stream.Close()
+
 	for {
 		select {
 		case <-ctx.Done():
