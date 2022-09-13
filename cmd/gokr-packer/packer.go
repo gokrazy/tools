@@ -1384,7 +1384,7 @@ func logic() error {
 			fmt.Printf("\t%s\n", deployCertFile)
 			fmt.Printf("The fingerprint of the Certificate is\n")
 			fmt.Printf("\t%x\n", getCertificateFingerprintSHA1(certObj))
-			fmt.Printf("The certificate is valid unitl\n")
+			fmt.Printf("The certificate is valid until\n")
 			fmt.Printf("\t%s\n", certObj.NotAfter.String())
 			fmt.Printf("Please verify the certificate, before adding an exception to your browser!\n")
 		}
