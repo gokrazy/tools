@@ -235,7 +235,11 @@ func getPkg(buildDir string, pkg string) error {
 	return nil
 }
 
-func Build(bindir string, packages []string, packageBuildFlags, packageBuildTags map[string][]string, noBuildPackages []string) error {
+type BuildEnv struct {
+	BuildDir func(string) (string, error)
+}
+
+func (be *BuildEnv) Build(bindir string, packages []string, packageBuildFlags, packageBuildTags map[string][]string, noBuildPackages []string) error {
 	done := measure.Interactively("building (go compiler)")
 	defer done("")
 
@@ -245,7 +249,7 @@ func Build(bindir string, packages []string, packageBuildFlags, packageBuildTags
 
 	var eg errgroup.Group
 	for _, incompleteNoBuildPkg := range noBuildPackages {
-		buildDir, err := BuildDir(incompleteNoBuildPkg)
+		buildDir, err := be.BuildDir(incompleteNoBuildPkg)
 		if err != nil {
 			return fmt.Errorf("buildDir(%s): %v", incompleteNoBuildPkg, err)
 		}
@@ -255,7 +259,7 @@ func Build(bindir string, packages []string, packageBuildFlags, packageBuildTags
 		}
 	}
 	for _, incompletePkg := range packages {
-		buildDir, err := BuildDir(incompletePkg)
+		buildDir, err := be.BuildDir(incompletePkg)
 		if err != nil {
 			return fmt.Errorf("buildDir(%s): %v", incompletePkg, err)
 		}
@@ -264,7 +268,7 @@ func Build(bindir string, packages []string, packageBuildFlags, packageBuildTags
 			return err
 		}
 
-		mainPkgs, err := MainPackages([]string{incompletePkg})
+		mainPkgs, err := be.MainPackages([]string{incompletePkg})
 		if err != nil {
 			return err
 		}
@@ -309,10 +313,10 @@ func (p *Pkg) Basename() string {
 	return filepath.Base(p.Target)
 }
 
-func mainPackage(pkg string) ([]Pkg, error) {
-	buildDir, err := BuildDir(pkg)
+func (be *BuildEnv) mainPackage(pkg string) ([]Pkg, error) {
+	buildDir, err := be.BuildDir(pkg)
 	if err != nil {
-		return nil, fmt.Errorf("PackageDirs(%s): %v", pkg, err)
+		return nil, fmt.Errorf("BuildDir(%s): %v", pkg, err)
 	}
 
 	var buf bytes.Buffer
@@ -341,7 +345,7 @@ func mainPackage(pkg string) ([]Pkg, error) {
 	return result, nil
 }
 
-func MainPackages(pkgs []string) ([]Pkg, error) {
+func (be *BuildEnv) MainPackages(pkgs []string) ([]Pkg, error) {
 	// Shell out to the go tool for path matching (handling “...”)
 	var (
 		eg       errgroup.Group
@@ -351,7 +355,7 @@ func MainPackages(pkgs []string) ([]Pkg, error) {
 	for _, pkg := range pkgs {
 		pkg := pkg // copy
 		eg.Go(func() error {
-			p, err := mainPackage(pkg)
+			p, err := be.mainPackage(pkg)
 			if err != nil {
 				return err
 			}

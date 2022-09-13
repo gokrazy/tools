@@ -434,13 +434,13 @@ func (fi *fileInfo) mustFindDirent(path string) *fileInfo {
 	return nil
 }
 
-func findBins(bindir string) (*fileInfo, error) {
+func findBins(buildEnv *packer.BuildEnv, bindir string) (*fileInfo, error) {
 	result := fileInfo{filename: ""}
 
 	// TODO: doing all three packer.MainPackages calls concurrently hides go
 	// module proxy latency
 
-	gokrazyMainPkgs, err := packer.MainPackages(gokrazyPkgs)
+	gokrazyMainPkgs, err := buildEnv.MainPackages(gokrazyPkgs)
 	if err != nil {
 		return nil, err
 	}
@@ -453,7 +453,7 @@ func findBins(bindir string) (*fileInfo, error) {
 	}
 
 	if *initPkg != "" {
-		initMainPkgs, err := packer.MainPackages([]string{*initPkg})
+		initMainPkgs, err := buildEnv.MainPackages([]string{*initPkg})
 		if err != nil {
 			return nil, err
 		}
@@ -470,7 +470,7 @@ func findBins(bindir string) (*fileInfo, error) {
 	}
 	result.dirents = append(result.dirents, &gokrazy)
 
-	mainPkgs, err := packer.MainPackages(flag.Args())
+	mainPkgs, err := buildEnv.MainPackages(flag.Args())
 	if err != nil {
 		return nil, err
 	}

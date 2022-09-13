@@ -982,13 +982,16 @@ func logic() error {
 	if *eepromPackage != "" {
 		noBuildPkgs = append(noBuildPkgs, *eepromPackage)
 	}
-	if err := packer.Build(bindir, pkgs, packageBuildFlags, packageBuildTags, noBuildPkgs); err != nil {
+	buildEnv := &packer.BuildEnv{
+		BuildDir: packer.BuildDir,
+	}
+	if err := buildEnv.Build(bindir, pkgs, packageBuildFlags, packageBuildTags, noBuildPkgs); err != nil {
 		return err
 	}
 
 	fmt.Println()
 
-	root, err := findBins(bindir)
+	root, err := findBins(buildEnv, bindir)
 	if err != nil {
 		return err
 	}

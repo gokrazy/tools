@@ -67,13 +67,20 @@ func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 	basename := filepath.Base(wd)
 	log.Printf("basename: %q", basename)
 
-	var pkgs []string // current directory, no explicitly specified packages
+	pkgs := []string{
+		".", // build what is in the current directory
+	}
 	var noBuildPkgs []string
 	// TODO: gather packageBuildFlags
 	var packageBuildFlags map[string][]string
 	// TODO: gather packageBuildTags
 	var packageBuildTags map[string][]string
-	if err := packer.Build(tmp, pkgs, packageBuildFlags, packageBuildTags, noBuildPkgs); err != nil {
+	buildEnv := packer.BuildEnv{
+		// Remain in the current directory instead of building in a separate,
+		// per-package directory.
+		BuildDir: func(string) (string, error) { return "", nil },
+	}
+	if err := buildEnv.Build(tmp, pkgs, packageBuildFlags, packageBuildTags, noBuildPkgs); err != nil {
 		return err
 	}
 
