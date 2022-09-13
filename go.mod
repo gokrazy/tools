@@ -8,7 +8,7 @@ require (
 	github.com/gokrazy/gokrazy v0.0.0-20220113081925-ca0fa4174944
 	github.com/gokrazy/internal v0.0.0-20220709172510-3a50f98beeea
 	github.com/gokrazy/updater v0.0.0-20211121155532-30ae8cd650ea
-	github.com/spf13/cobra v1.2.1
+	github.com/spf13/cobra v1.5.0
 	golang.org/x/mod v0.5.1
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/sys v0.0.0-20210820121016-41cdb8703e55

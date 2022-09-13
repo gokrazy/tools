@@ -24,10 +24,8 @@ var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "`go install` and run on gokrazy",
 	Long:  `do iit`,
-	Run: func(cmd *cobra.Command, args []string) {
-		if err := runImpl.run(context.Background(), args); err != nil {
-			log.Fatal(err)
-		}
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
 	},
 }
 
@@ -44,7 +42,7 @@ func init() {
 	updateflag.RegisterPflags(runCmd.Flags(), "update")
 }
 
-func (r *runImplConfig) run(ctx context.Context, args []string) error {
+func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if updateflag.NewInstallation() {
 		updateflag.SetUpdate("yes")
 	}
@@ -153,5 +151,5 @@ func (r *runImplConfig) run(ctx context.Context, args []string) error {
 		service:  basename,
 		instance: r.instance,
 	}
-	return logsCfg.run(ctx, nil)
+	return logsCfg.run(ctx, nil, stdout, stderr)
 }

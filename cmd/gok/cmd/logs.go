@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/donovanhide/eventsource"
@@ -22,10 +21,8 @@ var logsCmd = &cobra.Command{
 	Use:   "logs",
 	Short: "stream logs from gokrazy service",
 	Long:  `Displays the most recent 100 log lines from stdout and stderr each, and any new lines the gokrazy service produces (cancel any time with Ctrl-C)`,
-	Run: func(cmd *cobra.Command, args []string) {
-		if err := logsImpl.run(context.Background(), args); err != nil {
-			log.Fatal(err)
-		}
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return logsImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
 	},
 }
 
@@ -42,7 +39,7 @@ func init() {
 	updateflag.RegisterPflags(logsCmd.Flags(), "update")
 }
 
-func (l *logsImplConfig) run(ctx context.Context, args []string) error {
+func (l *logsImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if updateflag.NewInstallation() {
 		updateflag.SetUpdate("yes")
 	}
@@ -79,10 +76,10 @@ func (l *logsImplConfig) run(ctx context.Context, args []string) error {
 	log.Printf("streaming logs of service %q from gokrazy instance %q", l.service, updateHostname)
 	var eg errgroup.Group
 	eg.Go(func() error {
-		return l.streamLog(ctx, os.Stdout, stdoutUrl)
+		return l.streamLog(ctx, stdout, stdoutUrl)
 	})
 	eg.Go(func() error {
-		return l.streamLog(ctx, os.Stderr, stderrUrl)
+		return l.streamLog(ctx, stderr, stderrUrl)
 	})
 	if err := eg.Wait(); err != nil {
 		var se eventsource.SubscriptionError
@@ -104,6 +101,8 @@ func (r *logsImplConfig) streamLog(ctx context.Context, w io.Writer, url string)
 	defer stream.Close()
 	for {
 		select {
+		case <-ctx.Done():
+			return ctx.Err()
 		case ev := <-stream.Events:
 			fmt.Fprintln(w, ev.Data())
 		case err := <-stream.Errors:
