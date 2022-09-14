@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
 	"time"
 
-	"github.com/gokrazy/internal/config"
+	"github.com/gokrazy/internal/httpclient"
 	"github.com/gokrazy/internal/humanize"
 	"github.com/gokrazy/internal/progress"
 	"github.com/gokrazy/internal/updateflag"
@@ -84,25 +83,12 @@ func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 		return err
 	}
 
-	// copy the binary over to the running installation
-	_, updateHostname := updateflag.GetUpdateTarget(r.instance)
-	const configBaseName = "http-password.txt"
-	pw, err := config.HostnameSpecific(updateHostname).ReadFile(configBaseName)
+	httpClient, updateBaseUrl, err := httpclient.GetHTTPClientForInstance(r.instance)
 	if err != nil {
 		return err
 	}
-	port, err := config.HostnameSpecific(updateHostname).ReadFile("http-port.txt")
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	if port == "" {
-		port = "80"
-	}
-	updateBaseUrl, err := updateflag.BaseURL(port, "http", updateHostname, pw)
-	if err != nil {
-		return err
-	}
-	target, err := updater.NewTarget(updateBaseUrl.String(), http.DefaultClient)
+
+	target, err := updater.NewTarget(updateBaseUrl.String(), httpClient)
 	if err != nil {
 		return fmt.Errorf("checking target partuuid support: %v", err)
 	}
