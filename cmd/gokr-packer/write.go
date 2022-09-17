@@ -446,9 +446,11 @@ func findBins(buildEnv *packer.BuildEnv, bindir string) (*fileInfo, error) {
 	}
 	gokrazy := fileInfo{filename: "gokrazy"}
 	for _, pkg := range gokrazyMainPkgs {
+		binPath := filepath.Join(bindir, pkg.Basename())
+		fileIsELFOrFatal(binPath)
 		gokrazy.dirents = append(gokrazy.dirents, &fileInfo{
 			filename: pkg.Basename(),
-			fromHost: filepath.Join(bindir, pkg.Basename()),
+			fromHost: binPath,
 		})
 	}
 
@@ -462,9 +464,11 @@ func findBins(buildEnv *packer.BuildEnv, bindir string) (*fileInfo, error) {
 				log.Printf("Error: -init_pkg=%q produced unexpected binary name: got %q, want %q", *initPkg, got, want)
 				continue
 			}
+			binPath := filepath.Join(bindir, pkg.Basename())
+			fileIsELFOrFatal(binPath)
 			gokrazy.dirents = append(gokrazy.dirents, &fileInfo{
 				filename: pkg.Basename(),
-				fromHost: filepath.Join(bindir, pkg.Basename()),
+				fromHost: binPath,
 			})
 		}
 	}
@@ -476,9 +480,11 @@ func findBins(buildEnv *packer.BuildEnv, bindir string) (*fileInfo, error) {
 	}
 	user := fileInfo{filename: "user"}
 	for _, pkg := range mainPkgs {
+		binPath := filepath.Join(bindir, pkg.Basename())
+		fileIsELFOrFatal(binPath)
 		user.dirents = append(user.dirents, &fileInfo{
 			filename: pkg.Basename(),
-			fromHost: filepath.Join(bindir, pkg.Basename()),
+			fromHost: binPath,
 		})
 	}
 	result.dirents = append(result.dirents, &user)

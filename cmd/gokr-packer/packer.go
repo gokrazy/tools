@@ -1042,10 +1042,14 @@ func logic() error {
 		}
 		defer os.RemoveAll(tmpdir)
 
+		initPath := filepath.Join(tmpdir, "init")
+
+		fileIsELFOrFatal(initPath)
+
 		gokrazy := root.mustFindDirent("gokrazy")
 		gokrazy.dirents = append(gokrazy.dirents, &fileInfo{
 			filename: "init",
-			fromHost: filepath.Join(tmpdir, "init"),
+			fromHost: initPath,
 		})
 	}
 
