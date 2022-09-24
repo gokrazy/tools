@@ -1621,7 +1621,9 @@ func main() {
 	tlsflag.RegisterFlags(flag.CommandLine)
 	flag.Parse()
 
-	gokrazyPkgs = strings.Split(*gokrazyPkgList, ",")
+	if *gokrazyPkgList != "" {
+		gokrazyPkgs = strings.Split(*gokrazyPkgList, ",")
+	}
 
 	if *overwrite == "" && *overwriteBoot == "" && *overwriteRoot == "" && *overwriteInit == "" && updateflag.NewInstallation() {
 		flag.Usage()
