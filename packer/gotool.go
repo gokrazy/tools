@@ -109,6 +109,7 @@ func BuildDir(importPath string) (string, error) {
 		if err != nil && !os.IsNotExist(err) {
 			return "", err
 		}
+		migrating := err == nil // root go.mod exists
 
 		wd, err := os.Getwd()
 		if err != nil {
@@ -157,6 +158,10 @@ func BuildDir(importPath string) (string, error) {
 
 		if err := os.WriteFile(goMod, b, 0644); err != nil {
 			return "", err
+		}
+
+		if migrating {
+			log.Printf("Migrated go.mod to %s, see https://gokrazy.org/development/modules/", goMod)
 		}
 
 		rootGoSum, err := os.ReadFile("go.sum")
