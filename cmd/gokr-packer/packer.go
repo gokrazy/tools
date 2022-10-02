@@ -7,6 +7,7 @@ import (
 	"archive/tar"
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -33,6 +34,7 @@ import (
 	"github.com/gokrazy/internal/progress"
 	"github.com/gokrazy/internal/tlsflag"
 	"github.com/gokrazy/internal/updateflag"
+	"github.com/gokrazy/tools/internal/config"
 	"github.com/gokrazy/tools/internal/measure"
 	"github.com/gokrazy/tools/packer"
 	"github.com/gokrazy/updater"
@@ -104,6 +106,10 @@ var (
 		`Device type identifier (defined in github.com/gokrazy/internal/deviceconfig) used for applying device-specific modifications to gokrazy.
 e.g. -device_type=odroidhc1 to apply MBR changes and device-specific bootloader files for Odroid XU4/HC1/HC2.
 Defaults to an empty string.`)
+
+	writeInstanceConfig = flag.String("write_instance_config",
+		"",
+		"instance, identified by hostname. $INSTANCE/config.json will be written based on the other flags. See https://github.com/gokrazy/gokrazy/issues/147 for more details.")
 )
 
 var gokrazyPkgs []string
@@ -863,9 +869,27 @@ func filterGoEnv(env []string) []string {
 	return relevant
 }
 
-func logic() error {
+func logic(instanceDir string) error {
 	if !updateflag.NewInstallation() && *overwrite != "" {
 		return fmt.Errorf("both -update and -overwrite are specified; use either one, not both")
+	}
+
+	if *writeInstanceConfig != "" {
+		configJSON := filepath.Join(instanceDir, *writeInstanceConfig, "config.json")
+		fmt.Printf("writing config.json to %s\n", configJSON)
+
+		cfg := config.Struct{
+			// TODO: put stuff here!
+		}
+		b, err := json.Marshal(&cfg)
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(configJSON, b, 0600); err != nil {
+			return err
+		}
+
+		return nil
 	}
 
 	// TODO: go1.18 code to include git revision and git uncommitted status
@@ -1619,6 +1643,17 @@ func main() {
 	}
 	updateflag.RegisterFlags(flag.CommandLine, "update")
 	tlsflag.RegisterFlags(flag.CommandLine)
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		homeDir = fmt.Sprintf("os.UserHomeDir failed: %v", err)
+	}
+
+	instanceDir := flag.String(
+		"instance_dir",
+		filepath.Join(homeDir, "gokrazy"),
+		`instance, identified by hostname`)
+
 	flag.Parse()
 
 	if *gokrazyPkgList != "" {
@@ -1640,7 +1675,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	if err := logic(); err != nil {
+	if err := logic(*instanceDir); err != nil {
 		log.Fatal(err)
 	}
 }
