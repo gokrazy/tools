@@ -1,4 +1,4 @@
-package main
+package packer
 
 import (
 	"bytes"
@@ -99,20 +99,20 @@ var initTmpl = template.Must(template.New("").Funcs(template.FuncMap{
 	},
 }).Parse(initTmplContents))
 
-func flattenFiles(prefix string, root *fileInfo) []string {
+func flattenFiles(prefix string, root *FileInfo) []string {
 	var result []string
-	for _, ent := range root.dirents {
-		if ent.fromHost != "" { // regular file
-			result = append(result, filepath.Join(prefix, root.filename, ent.filename))
+	for _, ent := range root.Dirents {
+		if ent.FromHost != "" { // regular file
+			result = append(result, filepath.Join(prefix, root.Filename, ent.Filename))
 		} else { // subdir
-			result = append(result, flattenFiles(filepath.Join(prefix, root.filename), ent)...)
+			result = append(result, flattenFiles(filepath.Join(prefix, root.Filename), ent)...)
 		}
 	}
 	return result
 }
 
 type gokrazyInit struct {
-	root             *fileInfo
+	root             *FileInfo
 	flagFileContents map[string]string
 	envFileContents  map[string]string
 	dontStart        map[string]bool

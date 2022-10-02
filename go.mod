@@ -6,7 +6,7 @@ require (
 	github.com/breml/rootcerts v0.2.0
 	github.com/donovanhide/eventsource v0.0.0-20210830082556-c59027999da0
 	github.com/gokrazy/gokrazy v0.0.0-20220113081925-ca0fa4174944
-	github.com/gokrazy/internal v0.0.0-20220913201530-a2f6689ea8f8
+	github.com/gokrazy/internal v0.0.0-20221002211028-7b8403f423a1
 	github.com/gokrazy/updater v0.0.0-20211121155532-30ae8cd650ea
 	github.com/spf13/cobra v1.5.0
 	golang.org/x/mod v0.5.1

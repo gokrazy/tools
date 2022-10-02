@@ -1,4 +1,4 @@
-package main
+package packer
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	"syscall"
 )
 
-func (p *pack) partitionDevice(o *os.File, path string) error {
+func (p *Pack) partitionDevice(o *os.File, path string) error {
 	devsize, err := deviceSize(uintptr(o.Fd()))
 	if err != nil {
 		return err
@@ -35,7 +35,7 @@ func mustUnixConn(fd uintptr) *net.UnixConn {
 	return fc.(*net.UnixConn)
 }
 
-func (p *pack) sudoPartition(path string) (*os.File, error) {
+func (p *Pack) SudoPartition(path string) (*os.File, error) {
 	if fd, err := strconv.Atoi(os.Getenv("GOKR_PACKER_FD")); err == nil {
 		// child process
 		conn := mustUnixConn(uintptr(fd))
@@ -111,18 +111,18 @@ func (p *pack) sudoPartition(path string) (*os.File, error) {
 	return os.NewFile(uintptr(fds[0]), ""), nil
 }
 
-func (p *pack) partition(path string) (*os.File, error) {
-	if *sudo == "always" {
-		return p.sudoPartition(path)
+func (p *Pack) partition(path string) (*os.File, error) {
+	if p.Cfg.InternalCompatibilityFlags.Sudo == "always" {
+		return p.SudoPartition(path)
 	}
 	o, err := os.Create(path)
 	if err != nil {
 		pe, ok := err.(*os.PathError)
-		if ok && pe.Err == syscall.EACCES && *sudo == "auto" {
+		if ok && pe.Err == syscall.EACCES && p.Cfg.InternalCompatibilityFlags.Sudo == "auto" {
 			// permission denied
 			log.Printf("Using sudo to gain permission to format %s", path)
 			log.Printf("If you prefer, cancel and use: sudo setfacl -m u:${USER}:rw %s", path)
-			return p.sudoPartition(path)
+			return p.SudoPartition(path)
 		}
 		if ok && pe.Err == syscall.EROFS {
 			log.Printf("%s read-only; check if you have a physical write-protect switch on your SD card?", path)

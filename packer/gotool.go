@@ -35,7 +35,10 @@ func TargetArch() string {
 	return "arm64" // Raspberry Pi 3, 4, Zero 2 W
 }
 
-var env = goEnv()
+var (
+	envOnce sync.Once
+	env     []string
+)
 
 func goEnv() []string {
 	goarch := TargetArch()
@@ -64,7 +67,12 @@ func goEnv() []string {
 		"GOBIN=")
 }
 
-func Env() []string { return env }
+func Env() []string {
+	envOnce.Do(func() {
+		env = goEnv()
+	})
+	return env
+}
 
 func InitDeps(initPkg string) []string {
 	if initPkg != "" {
@@ -184,7 +192,7 @@ func getIncomplete(buildDir string, incomplete []string) error {
 			"get",
 		}, incomplete...)...)
 	cmd.Dir = buildDir
-	cmd.Env = env
+	cmd.Env = Env()
 	cmd.Stderr = os.Stderr
 	if logExec {
 		log.Printf("getIncomplete: %v (in %s)", cmd.Args, buildDir)
@@ -204,7 +212,7 @@ func getPkg(buildDir string, pkg string) error {
 			"-e",
 			"-f", "{{ .ImportPath }} {{ if .Incomplete }}error{{ else }}ok{{ end }}",
 		}, pkg)...)
-	cmd.Env = env
+	cmd.Env = Env()
 	cmd.Dir = buildDir
 	cmd.Stderr = os.Stderr
 	if logExec {
@@ -294,7 +302,7 @@ func (be *BuildEnv) Build(bindir string, packages []string, packageBuildFlags, p
 				}
 				args = append(args, pkg.ImportPath)
 				cmd := exec.Command("go", args...)
-				cmd.Env = env
+				cmd.Env = Env()
 				cmd.Dir = buildDir
 				cmd.Stderr = os.Stderr
 				if logExec {
@@ -329,7 +337,7 @@ func (be *BuildEnv) mainPackage(pkg string) ([]Pkg, error) {
 	var buf bytes.Buffer
 	cmd := exec.Command("go", append([]string{"list", "-tags", "gokrazy", "-json"}, pkg)...)
 	cmd.Dir = buildDir
-	cmd.Env = env
+	cmd.Env = Env()
 	cmd.Stdout = &buf
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {

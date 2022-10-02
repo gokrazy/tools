@@ -1,9 +1,11 @@
-package main
+package packer
 
 import (
 	"os"
 	"path"
 	"testing"
+
+	"github.com/gokrazy/tools/internal/config"
 )
 
 func Test_validateCertificate(t *testing.T) {
@@ -11,12 +13,13 @@ func Test_validateCertificate(t *testing.T) {
 	t.Cleanup(cleanup)
 	k1 := createTemp("gokrazy-cert.*.pem")
 	c1 := createTemp("gokrazy-key.*.pem")
-	if err := generateAndStoreSelfSignedCertificate(path.Dir(k1), c1, k1); err != nil {
+	cfg := &config.Struct{}
+	if err := generateAndStoreSelfSignedCertificate(cfg, path.Dir(k1), c1, k1); err != nil {
 		t.Fatalf("failed to generate self signed certificate: %v", err)
 	}
 	k2 := createTemp("gokrazy-cert.*.pem")
 	c2 := createTemp("gokrazy-key.*.pem")
-	if err := generateAndStoreSelfSignedCertificate(path.Dir(k2), c2, k2); err != nil {
+	if err := generateAndStoreSelfSignedCertificate(cfg, path.Dir(k2), c2, k2); err != nil {
 		t.Fatalf("failed to generate self signed certificate: %v", err)
 	}
 

@@ -1,4 +1,4 @@
-package main
+package packer
 
 import (
 	"bufio"
@@ -22,6 +22,7 @@ import (
 	"github.com/gokrazy/internal/humanize"
 	"github.com/gokrazy/internal/mbr"
 	"github.com/gokrazy/internal/squashfs"
+	"github.com/gokrazy/tools/internal/config"
 	"github.com/gokrazy/tools/internal/measure"
 	"github.com/gokrazy/tools/packer"
 	"github.com/gokrazy/tools/third_party/systemd-250.5-1"
@@ -80,7 +81,7 @@ func copyFileSquash(d *squashfs.Directory, dest, src string) error {
 	return w.Close()
 }
 
-func (p *pack) writeCmdline(fw *fat.Writer, src string) error {
+func (p *Pack) writeCmdline(fw *fat.Writer, src string) error {
 	b, err := ioutil.ReadFile(src)
 	if err != nil {
 		return err
@@ -179,7 +180,7 @@ var (
 	}
 )
 
-func (p *pack) writeBoot(f io.Writer, mbrfilename string) error {
+func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 	fmt.Printf("\n")
 	fmt.Printf("Creating boot file system\n")
 	done := measure.Interactively("creating boot file system")
@@ -365,41 +366,41 @@ func (p *pack) writeBoot(f io.Writer, mbrfilename string) error {
 	return nil
 }
 
-type fileInfo struct {
-	filename string
-	mode     os.FileMode
+type FileInfo struct {
+	Filename string
+	Mode     os.FileMode
 
-	fromHost    string
-	fromLiteral string
-	symlinkDest string
+	FromHost    string
+	FromLiteral string
+	SymlinkDest string
 
-	dirents []*fileInfo
+	Dirents []*FileInfo
 }
 
-func (fi *fileInfo) isFile() bool {
-	return fi.fromHost != "" || fi.fromLiteral != ""
+func (fi *FileInfo) isFile() bool {
+	return fi.FromHost != "" || fi.FromLiteral != ""
 }
 
-func (fi *fileInfo) pathList() (paths []string) {
-	for _, ent := range fi.dirents {
+func (fi *FileInfo) pathList() (paths []string) {
+	for _, ent := range fi.Dirents {
 		if ent.isFile() {
-			paths = append(paths, ent.filename)
+			paths = append(paths, ent.Filename)
 			continue
 		}
 
 		for _, e := range ent.pathList() {
-			paths = append(paths, path.Join(ent.filename, e))
+			paths = append(paths, path.Join(ent.Filename, e))
 		}
 	}
 	return paths
 }
 
-func (fi *fileInfo) combine(fi2 *fileInfo) error {
-	for _, ent2 := range fi2.dirents {
+func (fi *FileInfo) combine(fi2 *FileInfo) error {
+	for _, ent2 := range fi2.Dirents {
 		// get existing file info
-		var f *fileInfo
-		for _, ent := range fi.dirents {
-			if ent.filename == ent2.filename {
+		var f *FileInfo
+		for _, ent := range fi.Dirents {
+			if ent.Filename == ent2.Filename {
 				f = ent
 				break
 			}
@@ -407,13 +408,13 @@ func (fi *fileInfo) combine(fi2 *fileInfo) error {
 
 		// if not found add complete subtree directly
 		if f == nil {
-			fi.dirents = append(fi.dirents, ent2)
+			fi.Dirents = append(fi.Dirents, ent2)
 			continue
 		}
 
 		// file overwrite is not supported -> return error
 		if f.isFile() || ent2.isFile() {
-			return fmt.Errorf("file already exist: %s", ent2.filename)
+			return fmt.Errorf("file already exist: %s", ent2.Filename)
 		}
 
 		if err := f.combine(ent2); err != nil {
@@ -423,10 +424,10 @@ func (fi *fileInfo) combine(fi2 *fileInfo) error {
 	return nil
 }
 
-func (fi *fileInfo) mustFindDirent(path string) *fileInfo {
-	for _, ent := range fi.dirents {
+func (fi *FileInfo) mustFindDirent(path string) *FileInfo {
+	for _, ent := range fi.Dirents {
 		// TODO: split path into components and compare piecemeal
-		if ent.filename == path {
+		if ent.Filename == path {
 			return ent
 		}
 	}
@@ -434,96 +435,96 @@ func (fi *fileInfo) mustFindDirent(path string) *fileInfo {
 	return nil
 }
 
-func findBins(buildEnv *packer.BuildEnv, bindir string) (*fileInfo, error) {
-	result := fileInfo{filename: ""}
+func findBins(cfg *config.Struct, buildEnv *packer.BuildEnv, bindir string) (*FileInfo, error) {
+	result := FileInfo{Filename: ""}
 
 	// TODO: doing all three packer.MainPackages calls concurrently hides go
 	// module proxy latency
 
-	gokrazyMainPkgs, err := buildEnv.MainPackages(gokrazyPkgs)
+	gokrazyMainPkgs, err := buildEnv.MainPackages(cfg.InternalCompatibilityFlags.GokrazyPackages)
 	if err != nil {
 		return nil, err
 	}
-	gokrazy := fileInfo{filename: "gokrazy"}
+	gokrazy := FileInfo{Filename: "gokrazy"}
 	for _, pkg := range gokrazyMainPkgs {
 		binPath := filepath.Join(bindir, pkg.Basename())
 		fileIsELFOrFatal(binPath)
-		gokrazy.dirents = append(gokrazy.dirents, &fileInfo{
-			filename: pkg.Basename(),
-			fromHost: binPath,
+		gokrazy.Dirents = append(gokrazy.Dirents, &FileInfo{
+			Filename: pkg.Basename(),
+			FromHost: binPath,
 		})
 	}
 
-	if *initPkg != "" {
-		initMainPkgs, err := buildEnv.MainPackages([]string{*initPkg})
+	if cfg.InternalCompatibilityFlags.InitPkg != "" {
+		initMainPkgs, err := buildEnv.MainPackages([]string{cfg.InternalCompatibilityFlags.InitPkg})
 		if err != nil {
 			return nil, err
 		}
 		for _, pkg := range initMainPkgs {
 			if got, want := pkg.Basename(), "init"; got != want {
-				log.Printf("Error: -init_pkg=%q produced unexpected binary name: got %q, want %q", *initPkg, got, want)
+				log.Printf("Error: -init_pkg=%q produced unexpected binary name: got %q, want %q", cfg.InternalCompatibilityFlags.InitPkg, got, want)
 				continue
 			}
 			binPath := filepath.Join(bindir, pkg.Basename())
 			fileIsELFOrFatal(binPath)
-			gokrazy.dirents = append(gokrazy.dirents, &fileInfo{
-				filename: pkg.Basename(),
-				fromHost: binPath,
+			gokrazy.Dirents = append(gokrazy.Dirents, &FileInfo{
+				Filename: pkg.Basename(),
+				FromHost: binPath,
 			})
 		}
 	}
-	result.dirents = append(result.dirents, &gokrazy)
+	result.Dirents = append(result.Dirents, &gokrazy)
 
-	mainPkgs, err := buildEnv.MainPackages(flag.Args())
+	mainPkgs, err := buildEnv.MainPackages(cfg.Packages)
 	if err != nil {
 		return nil, err
 	}
-	user := fileInfo{filename: "user"}
+	user := FileInfo{Filename: "user"}
 	for _, pkg := range mainPkgs {
 		binPath := filepath.Join(bindir, pkg.Basename())
 		fileIsELFOrFatal(binPath)
-		user.dirents = append(user.dirents, &fileInfo{
-			filename: pkg.Basename(),
-			fromHost: binPath,
+		user.Dirents = append(user.Dirents, &FileInfo{
+			Filename: pkg.Basename(),
+			FromHost: binPath,
 		})
 	}
-	result.dirents = append(result.dirents, &user)
+	result.Dirents = append(result.Dirents, &user)
 	return &result, nil
 }
 
-func writeFileInfo(dir *squashfs.Directory, fi *fileInfo) error {
-	if fi.fromHost != "" { // copy a regular file
-		return copyFileSquash(dir, fi.filename, fi.fromHost)
+func writeFileInfo(dir *squashfs.Directory, fi *FileInfo) error {
+	if fi.FromHost != "" { // copy a regular file
+		return copyFileSquash(dir, fi.Filename, fi.FromHost)
 	}
-	if fi.fromLiteral != "" { // write a regular file
-		mode := fi.mode
+	if fi.FromLiteral != "" { // write a regular file
+		mode := fi.Mode
 		if mode == 0 {
 			mode = 0444
 		}
-		w, err := dir.File(fi.filename, time.Now(), mode)
+		w, err := dir.File(fi.Filename, time.Now(), mode)
 		if err != nil {
 			return err
 		}
-		if _, err := w.Write([]byte(fi.fromLiteral)); err != nil {
+		if _, err := w.Write([]byte(fi.FromLiteral)); err != nil {
 			return err
 		}
 		return w.Close()
 	}
 
-	if fi.symlinkDest != "" { // create a symlink
-		return dir.Symlink(fi.symlinkDest, fi.filename, time.Now(), 0444)
+	if fi.SymlinkDest != "" { // create a symlink
+		return dir.Symlink(fi.SymlinkDest, fi.Filename, time.Now(), 0444)
 	}
 	// subdir
 	var d *squashfs.Directory
-	if fi.filename == "" { // root
+	if fi.Filename == "" { // root
 		d = dir
 	} else {
-		d = dir.Directory(fi.filename, time.Now())
+		d = dir.Directory(fi.Filename, time.Now())
 	}
-	sort.Slice(fi.dirents, func(i, j int) bool {
-		return fi.dirents[i].filename < fi.dirents[j].filename
+	sort.Slice(fi.Dirents, func(i, j int) bool {
+		return fi.Dirents[i].Filename < fi.Dirents[j].Filename
 	})
-	for _, ent := range fi.dirents {
+	for _, ent := range fi.Dirents {
 		if err := writeFileInfo(d, ent); err != nil {
 			return err
 		}
@@ -531,7 +532,7 @@ func writeFileInfo(dir *squashfs.Directory, fi *fileInfo) error {
 	return d.Flush()
 }
 
-func writeRoot(f io.WriteSeeker, root *fileInfo) error {
+func writeRoot(f io.WriteSeeker, root *FileInfo) error {
 	fmt.Printf("\n")
 	fmt.Printf("Creating root file system\n")
 	done := measure.Interactively("creating root file system")
@@ -609,7 +610,7 @@ func writeMBR(f io.ReadSeeker, fw io.WriteSeeker, partuuid uint32) error {
 }
 
 // getDuplication between the two given filesystems
-func getDuplication(fiA, fiB *fileInfo) (paths []string) {
+func getDuplication(fiA, fiB *FileInfo) (paths []string) {
 	allPaths := append(fiA.pathList(), fiB.pathList()...)
 	checkMap := make(map[string]bool, len(allPaths))
 	for _, p := range allPaths {

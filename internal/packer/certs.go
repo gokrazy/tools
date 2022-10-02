@@ -1,4 +1,4 @@
-package main
+package packer
 
 import (
 	"crypto/rand"
@@ -16,9 +16,10 @@ import (
 	"time"
 
 	"github.com/gokrazy/internal/tlsflag"
+	"github.com/gokrazy/tools/internal/config"
 )
 
-func generateAndSignCert() ([]byte, *rsa.PrivateKey, error) {
+func generateAndSignCert(cfg *config.Struct) ([]byte, *rsa.PrivateKey, error) {
 	notBefore := time.Now()
 	notAfter := notBefore.Add(2 * 365 * 24 * time.Hour)
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
@@ -36,7 +37,7 @@ func generateAndSignCert() ([]byte, *rsa.PrivateKey, error) {
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
-		DNSNames:              []string{*hostname},
+		DNSNames:              []string{cfg.Hostname},
 	}
 	priv, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
@@ -49,13 +50,13 @@ func generateAndSignCert() ([]byte, *rsa.PrivateKey, error) {
 	}
 	return derBytes, priv, err
 }
-func generateAndStoreSelfSignedCertificate(hostConfigPath, certPath, keyPath string) error {
+func generateAndStoreSelfSignedCertificate(cfg *config.Struct, hostConfigPath, certPath, keyPath string) error {
 	fmt.Println("Generating new self-signed certificate...")
 	// Generate
 	if err := os.MkdirAll(string(hostConfigPath), 0755); err != nil {
 		return err
 	}
-	cert, priv, err := generateAndSignCert()
+	cert, priv, err := generateAndSignCert(cfg)
 	if err != nil {
 		return err
 	}
@@ -92,12 +93,12 @@ func generateAndStoreSelfSignedCertificate(hostConfigPath, certPath, keyPath str
 	return nil
 }
 
-func getCertificate() (string, string, error) {
-	certPath, keyPath, err := tlsflag.CertificatePathsFor(*hostname)
+func getCertificate(cfg *config.Struct) (string, string, error) {
+	certPath, keyPath, err := tlsflag.CertificatePathsFor(cfg.Hostname)
 	if err != nil {
 		var nycerr *tlsflag.ErrNotYetCreated
 		if errors.As(err, &nycerr) {
-			if err := generateAndStoreSelfSignedCertificate(nycerr.HostConfigPath, nycerr.CertPath, nycerr.KeyPath); err != nil {
+			if err := generateAndStoreSelfSignedCertificate(cfg, nycerr.HostConfigPath, nycerr.CertPath, nycerr.KeyPath); err != nil {
 				return "", "", err
 			}
 			return nycerr.CertPath, nycerr.KeyPath, nil

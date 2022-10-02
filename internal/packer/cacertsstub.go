@@ -1,6 +1,6 @@
 //go:build !linux
 // +build !linux
 
-package main
+package packer
 
 var certFiles []string

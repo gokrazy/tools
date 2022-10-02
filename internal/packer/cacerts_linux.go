@@ -1,4 +1,4 @@
-package main
+package packer
 
 // From go1.8/src/crypto/x509/root_linux.go
 var certFiles = []string{
