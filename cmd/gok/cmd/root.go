@@ -5,6 +5,7 @@ import (
 	"log"
 	"runtime/debug"
 
+	"github.com/gokrazy/tools/internal/instanceflag"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -54,6 +55,11 @@ func Execute() {
 
 func init() {
 	RootCmd.Flags().Bool("version", false, "print gok version")
+	// Only defined so that it appears in documentation like --help.
+	//
+	// Cobra only parses local flags on the target command, but they can appear
+	// at any place in the command line (before or after the verb).
+	instanceflag.RegisterPflags(RootCmd.Flags())
 	RootCmd.AddCommand(runCmd)
 	RootCmd.AddCommand(logsCmd)
 }

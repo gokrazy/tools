@@ -13,6 +13,7 @@ import (
 	"github.com/gokrazy/internal/humanize"
 	"github.com/gokrazy/internal/progress"
 	"github.com/gokrazy/internal/updateflag"
+	"github.com/gokrazy/tools/internal/instanceflag"
 	"github.com/gokrazy/tools/packer"
 	"github.com/gokrazy/updater"
 	"github.com/spf13/cobra"
@@ -29,19 +30,19 @@ var runCmd = &cobra.Command{
 }
 
 type runImplConfig struct {
-	keep     bool
-	instance string
+	keep bool
 }
 
 var runImpl runImplConfig
 
 func init() {
 	runCmd.Flags().BoolVarP(&runImpl.keep, "keep", "k", false, "keep temporary binary")
-	runCmd.Flags().StringVarP(&runImpl.instance, "instance", "i", "gokrazy", "instance, identified by hostname")
+	instanceflag.RegisterPflags(runCmd.Flags())
 	updateflag.RegisterPflags(runCmd.Flags(), "update")
 }
 
 func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+	instance := instanceflag.Instance()
 	if updateflag.NewInstallation() {
 		updateflag.SetUpdate("yes")
 	}
@@ -83,7 +84,7 @@ func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 		return err
 	}
 
-	httpClient, updateBaseUrl, err := httpclient.GetHTTPClientForInstance(r.instance)
+	httpClient, updateBaseUrl, err := httpclient.GetHTTPClientForInstance(instance)
 	if err != nil {
 		return err
 	}
@@ -141,8 +142,7 @@ func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 
 	// stream stdout/stderr logs
 	logsCfg := &logsImplConfig{
-		service:  basename,
-		instance: r.instance,
+		service: basename,
 	}
 	return logsCfg.run(ctx, nil, stdout, stderr)
 }

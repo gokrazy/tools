@@ -12,6 +12,7 @@ import (
 	"github.com/donovanhide/eventsource"
 	"github.com/gokrazy/internal/httpclient"
 	"github.com/gokrazy/internal/updateflag"
+	"github.com/gokrazy/tools/internal/instanceflag"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 )
@@ -27,19 +28,19 @@ var logsCmd = &cobra.Command{
 }
 
 type logsImplConfig struct {
-	service  string
-	instance string
+	service string
 }
 
 var logsImpl logsImplConfig
 
 func init() {
 	logsCmd.Flags().StringVarP(&logsImpl.service, "service", "s", "", "gokrazy service to fetch logs for")
-	logsCmd.Flags().StringVarP(&logsImpl.instance, "instance", "i", "gokrazy", "instance, identified by hostname")
+	instanceflag.RegisterPflags(logsCmd.Flags())
 	updateflag.RegisterPflags(logsCmd.Flags(), "update")
 }
 
 func (l *logsImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+	instance := instanceflag.Instance()
 	if updateflag.NewInstallation() {
 		updateflag.SetUpdate("yes")
 	}
@@ -48,7 +49,7 @@ func (l *logsImplConfig) run(ctx context.Context, args []string, stdout, stderr 
 		return fmt.Errorf("the -service flag is empty, but required")
 	}
 
-	httpClient, logsUrl, err := httpclient.GetHTTPClientForInstance(l.instance)
+	httpClient, logsUrl, err := httpclient.GetHTTPClientForInstance(instance)
 	if err != nil {
 		return err
 	}
@@ -67,7 +68,7 @@ func (l *logsImplConfig) run(ctx context.Context, args []string, stdout, stderr 
 	logsUrl.RawQuery = q.Encode()
 	stderrUrl := logsUrl.String()
 
-	log.Printf("streaming logs of service %q from gokrazy instance %q", l.service, l.instance)
+	log.Printf("streaming logs of service %q from gokrazy instance %q", l.service, instance)
 	var eg errgroup.Group
 	eg.Go(func() error {
 		return l.streamLog(ctx, stdout, stdoutUrl, httpClient)
