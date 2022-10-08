@@ -137,11 +137,13 @@ func BuildDir(importPath string) (string, error) {
 		for _, replace := range f.Replace {
 			oldPath := replace.Old.Path
 			oldVersion := replace.Old.Version
-			// Turn relative replace paths in the root go.mod file into absolute
-			// ones to keep them working within the builddir/.
 			fixedPath := replace.New.Path
-			if !filepath.IsAbs(fixedPath) {
-				fixedPath = filepath.Join(wd, replace.New.Path)
+			if replace.New.Version == "" {
+				// Turn relative replace paths in the root go.mod file into absolute
+				// ones to keep them working within the builddir/.
+				if !filepath.IsAbs(fixedPath) {
+					fixedPath = filepath.Join(wd, replace.New.Path)
+				}
 			}
 			newVersion := replace.New.Version
 			if err := f.DropReplace(oldPath, oldVersion); err != nil {
