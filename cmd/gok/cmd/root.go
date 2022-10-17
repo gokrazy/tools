@@ -63,7 +63,7 @@ func init() {
 	RootCmd.AddCommand(runCmd)
 	RootCmd.AddCommand(logsCmd)
 	RootCmd.AddCommand(updateCmd)
-	// TODO: overwriteCmd
+	RootCmd.AddCommand(overwriteCmd)
 	// TODO: newCmd
 	// TODO: editCmd
 }

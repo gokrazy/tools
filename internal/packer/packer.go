@@ -829,12 +829,10 @@ func logic(cfg *config.Struct) error {
 	}
 	fmt.Printf("gokrazy packer %s on GOARCH=%s GOOS=%s\n\n", version, runtime.GOARCH, runtime.GOOS)
 
-	// TODO: print the config directories which are used (host-specific config,
-	// gokrazy config)
-
-	// TODO: only if *update is yes:
-	// TODO: fix update URL:
-	fmt.Printf("Updating gokrazy installation on http://%s\n\n", cfg.Hostname)
+	if cfg.InternalCompatibilityFlags.Update != "" {
+		// TODO: fix update URL:
+		fmt.Printf("Updating gokrazy installation on http://%s\n\n", cfg.Hostname)
+	}
 
 	fmt.Printf("Build target: %s\n", strings.Join(filterGoEnv(packer.Env()), " "))
 
