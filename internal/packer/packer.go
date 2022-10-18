@@ -105,6 +105,22 @@ func buildPackagesFromFlags(cfg *config.Struct) []string {
 }
 
 func findFlagFiles(cfg *config.Struct) (map[string]string, error) {
+	if len(cfg.PackageConfig) > 0 {
+		contents := make(map[string]string)
+		for pkg, packageConfig := range cfg.PackageConfig {
+			if len(packageConfig.CommandLineFlags) == 0 {
+				continue
+			}
+			contents[pkg] = strings.Join(packageConfig.CommandLineFlags, "\n")
+			packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
+				kind:         "be started with command-line flags",
+				path:         cfg.Meta.Path,
+				lastModified: cfg.Meta.LastModified,
+			})
+		}
+		return contents, nil
+	}
+
 	flagFilePaths, err := findPackageFiles("flags")
 	if err != nil {
 		return nil, err
@@ -142,6 +158,22 @@ func findFlagFiles(cfg *config.Struct) (map[string]string, error) {
 }
 
 func findBuildFlagsFiles(cfg *config.Struct) (map[string][]string, error) {
+	if len(cfg.PackageConfig) > 0 {
+		contents := make(map[string][]string)
+		for pkg, packageConfig := range cfg.PackageConfig {
+			if len(packageConfig.GoBuildFlags) == 0 {
+				continue
+			}
+			contents[pkg] = packageConfig.GoBuildFlags
+			packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
+				kind:         "be compiled with build flags",
+				path:         cfg.Meta.Path,
+				lastModified: cfg.Meta.LastModified,
+			})
+		}
+		return contents, nil
+	}
+
 	buildFlagsFilePaths, err := findPackageFiles("buildflags")
 	if err != nil {
 		return nil, err
@@ -191,6 +223,22 @@ func findBuildFlagsFiles(cfg *config.Struct) (map[string][]string, error) {
 }
 
 func findBuildTagsFiles(cfg *config.Struct) (map[string][]string, error) {
+	if len(cfg.PackageConfig) > 0 {
+		contents := make(map[string][]string)
+		for pkg, packageConfig := range cfg.PackageConfig {
+			if len(packageConfig.GoBuildTags) == 0 {
+				continue
+			}
+			contents[pkg] = packageConfig.GoBuildTags
+			packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
+				kind:         "be compiled with build tags",
+				path:         cfg.Meta.Path,
+				lastModified: cfg.Meta.LastModified,
+			})
+		}
+		return contents, nil
+	}
+
 	buildTagsFiles, err := findPackageFiles("buildtags")
 	if err != nil {
 		return nil, err
@@ -240,6 +288,22 @@ func findBuildTagsFiles(cfg *config.Struct) (map[string][]string, error) {
 }
 
 func findEnvFiles(cfg *config.Struct) (map[string]string, error) {
+	if len(cfg.PackageConfig) > 0 {
+		contents := make(map[string]string)
+		for pkg, packageConfig := range cfg.PackageConfig {
+			if len(packageConfig.Environment) == 0 {
+				continue
+			}
+			contents[pkg] = strings.Join(packageConfig.Environment, "\n")
+			packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
+				kind:         "be started with environment variables",
+				path:         cfg.Meta.Path,
+				lastModified: cfg.Meta.LastModified,
+			})
+		}
+		return contents, nil
+	}
+
 	buildFlagsFilePaths, err := findPackageFiles("env")
 	if err != nil {
 		return nil, err
@@ -276,13 +340,13 @@ func findEnvFiles(cfg *config.Struct) (map[string]string, error) {
 	return contents, nil
 }
 
-func addToFileInfo(parent *FileInfo, path string) (error, time.Time) {
+func addToFileInfo(parent *FileInfo, path string) (time.Time, error) {
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, time.Time{}
+			return time.Time{}, nil
 		}
-		return err, time.Time{}
+		return time.Time{}, err
 	}
 
 	var latestTime time.Time
@@ -299,12 +363,12 @@ func addToFileInfo(parent *FileInfo, path string) (error, time.Time) {
 
 		info, err := entry.Info()
 		if err != nil {
-			return err, time.Time{}
+			return time.Time{}, err
 		}
 		if info.Mode()&os.ModeSymlink != 0 {
 			info, err = os.Stat(filepath.Join(path, filename))
 			if err != nil {
-				return err, time.Time{}
+				return time.Time{}, err
 			}
 		}
 
@@ -322,15 +386,15 @@ func addToFileInfo(parent *FileInfo, path string) (error, time.Time) {
 		} else {
 			// file overwrite is not supported -> return error
 			if !info.IsDir() || fi.FromHost != "" || fi.FromLiteral != "" {
-				return fmt.Errorf("file already exists in filesystem: %s", filepath.Join(path, filename)), time.Time{}
+				return time.Time{}, fmt.Errorf("file already exists in filesystem: %s", filepath.Join(path, filename))
 			}
 		}
 
 		// add content
 		if info.IsDir() {
-			err, modTime := addToFileInfo(fi, filepath.Join(path, filename))
+			modTime, err := addToFileInfo(fi, filepath.Join(path, filename))
 			if err != nil {
-				return err, time.Time{}
+				return time.Time{}, err
 			}
 			if latestTime.Before(modTime) {
 				latestTime = modTime
@@ -340,20 +404,20 @@ func addToFileInfo(parent *FileInfo, path string) (error, time.Time) {
 		}
 	}
 
-	return nil, latestTime
+	return latestTime, nil
 }
 
 type archiveExtraction struct {
 	dirs map[string]*FileInfo
 }
 
-func (ae *archiveExtraction) extractArchive(path string) (error, time.Time) {
+func (ae *archiveExtraction) extractArchive(path string) (time.Time, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, time.Time{}
+			return time.Time{}, nil
 		}
-		return err, time.Time{}
+		return time.Time{}, err
 	}
 	defer f.Close()
 	rd := tar.NewReader(f)
@@ -365,7 +429,7 @@ func (ae *archiveExtraction) extractArchive(path string) (error, time.Time) {
 			if err == io.EOF {
 				break
 			}
-			return err, time.Time{}
+			return time.Time{}, err
 		}
 
 		// header.Name is e.g. usr/lib/aarch64-linux-gnu/xtables/libebt_mark.so
@@ -396,17 +460,16 @@ func (ae *archiveExtraction) extractArchive(path string) (error, time.Time) {
 			// stream the archive contents lazily to conserve RAM
 			b, err := ioutil.ReadAll(rd)
 			if err != nil {
-				return err, time.Time{}
+				return time.Time{}, err
 			}
 			fi.FromLiteral = string(b)
 		}
 	}
 
-	return nil, latestTime
+	return latestTime, nil
 }
 
-func findExtraFilesInDir(pkg, dir string, extraFiles map[string][]*FileInfo) error {
-	fi := new(FileInfo)
+func findExtraFilesInDir(pkg, dir string, fi *FileInfo) error {
 	ae := archiveExtraction{
 		dirs: make(map[string]*FileInfo),
 	}
@@ -415,20 +478,20 @@ func findExtraFilesInDir(pkg, dir string, extraFiles map[string][]*FileInfo) err
 	targetArch := packer.TargetArch()
 
 	effectivePath := dir + "_" + targetArch + ".tar"
-	err, latestModTime := ae.extractArchive(effectivePath)
+	latestModTime, err := ae.extractArchive(effectivePath)
 	if err != nil {
 		return err
 	}
 	if len(fi.Dirents) == 0 {
 		effectivePath = dir + ".tar"
-		err, latestModTime = ae.extractArchive(effectivePath)
+		latestModTime, err = ae.extractArchive(effectivePath)
 		if err != nil {
 			return err
 		}
 	}
 	if len(fi.Dirents) == 0 {
 		effectivePath = dir
-		err, latestModTime = addToFileInfo(fi, effectivePath)
+		latestModTime, err = addToFileInfo(fi, effectivePath)
 		if err != nil {
 			return err
 		}
@@ -443,32 +506,95 @@ func findExtraFilesInDir(pkg, dir string, extraFiles map[string][]*FileInfo) err
 		lastModified: latestModTime,
 	})
 
-	extraFiles[pkg] = append(extraFiles[pkg], fi)
 	return nil
 }
 
+func mkdirp(root *FileInfo, dir string) *FileInfo {
+	parts := strings.Split(strings.TrimPrefix(dir, "/"), "/")
+	parent := root
+	for _, part := range parts {
+		subdir := &FileInfo{
+			Filename: part,
+		}
+		parent.Dirents = append(parent.Dirents, subdir)
+		parent = subdir
+	}
+	return parent
+}
+
 func findExtraFiles(cfg *config.Struct) (map[string][]*FileInfo, error) {
+	extraFiles := make(map[string][]*FileInfo)
+	if len(cfg.PackageConfig) > 0 {
+		for pkg, packageConfig := range cfg.PackageConfig {
+			var fileInfos []*FileInfo
+
+			for dest, path := range packageConfig.ExtraFilePaths {
+				root := &FileInfo{}
+				if st, err := os.Stat(path); err == nil && st.Mode().IsRegular() {
+					// Copy a file from the host
+					dir := mkdirp(root, filepath.Dir(dest))
+					dir.Dirents = append(dir.Dirents, &FileInfo{
+						Filename: filepath.Base(dest),
+						FromHost: path,
+					})
+					packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
+						kind:         "include extra files in the root file system",
+						path:         path,
+						lastModified: st.ModTime(),
+					})
+				} else {
+					// Copy a tarball or directory from the host
+					dir := mkdirp(root, dest)
+					if err := findExtraFilesInDir(pkg, path, dir); err != nil {
+						return nil, err
+					}
+				}
+
+				fileInfos = append(fileInfos, root)
+			}
+
+			for dest, contents := range packageConfig.ExtraFileContents {
+				root := &FileInfo{}
+				dir := mkdirp(root, filepath.Dir(dest))
+				dir.Dirents = append(dir.Dirents, &FileInfo{
+					Filename:    filepath.Base(dest),
+					FromLiteral: contents,
+				})
+				packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
+					kind: "include extra files in the root file system",
+				})
+				fileInfos = append(fileInfos, root)
+			}
+
+			extraFiles[pkg] = fileInfos
+		}
+		// fall through to look for extra files in <pkg>/_gokrazy/extrafiles
+	}
+
 	buildPackages := buildPackagesFromFlags(cfg)
-	extraFiles := make(map[string][]*FileInfo, len(buildPackages))
 	packageDirs, err := packer.PackageDirs(buildPackages)
 	if err != nil {
 		return nil, err
 	}
 	for idx, pkg := range buildPackages {
-		{
+		if len(cfg.PackageConfig) == 0 {
 			// Look for extra files in $PWD/extrafiles/<pkg>/
 			dir := filepath.Join("extrafiles", pkg)
-			if err := findExtraFilesInDir(pkg, dir, extraFiles); err != nil {
+			root := &FileInfo{}
+			if err := findExtraFilesInDir(pkg, dir, root); err != nil {
 				return nil, err
 			}
+			extraFiles[pkg] = append(extraFiles[pkg], root)
 		}
 		{
 			// Look for extra files in <pkg>/_gokrazy/extrafiles/
 			dir := packageDirs[idx]
 			subdir := filepath.Join(dir, "_gokrazy", "extrafiles")
-			if err := findExtraFilesInDir(pkg, subdir, extraFiles); err != nil {
+			root := &FileInfo{}
+			if err := findExtraFilesInDir(pkg, subdir, root); err != nil {
 				return nil, err
 			}
+			extraFiles[pkg] = append(extraFiles[pkg], root)
 		}
 	}
 
@@ -476,6 +602,22 @@ func findExtraFiles(cfg *config.Struct) (map[string][]*FileInfo, error) {
 }
 
 func findDontStart(cfg *config.Struct) (map[string]bool, error) {
+	if len(cfg.PackageConfig) > 0 {
+		contents := make(map[string]bool)
+		for pkg, packageConfig := range cfg.PackageConfig {
+			if !packageConfig.DontStart {
+				continue
+			}
+			contents[pkg] = packageConfig.DontStart
+			packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
+				kind:         "not be started at boot",
+				path:         cfg.Meta.Path,
+				lastModified: cfg.Meta.LastModified,
+			})
+		}
+		return contents, nil
+	}
+
 	dontStartPaths, err := findPackageFiles("dontstart")
 	if err != nil {
 		return nil, err
@@ -509,6 +651,22 @@ func findDontStart(cfg *config.Struct) (map[string]bool, error) {
 }
 
 func findWaitForClock(cfg *config.Struct) (map[string]bool, error) {
+	if len(cfg.PackageConfig) > 0 {
+		contents := make(map[string]bool)
+		for pkg, packageConfig := range cfg.PackageConfig {
+			if !packageConfig.WaitForClock {
+				continue
+			}
+			contents[pkg] = packageConfig.WaitForClock
+			packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
+				kind:         "wait for clock synchronization before start",
+				path:         cfg.Meta.Path,
+				lastModified: cfg.Meta.LastModified,
+			})
+		}
+		return contents, nil
+	}
+
 	waitForClockPaths, err := findPackageFiles("waitforclock")
 	if err != nil {
 		return nil, err
@@ -1028,7 +1186,7 @@ func logic(cfg *config.Struct) error {
 		modules := &FileInfo{
 			Filename: "modules",
 		}
-		err, _ := addToFileInfo(modules, modulesDir)
+		_, err := addToFileInfo(modules, modulesDir)
 		if err != nil {
 			return err
 		}
