@@ -12,8 +12,8 @@ import (
 // versionCmd is gok version.
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "print gok version",
-	Long:  `print gok version`,
+	Short: "Print gok version",
+	Long:  `Print gok version`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return versionImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
 	},

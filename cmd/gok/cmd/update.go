@@ -16,8 +16,9 @@ import (
 // updateCmd is gok update.
 var updateCmd = &cobra.Command{
 	Use:   "update",
-	Short: "build and deploy a new gokrazy image to the specified gokrazy instance",
-	Long:  `TODO`,
+	Short: "Build a gokrazy instance and update over the network",
+	Long: `Build a gokrazy instance and update over the network.
+`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if cmd.Flags().NArg() > 0 {
 			fmt.Fprint(os.Stderr, `positional arguments are not supported

@@ -13,9 +13,16 @@ import (
 var RootCmd = &cobra.Command{
 	Use:   "gok",
 	Short: "top-level CLI entry point for all things gokrazy",
-	Long: `building and deploying new gokrazy images, managing your ~/gokrazy/
-directory, building and running Go programs from your local Go workspace,
-etc.`,
+	Long: `The gok tool is your main entrypoint to gokrazy and allows you to:
+
+1. Create new gokrazy instances (gok new),
+2. Deploy gokrazy instances to storage devices like SD cards (gok overwrite),
+3. Update gokrazy instances over the network (gok update),
+4. (For development) Run individual programs on a running gokrazy instance (gok run).
+
+If you are unfamiliar with gokrazy, please follow:
+https://gokrazy.org/quickstart/
+`,
 	SilenceErrors: true,
 	SilenceUsage:  true,
 	RunE: func(cmd *cobra.Command, args []string) error {

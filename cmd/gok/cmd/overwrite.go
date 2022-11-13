@@ -16,8 +16,17 @@ import (
 // overwriteCmd is gok overwrite.
 var overwriteCmd = &cobra.Command{
 	Use:   "overwrite",
-	Short: "build and write a new gokrazy image of the specified gokrazy instance",
-	Long:  `TODO`,
+	Short: "Build and deploy a gokrazy instance to a storage device",
+	Long: `Build and deploy a gokrazy instance to a storage device.
+
+You typically need to use the gok overwrite command only once,
+when first deploying your gokrazy instance. Afterwards, you can
+switch to the gok update command instead for updating over the network.
+
+Examples:
+  # Overwrite the contents of the SD card sdx with gokrazy instance scan2drive:
+  % gok -i scan2drive overwrite --full=/dev/sdx
+`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if cmd.Flags().NArg() > 0 {
 			fmt.Fprint(os.Stderr, `positional arguments are not supported

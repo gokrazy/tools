@@ -22,8 +22,17 @@ import (
 // runCmd is gok run.
 var runCmd = &cobra.Command{
 	Use:   "run",
-	Short: "`go install` and run on gokrazy",
-	Long:  `do iit`,
+	Short: "`go install` and run on a running gokrazy instance",
+	Long: "gok run uses `go install` to build the Go program in the current directory," + `
+then it stores the program in RAM of a running gokrazy instance and runs the program.
+
+This enables a quick feedback loop when working on a program that is running on gokrazy,
+without having to do a full gok update every time you only want to update a single program.
+
+Examples:
+  % cd ~/go/src/github.com/stapelberg/scan2drive/cmd/scan2drive
+  % gok -i scan2drive run
+`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
 	},
