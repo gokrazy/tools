@@ -31,12 +31,17 @@ var updateCmd = &cobra.Command{
 	},
 }
 
-type updateImplConfig struct{}
+type updateImplConfig struct {
+	insecure bool
+	testboot bool
+}
 
 var updateImpl updateImplConfig
 
 func init() {
 	instanceflag.RegisterPflags(updateCmd.Flags())
+	updateCmd.Flags().BoolVarP(&updateImpl.insecure, "insecure", "", false, "Disable TLS stripping detection. Should only be used when first enabling TLS, not permanently.")
+	updateCmd.Flags().BoolVarP(&updateImpl.testboot, "testboot", "", false, "Trigger a testboot instead of switching to the new root partition directly")
 }
 
 func (r *updateImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
@@ -46,6 +51,10 @@ func (r *updateImplConfig) run(ctx context.Context, args []string, stdout, stder
 	}
 	log.Printf("cfg: %+v", cfg)
 
+	if cfg.InternalCompatibilityFlags == nil {
+		cfg.InternalCompatibilityFlags = &config.InternalCompatibilityFlags{}
+	}
+
 	// gok update is mutually exclusive with gok overwrite
 	cfg.InternalCompatibilityFlags.Overwrite = ""
 	cfg.InternalCompatibilityFlags.OverwriteBoot = ""
@@ -54,6 +63,14 @@ func (r *updateImplConfig) run(ctx context.Context, args []string, stdout, stder
 
 	if cfg.InternalCompatibilityFlags.Update == "" {
 		cfg.InternalCompatibilityFlags.Update = "yes"
+	}
+
+	if r.insecure {
+		cfg.InternalCompatibilityFlags.Insecure = true
+	}
+
+	if r.testboot {
+		cfg.InternalCompatibilityFlags.Testboot = true
 	}
 
 	if err := os.Chdir(config.InstancePath()); err != nil {

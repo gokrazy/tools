@@ -44,6 +44,9 @@ type overwriteImplConfig struct {
 	boot string
 	root string
 	mbr  string
+
+	sudo               string
+	targetStorageBytes int
 }
 
 var overwriteImpl overwriteImplConfig
@@ -54,7 +57,8 @@ func init() {
 	overwriteCmd.Flags().StringVarP(&overwriteImpl.boot, "boot", "", "", "write the gokrazy boot file system to the specified partition (e.g. /dev/sdx1) or path (e.g. /tmp/boot.fat)")
 	overwriteCmd.Flags().StringVarP(&overwriteImpl.root, "root", "", "", "write the gokrazy root file system to the specified partition (e.g. /dev/sdx2) or path (e.g. /tmp/root.squashfs)")
 	overwriteCmd.Flags().StringVarP(&overwriteImpl.mbr, "mbr", "", "", "write the gokrazy master boot record (MBR) to the specified device (e.g. /dev/sdx) or path (e.g. /tmp/mbr.img). only effective if -boot is specified, too")
-
+	overwriteCmd.Flags().StringVarP(&overwriteImpl.sudo, "sudo", "", "", "Whether to elevate privileges using sudo when required (one of auto, always, never, default auto)")
+	overwriteCmd.Flags().IntVarP(&overwriteImpl.targetStorageBytes, "target_storage_bytes", "", 0, "Number of bytes which the target storage device (SD card) has. Required for using -full=<file>")
 }
 
 func (r *overwriteImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
@@ -64,6 +68,10 @@ func (r *overwriteImplConfig) run(ctx context.Context, args []string, stdout, st
 	}
 	log.Printf("cfg: %+v", cfg)
 
+	if cfg.InternalCompatibilityFlags == nil {
+		cfg.InternalCompatibilityFlags = &config.InternalCompatibilityFlags{}
+	}
+
 	// gok overwrite is mutually exclusive with gok update
 	cfg.InternalCompatibilityFlags.Update = ""
 
@@ -71,6 +79,14 @@ func (r *overwriteImplConfig) run(ctx context.Context, args []string, stdout, st
 	cfg.InternalCompatibilityFlags.OverwriteBoot = r.boot
 	cfg.InternalCompatibilityFlags.OverwriteRoot = r.root
 	cfg.InternalCompatibilityFlags.OverwriteMBR = r.mbr
+
+	if r.sudo != "" {
+		cfg.InternalCompatibilityFlags.Sudo = r.sudo
+	}
+
+	if r.targetStorageBytes > 0 {
+		cfg.InternalCompatibilityFlags.TargetStorageBytes = r.targetStorageBytes
+	}
 
 	if err := os.Chdir(config.InstancePath()); err != nil {
 		return err

@@ -4,7 +4,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -87,6 +86,22 @@ var (
 e.g. -device_type=odroidhc1 to apply MBR changes and device-specific bootloader files for Odroid XU4/HC1/HC2.
 Defaults to an empty string.`)
 
+	serialConsole = flag.String("serial_console",
+		"serial0,115200",
+		`"serial0,115200" enables UART0 as a serial console, "disabled" allows applications to use UART0 instead, "off" sets enable_uart=0 in config.txt for the Raspberry Pi firmware`)
+
+	kernelPackage = flag.String("kernel_package",
+		"github.com/gokrazy/kernel",
+		"Go package to copy vmlinuz and *.dtb from for constructing the firmware file system")
+
+	firmwarePackage = flag.String("firmware_package",
+		"github.com/gokrazy/firmware",
+		"Go package to copy *.{bin,dat,elf} from for constructing the firmware file system")
+
+	eepromPackage = flag.String("eeprom_package",
+		"github.com/gokrazy/rpi-eeprom",
+		"Go package to copy *.bin from for constructing the firmware file system")
+
 	writeInstanceConfig = flag.String("write_instance_config",
 		"",
 		"instance, identified by hostname. $INSTANCE/config.json will be written based on the other flags. See https://github.com/gokrazy/gokrazy/issues/147 for more details.")
@@ -132,8 +147,12 @@ func logic(instanceDir string) error {
 			HttpsPort: *httpsPort,
 			UseTLS:    tlsflag.GetUseTLS(),
 		},
+		SerialConsole:   *serialConsole,
+		GokrazyPackages: &gokrazyPkgs,
+		KernelPackage:   kernelPackage,
+		FirmwarePackage: firmwarePackage,
+		EEPROMPackage:   eepromPackage,
 		InternalCompatibilityFlags: &config.InternalCompatibilityFlags{
-			GokrazyPackages:    gokrazyPkgs,
 			Overwrite:          *overwrite,
 			OverwriteBoot:      *overwriteBoot,
 			OverwriteMBR:       *overwriteMBR,
@@ -164,7 +183,7 @@ func logic(instanceDir string) error {
 		configJSON := filepath.Join(instanceDir, *writeInstanceConfig, "config.json")
 		fmt.Printf("writing config.json to %s\n", configJSON)
 
-		b, err := json.Marshal(&cfg)
+		b, err := cfg.FormatForFile()
 		if err != nil {
 			return err
 		}

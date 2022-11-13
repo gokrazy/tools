@@ -148,6 +148,7 @@ func (r *newImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 			HttpPassword: pw,
 		},
 		PackageConfig: packageConfig,
+		SerialConsole: "disabled",
 	}, "", "    ")
 	if err != nil {
 		return err

@@ -81,7 +81,7 @@ func buildPackageMapFromFlags(cfg *config.Struct) map[string]bool {
 	for _, pkg := range cfg.Packages {
 		buildPackages[pkg] = true
 	}
-	for _, pkg := range cfg.InternalCompatibilityFlags.GokrazyPackages {
+	for _, pkg := range cfg.GokrazyPackagesOrDefault() {
 		if strings.TrimSpace(pkg) == "" {
 			continue
 		}
@@ -95,7 +95,7 @@ func buildPackagesFromFlags(cfg *config.Struct) []string {
 	for _, pkg := range cfg.Packages {
 		buildPackages = append(buildPackages, pkg)
 	}
-	for _, pkg := range cfg.InternalCompatibilityFlags.GokrazyPackages {
+	for _, pkg := range cfg.GokrazyPackagesOrDefault() {
 		if strings.TrimSpace(pkg) == "" {
 			continue
 		}
@@ -811,7 +811,7 @@ func (p *Pack) overwriteDevice(dev string, root *FileInfo, rootDeviceFiles []dev
 		return err
 	}
 
-	if err := writeRootDeviceFiles(f, rootDeviceFiles); err != nil {
+	if err := p.writeRootDeviceFiles(f, rootDeviceFiles); err != nil {
 		return err
 	}
 
@@ -897,7 +897,7 @@ func (p *Pack) overwriteFile(filename string, root *FileInfo, rootDeviceFiles []
 		return 0, 0, err
 	}
 
-	if err := writeRootDeviceFiles(f, rootDeviceFiles); err != nil {
+	if err := p.writeRootDeviceFiles(f, rootDeviceFiles); err != nil {
 		return 0, 0, err
 	}
 
@@ -1077,17 +1077,17 @@ func logic(cfg *config.Struct) error {
 		fmt.Printf("\n")
 	}
 
-	pkgs := append([]string{}, cfg.InternalCompatibilityFlags.GokrazyPackages...)
+	pkgs := append([]string{}, cfg.GokrazyPackagesOrDefault()...)
 	pkgs = append(pkgs, cfg.Packages...)
 	pkgs = append(pkgs, packer.InitDeps(cfg.InternalCompatibilityFlags.InitPkg)...)
 	noBuildPkgs := []string{
-		*kernelPackage,
+		cfg.KernelPackageOrDefault(),
 	}
-	if *firmwarePackage != "" {
-		noBuildPkgs = append(noBuildPkgs, *firmwarePackage)
+	if fw := cfg.FirmwarePackageOrDefault(); fw != "" {
+		noBuildPkgs = append(noBuildPkgs, fw)
 	}
-	if *eepromPackage != "" {
-		noBuildPkgs = append(noBuildPkgs, *eepromPackage)
+	if e := cfg.EEPROMPackageOrDefault(); e != "" {
+		noBuildPkgs = append(noBuildPkgs, e)
 	}
 	buildEnv := &packer.BuildEnv{
 		BuildDir: packer.BuildDir,
@@ -1180,7 +1180,7 @@ func logic(cfg *config.Struct) error {
 	}
 
 	// include lib/modules from kernelPackage dir, if present
-	kernelDir, err := packer.PackageDir(*kernelPackage)
+	kernelDir, err := packer.PackageDir(cfg.KernelPackageOrDefault())
 	if err != nil {
 		return err
 	}
@@ -1503,14 +1503,14 @@ func logic(cfg *config.Struct) error {
 	fmt.Printf("\n")
 	fmt.Printf("In addition, the following Linux consoles are set up:\n")
 	fmt.Printf("\n")
-	if *serialConsole != "disabled" {
+	if cfg.SerialConsole != "disabled" {
 		fmt.Printf("\t1. foreground Linux console on the serial port (115200n8, pin 6, 8, 10 for GND, TX, RX), accepting input\n")
 		fmt.Printf("\t2. secondary Linux framebuffer console on HDMI; shows Linux kernel message but no init system messages\n")
 	} else {
 		fmt.Printf("\t1. foreground Linux framebuffer console on HDMI\n")
 	}
 
-	if *serialConsole != "disabled" {
+	if cfg.SerialConsole != "disabled" {
 		fmt.Printf("\n")
 		fmt.Printf("Use -serial_console=disabled to make gokrazy not touch the serial port,\nand instead make the framebuffer console on HDMI the foreground console\n")
 	}

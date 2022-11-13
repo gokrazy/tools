@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/sha256"
-	"flag"
 	"fmt"
 	"io"
 	"io/fs"
@@ -26,24 +25,6 @@ import (
 	"github.com/gokrazy/tools/internal/measure"
 	"github.com/gokrazy/tools/packer"
 	"github.com/gokrazy/tools/third_party/systemd-250.5-1"
-)
-
-var (
-	serialConsole = flag.String("serial_console",
-		"serial0,115200",
-		`"serial0,115200" enables UART0 as a serial console, "disabled" allows applications to use UART0 instead, "off" sets enable_uart=0 in config.txt for the Raspberry Pi firmware`)
-
-	kernelPackage = flag.String("kernel_package",
-		"github.com/gokrazy/kernel",
-		"Go package to copy vmlinuz and *.dtb from for constructing the firmware file system")
-
-	firmwarePackage = flag.String("firmware_package",
-		"github.com/gokrazy/firmware",
-		"Go package to copy *.{bin,dat,elf} from for constructing the firmware file system")
-
-	eepromPackage = flag.String("eeprom_package",
-		"github.com/gokrazy/rpi-eeprom",
-		"Go package to copy *.bin from for constructing the firmware file system")
 )
 
 func copyFile(fw *fat.Writer, dest string, src fs.File) error {
@@ -87,13 +68,14 @@ func (p *Pack) writeCmdline(fw *fat.Writer, src string) error {
 		return err
 	}
 	cmdline := "console=tty1 "
-	if *serialConsole != "disabled" && *serialConsole != "off" {
-		if *serialConsole == "UART0" {
+	serialConsole := p.Cfg.SerialConsole
+	if serialConsole != "disabled" && serialConsole != "off" {
+		if serialConsole == "UART0" {
 			// For backwards compatibility, treat the special value UART0 as
 			// serial0,115200:
 			cmdline += "console=serial0,115200 "
 		} else {
-			cmdline += "console=" + *serialConsole + " "
+			cmdline += "console=" + serialConsole + " "
 		}
 	}
 	cmdline += string(b)
@@ -140,13 +122,13 @@ linux /vmlinuz
 	return nil
 }
 
-func writeConfig(fw *fat.Writer, src string) error {
+func (p *Pack) writeConfig(fw *fat.Writer, src string) error {
 	b, err := ioutil.ReadFile(src)
 	if err != nil {
 		return err
 	}
 	config := string(b)
-	if *serialConsole != "off" {
+	if p.Cfg.SerialConsole != "off" {
 		config = strings.ReplaceAll(config, "enable_uart=0", "enable_uart=1")
 	}
 	w, err := fw.File("/config.txt", time.Now())
@@ -190,8 +172,8 @@ func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 	}()
 
 	globs := make([]string, 0, len(firmwareGlobs)+len(kernelGlobs))
-	if *firmwarePackage != "" {
-		firmwareDir, err := packer.PackageDir(*firmwarePackage)
+	if fw := p.Cfg.FirmwarePackageOrDefault(); fw != "" {
+		firmwareDir, err := packer.PackageDir(fw)
 		if err != nil {
 			return err
 		}
@@ -200,14 +182,14 @@ func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 		}
 	}
 	var eepromDir string
-	if *eepromPackage != "" {
+	if eeprom := p.Cfg.EEPROMPackageOrDefault(); eeprom != "" {
 		var err error
-		eepromDir, err = packer.PackageDir(*eepromPackage)
+		eepromDir, err = packer.PackageDir(eeprom)
 		if err != nil {
 			return err
 		}
 	}
-	kernelDir, err := packer.PackageDir(*kernelPackage)
+	kernelDir, err := packer.PackageDir(p.Cfg.KernelPackageOrDefault())
 	if err != nil {
 		return err
 	}
@@ -312,7 +294,7 @@ func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 		return err
 	}
 
-	if err := writeConfig(fw, filepath.Join(kernelDir, "config.txt")); err != nil {
+	if err := p.writeConfig(fw, filepath.Join(kernelDir, "config.txt")); err != nil {
 		return err
 	}
 
@@ -441,7 +423,7 @@ func findBins(cfg *config.Struct, buildEnv *packer.BuildEnv, bindir string) (*Fi
 	// TODO: doing all three packer.MainPackages calls concurrently hides go
 	// module proxy latency
 
-	gokrazyMainPkgs, err := buildEnv.MainPackages(cfg.InternalCompatibilityFlags.GokrazyPackages)
+	gokrazyMainPkgs, err := buildEnv.MainPackages(cfg.GokrazyPackagesOrDefault())
 	if err != nil {
 		return nil, err
 	}
@@ -554,8 +536,8 @@ func writeRoot(f io.WriteSeeker, root *FileInfo) error {
 	return fw.Flush()
 }
 
-func writeRootDeviceFiles(f io.WriteSeeker, rootDeviceFiles []deviceconfig.RootFile) error {
-	kernelDir, err := packer.PackageDir(*kernelPackage)
+func (p *Pack) writeRootDeviceFiles(f io.WriteSeeker, rootDeviceFiles []deviceconfig.RootFile) error {
+	kernelDir, err := packer.PackageDir(p.Cfg.KernelPackageOrDefault())
 	if err != nil {
 		return err
 	}
