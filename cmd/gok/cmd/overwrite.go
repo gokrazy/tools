@@ -58,8 +58,6 @@ func init() {
 }
 
 func (r *overwriteImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	// TODO: call config generate hook
-
 	cfg, err := config.ReadFromFile()
 	if err != nil {
 		return err
