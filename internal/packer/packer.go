@@ -17,7 +17,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"runtime/debug"
 	"sort"
 	"strings"
 	"time"
@@ -30,6 +29,7 @@ import (
 	"github.com/gokrazy/internal/tlsflag"
 	"github.com/gokrazy/internal/updateflag"
 	"github.com/gokrazy/tools/internal/measure"
+	"github.com/gokrazy/tools/internal/version"
 	"github.com/gokrazy/tools/packer"
 	"github.com/gokrazy/updater"
 )
@@ -979,13 +979,10 @@ func logic(cfg *config.Struct) error {
 		}
 	}
 
-	// TODO: go1.18 code to include git revision and git uncommitted status
-	version := "<unknown>"
-	info, ok := debug.ReadBuildInfo()
-	if ok {
-		version = fmt.Sprint(info.Main.Version)
-	}
-	fmt.Printf("gokrazy packer %s on GOARCH=%s GOOS=%s\n\n", version, runtime.GOARCH, runtime.GOOS)
+	fmt.Printf("gokrazy packer %s on GOARCH=%s GOOS=%s\n\n",
+		version.ReadBrief(),
+		runtime.GOARCH,
+		runtime.GOOS)
 
 	if cfg.InternalCompatibilityFlags.Update != "" {
 		// TODO: fix update URL:

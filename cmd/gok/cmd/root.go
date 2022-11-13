@@ -3,9 +3,9 @@ package cmd
 import (
 	"fmt"
 	"log"
-	"runtime/debug"
 
 	"github.com/gokrazy/internal/instanceflag"
+	"github.com/gokrazy/tools/internal/version"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -24,27 +24,11 @@ etc.`,
 			return fmt.Errorf("BUG: version flag declared as non-bool")
 		}
 		if versionVal {
-			fmt.Println(version())
+			fmt.Println(version.Read())
 			return nil
 		}
 		return pflag.ErrHelp
 	},
-}
-
-func version() string {
-	info, ok := debug.ReadBuildInfo()
-	if !ok {
-		return "<not okay>"
-	}
-	settings := make(map[string]string)
-	for _, s := range info.Settings {
-		settings[s.Key] = s.Value
-	}
-	modified := ""
-	if settings["vcs.modified"] == "true" {
-		modified = " (modified)"
-	}
-	return "https://github.com/gokrazy/tools/commit/" + settings["vcs.revision"] + modified
 }
 
 func Execute() {
@@ -64,6 +48,7 @@ func init() {
 	RootCmd.AddCommand(logsCmd)
 	RootCmd.AddCommand(updateCmd)
 	RootCmd.AddCommand(overwriteCmd)
+	RootCmd.AddCommand(versionCmd)
 	// TODO: newCmd
 	// TODO: editCmd
 }
