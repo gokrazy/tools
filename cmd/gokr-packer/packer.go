@@ -127,12 +127,12 @@ func logic(instanceDir string) error {
 		Packages:   flag.Args(),
 		Hostname:   *hostname,
 		DeviceType: *deviceType,
-		Update: config.UpdateStruct{
+		Update: &config.UpdateStruct{
 			HttpPort:  *httpPort,
 			HttpsPort: *httpsPort,
 			UseTLS:    tlsflag.GetUseTLS(),
 		},
-		InternalCompatibilityFlags: config.InternalCompatibilityFlags{
+		InternalCompatibilityFlags: &config.InternalCompatibilityFlags{
 			GokrazyPackages:    gokrazyPkgs,
 			Overwrite:          *overwrite,
 			OverwriteBoot:      *overwriteBoot,
