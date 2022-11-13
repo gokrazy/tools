@@ -57,5 +57,5 @@ func init() {
 	RootCmd.AddCommand(overwriteCmd)
 	RootCmd.AddCommand(versionCmd)
 	RootCmd.AddCommand(newCmd)
-	// TODO: editCmd
+	RootCmd.AddCommand(editCmd)
 }
