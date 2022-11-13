@@ -1,6 +1,6 @@
 module github.com/gokrazy/tools
 
-go 1.18
+go 1.19
 
 require (
 	github.com/breml/rootcerts v0.2.0
@@ -19,3 +19,4 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 )
+

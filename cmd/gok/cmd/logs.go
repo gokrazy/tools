@@ -11,8 +11,8 @@ import (
 
 	"github.com/donovanhide/eventsource"
 	"github.com/gokrazy/internal/httpclient"
+	"github.com/gokrazy/internal/instanceflag"
 	"github.com/gokrazy/internal/updateflag"
-	"github.com/gokrazy/tools/internal/instanceflag"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 )

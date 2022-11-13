@@ -10,13 +10,12 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"os"
 	"time"
 
+	"github.com/gokrazy/internal/config"
 	"github.com/gokrazy/internal/tlsflag"
-	"github.com/gokrazy/tools/internal/config"
 )
 
 func generateAndSignCert(cfg *config.Struct) ([]byte, *rsa.PrivateKey, error) {
@@ -118,12 +117,8 @@ func validateCertificate(certPath, keyPath string) error {
 	return err
 }
 
-func getCertificateFromFile(certPath string) (*x509.Certificate, error) {
-	reader, err := ioutil.ReadFile(certPath)
-	if err != nil {
-		return nil, err
-	}
-	block, _ := pem.Decode(reader)
+func getCertificateFromString(certstr string) (*x509.Certificate, error) {
+	block, _ := pem.Decode([]byte(certstr))
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
 		return nil, err

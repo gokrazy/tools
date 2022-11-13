@@ -17,12 +17,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gokrazy/internal/config"
 	"github.com/gokrazy/internal/deviceconfig"
 	"github.com/gokrazy/internal/fat"
 	"github.com/gokrazy/internal/humanize"
 	"github.com/gokrazy/internal/mbr"
 	"github.com/gokrazy/internal/squashfs"
-	"github.com/gokrazy/tools/internal/config"
 	"github.com/gokrazy/tools/internal/measure"
 	"github.com/gokrazy/tools/packer"
 	"github.com/gokrazy/tools/third_party/systemd-250.5-1"

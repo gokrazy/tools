@@ -11,9 +11,9 @@ import (
 
 	"github.com/gokrazy/internal/httpclient"
 	"github.com/gokrazy/internal/humanize"
+	"github.com/gokrazy/internal/instanceflag"
 	"github.com/gokrazy/internal/progress"
 	"github.com/gokrazy/internal/updateflag"
-	"github.com/gokrazy/tools/internal/instanceflag"
 	"github.com/gokrazy/tools/packer"
 	"github.com/gokrazy/updater"
 	"github.com/spf13/cobra"

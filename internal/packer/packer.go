@@ -22,13 +22,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gokrazy/internal/config"
 	"github.com/gokrazy/internal/deviceconfig"
 	"github.com/gokrazy/internal/httpclient"
 	"github.com/gokrazy/internal/humanize"
 	"github.com/gokrazy/internal/progress"
 	"github.com/gokrazy/internal/tlsflag"
 	"github.com/gokrazy/internal/updateflag"
-	"github.com/gokrazy/tools/internal/config"
 	"github.com/gokrazy/tools/internal/measure"
 	"github.com/gokrazy/tools/packer"
 	"github.com/gokrazy/updater"
@@ -954,7 +954,7 @@ func filterGoEnv(env []string) []string {
 func logic(cfg *config.Struct) error {
 	updateflag.SetUpdate(cfg.InternalCompatibilityFlags.Update)
 	tlsflag.SetInsecure(cfg.InternalCompatibilityFlags.Insecure)
-	tlsflag.SetUseTLS(cfg.InternalCompatibilityFlags.UseTLS)
+	tlsflag.SetUseTLS(cfg.Update.UseTLS)
 
 	if !updateflag.NewInstallation() && cfg.InternalCompatibilityFlags.Overwrite != "" {
 		return fmt.Errorf("both -update and -overwrite are specified; use either one, not both")
@@ -1164,9 +1164,16 @@ func logic(cfg *config.Struct) error {
 	}
 
 	defaultPassword, updateHostname := updateflag.GetUpdateTarget(cfg.Hostname)
-	pw, err := ensurePasswordFileExists(updateHostname, defaultPassword)
+	update, err := cfg.Update.WithFallbackToHostSpecific(updateHostname)
 	if err != nil {
 		return err
+	}
+	if update.HttpPassword == "" {
+		pw, err := ensurePasswordFileExists(updateHostname, defaultPassword)
+		if err != nil {
+			return err
+		}
+		update.HttpPassword = pw
 	}
 
 	for _, dir := range []string{"dev", "etc", "proc", "sys", "tmp", "perm", "lib", "run", "var"} {
@@ -1231,12 +1238,28 @@ func logic(cfg *config.Struct) error {
 		FromLiteral: systemCertsPEM,
 	})
 
-	deployCertFile, deployKeyFile, err := getCertificate(cfg)
-	if err != nil {
-		return err
-	}
 	schema := "http"
-	if deployCertFile != "" {
+	if update.CertPEM == "" || update.KeyPEM == "" {
+		deployCertFile, deployKeyFile, err := getCertificate(cfg)
+		if err != nil {
+			return err
+		}
+
+		if deployCertFile != "" {
+			b, err := os.ReadFile(deployCertFile)
+			if err != nil {
+				return err
+			}
+			update.CertPEM = strings.TrimSpace(string(b))
+
+			b, err = os.ReadFile(deployKeyFile)
+			if err != nil {
+				return err
+			}
+			update.KeyPEM = strings.TrimSpace(string(b))
+		}
+	}
+	if update.CertPEM != "" && update.KeyPEM != "" {
 		// User requested TLS
 		if tlsflag.Insecure() {
 			// If -insecure is specified, use http instead of https to make the
@@ -1246,12 +1269,12 @@ func logic(cfg *config.Struct) error {
 		}
 
 		ssl.Dirents = append(ssl.Dirents, &FileInfo{
-			Filename: "gokrazy-web.pem",
-			FromHost: deployCertFile,
+			Filename:    "gokrazy-web.pem",
+			FromLiteral: update.CertPEM,
 		})
 		ssl.Dirents = append(ssl.Dirents, &FileInfo{
-			Filename: "gokrazy-web.key.pem",
-			FromHost: deployKeyFile,
+			Filename:    "gokrazy-web.key.pem",
+			FromLiteral: update.KeyPEM,
 		})
 	}
 
@@ -1260,17 +1283,17 @@ func logic(cfg *config.Struct) error {
 	etc.Dirents = append(etc.Dirents, &FileInfo{
 		Filename:    "gokr-pw.txt",
 		Mode:        0400,
-		FromLiteral: pw,
+		FromLiteral: update.HttpPassword,
 	})
 
 	etc.Dirents = append(etc.Dirents, &FileInfo{
 		Filename:    "http-port.txt",
-		FromLiteral: cfg.Update.HttpPort,
+		FromLiteral: update.HttpPort,
 	})
 
 	etc.Dirents = append(etc.Dirents, &FileInfo{
 		Filename:    "https-port.txt",
-		FromLiteral: cfg.Update.HttpsPort,
+		FromLiteral: update.HttpsPort,
 	})
 
 	for pkg1, fs := range extraFiles {
@@ -1320,7 +1343,7 @@ func logic(cfg *config.Struct) error {
 	)
 
 	if !updateflag.NewInstallation() {
-		updateBaseUrl, err = updateflag.BaseURL(cfg.Update.HttpPort, schema, cfg.Hostname, pw)
+		updateBaseUrl, err = updateflag.BaseURL(update.HttpPort, schema, update.Hostname, update.HttpPassword)
 		if err != nil {
 			return err
 		}
@@ -1466,17 +1489,20 @@ func logic(cfg *config.Struct) error {
 
 	fmt.Printf("\nBuild complete!\n")
 
-	hostPort := cfg.Hostname
-	if schema == "http" && cfg.Update.HttpPort != "80" {
-		hostPort = fmt.Sprintf("%s:%s", hostPort, cfg.Update.HttpPort)
+	hostPort := update.Hostname
+	if hostPort == "" {
+		hostPort = cfg.Hostname
 	}
-	if schema == "https" && cfg.Update.HttpsPort != "443" {
-		hostPort = fmt.Sprintf("%s:%s", hostPort, cfg.Update.HttpsPort)
+	if schema == "http" && update.HttpPort != "80" {
+		hostPort = fmt.Sprintf("%s:%s", hostPort, update.HttpPort)
+	}
+	if schema == "https" && update.HttpsPort != "443" {
+		hostPort = fmt.Sprintf("%s:%s", hostPort, update.HttpsPort)
 	}
 
 	fmt.Printf("\nTo interact with the device, gokrazy provides a web interface reachable at:\n")
 	fmt.Printf("\n")
-	fmt.Printf("\t%s://gokrazy:%s@%s/\n", schema, pw, hostPort)
+	fmt.Printf("\t%s://gokrazy:%s@%s/\n", schema, update.HttpPassword, hostPort)
 	fmt.Printf("\n")
 	fmt.Printf("In addition, the following Linux consoles are set up:\n")
 	fmt.Printf("\n")
@@ -1493,13 +1519,13 @@ func logic(cfg *config.Struct) error {
 	}
 	fmt.Printf("\n")
 	if schema == "https" {
-		certObj, err := getCertificateFromFile(deployCertFile)
+		certObj, err := getCertificateFromString(update.CertPEM)
 		if err != nil {
-			fmt.Errorf("error loading the certificate at %s", deployCertFile)
+			return fmt.Errorf("error loading certificate: %v", err)
 		} else {
 			fmt.Printf("\n")
 			fmt.Printf("The TLS Certificate of the gokrazy web interface is located under\n")
-			fmt.Printf("\t%s\n", deployCertFile)
+			fmt.Printf("\t%s\n", cfg.Meta.Path)
 			fmt.Printf("The fingerprint of the Certificate is\n")
 			fmt.Printf("\t%x\n", getCertificateFingerprintSHA1(certObj))
 			fmt.Printf("The certificate is valid until\n")

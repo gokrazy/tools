@@ -7,8 +7,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/gokrazy/tools/internal/config"
-	"github.com/gokrazy/tools/internal/instanceflag"
+	"github.com/gokrazy/internal/config"
+	"github.com/gokrazy/internal/instanceflag"
 	"github.com/gokrazy/tools/internal/packer"
 	"github.com/spf13/cobra"
 )

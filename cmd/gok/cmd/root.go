@@ -5,7 +5,7 @@ import (
 	"log"
 	"runtime/debug"
 
-	"github.com/gokrazy/tools/internal/instanceflag"
+	"github.com/gokrazy/internal/instanceflag"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )

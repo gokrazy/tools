@@ -15,9 +15,9 @@ import (
 	// Imported so that the go tool will download the repositories
 	_ "github.com/gokrazy/gokrazy/empty"
 
+	"github.com/gokrazy/internal/config"
 	"github.com/gokrazy/internal/tlsflag"
 	"github.com/gokrazy/internal/updateflag"
-	"github.com/gokrazy/tools/internal/config"
 	internalpacker "github.com/gokrazy/tools/internal/packer"
 	"github.com/gokrazy/tools/packer"
 )
@@ -130,6 +130,7 @@ func logic(instanceDir string) error {
 		Update: config.UpdateStruct{
 			HttpPort:  *httpPort,
 			HttpsPort: *httpsPort,
+			UseTLS:    tlsflag.GetUseTLS(),
 		},
 		InternalCompatibilityFlags: config.InternalCompatibilityFlags{
 			GokrazyPackages:    gokrazyPkgs,
@@ -144,7 +145,6 @@ func logic(instanceDir string) error {
 			Sudo:               *sudo,
 			Update:             updateflag.GetUpdate(),
 			Insecure:           tlsflag.GetInsecure(),
-			UseTLS:             tlsflag.GetUseTLS(),
 			Env:                os.Environ(),
 		},
 	}

@@ -5,7 +5,7 @@ import (
 	"path"
 	"testing"
 
-	"github.com/gokrazy/tools/internal/config"
+	"github.com/gokrazy/internal/config"
 )
 
 func Test_validateCertificate(t *testing.T) {
