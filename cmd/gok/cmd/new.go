@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -141,7 +140,7 @@ func (r *newImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 	if err != nil {
 		return err
 	}
-	b, err := json.MarshalIndent(&config.Struct{
+	cfg := &config.Struct{
 		Hostname: instance,
 		Packages: packages,
 		Update: &config.UpdateStruct{
@@ -149,11 +148,12 @@ func (r *newImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 		},
 		PackageConfig: packageConfig,
 		SerialConsole: "disabled",
-	}, "", "    ")
+	}
+	b, err := cfg.FormatForFile()
 	if err != nil {
 		return err
 	}
-	f.Write(append(b, '\n'))
+	f.Write(b)
 
 	if err := f.Close(); err != nil {
 		return err

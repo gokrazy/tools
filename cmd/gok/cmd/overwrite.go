@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
 
 	"github.com/gokrazy/internal/config"
@@ -66,7 +65,6 @@ func (r *overwriteImplConfig) run(ctx context.Context, args []string, stdout, st
 	if err != nil {
 		return err
 	}
-	log.Printf("cfg: %+v", cfg)
 
 	if cfg.InternalCompatibilityFlags == nil {
 		cfg.InternalCompatibilityFlags = &config.InternalCompatibilityFlags{}
