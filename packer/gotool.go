@@ -32,7 +32,7 @@ func TargetArch() string {
 	if arch := os.Getenv("GOARCH"); arch != "" {
 		return arch
 	}
-	return "arm64" // Raspberry Pi 3
+	return "arm64" // Raspberry Pi 3, 4, Zero 2 W
 }
 
 var env = goEnv()
@@ -40,7 +40,7 @@ var env = goEnv()
 func goEnv() []string {
 	goarch := TargetArch()
 
-	goos := "linux" // Raspberry Pi 3
+	goos := "linux" // Raspberry Pi 3, 4, Zero 2 W
 	if e := os.Getenv("GOOS"); e != "" {
 		goos = e
 	}

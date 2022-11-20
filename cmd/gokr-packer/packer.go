@@ -1,6 +1,6 @@
 // gokr-packer compiles and installs the specified Go packages as well
 // as the gokrazy Go packages and packs them into an SD card image for
-// the Raspberry Pi 3.
+// devices supported by gokrazy (see https://gokrazy.org/platforms/).
 package main
 
 import (
@@ -1278,7 +1278,7 @@ func logic() error {
 			if err := p.overwriteDevice(*overwrite, root, rootDeviceFiles); err != nil {
 				return err
 			}
-			fmt.Printf("To boot gokrazy, plug the SD card into a Raspberry Pi 3 or 4 (no other models supported)\n")
+			fmt.Printf("To boot gokrazy, plug the SD card into a supported device (see https://gokrazy.org/platforms/)\n")
 			fmt.Printf("\n")
 		} else {
 			lower := 1200*MB + 8192
@@ -1298,7 +1298,7 @@ func logic() error {
 				return err
 			}
 
-			fmt.Printf("To boot gokrazy, copy %s to an SD card and plug it into a Raspberry Pi 3 or 4 (no other models supported)\n", *overwrite)
+			fmt.Printf("To boot gokrazy, copy %s to an SD card and plug it into a supported device (see https://gokrazy.org/platforms/)\n", *overwrite)
 			fmt.Printf("\n")
 		}
 
