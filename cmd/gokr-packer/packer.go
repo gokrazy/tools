@@ -816,7 +816,7 @@ func (p *pack) overwriteFile(filename string, root *fileInfo, rootDeviceFiles []
 	}
 
 	fmt.Printf("If your applications need to store persistent data, create a file system using e.g.:\n")
-	fmt.Printf("\t/sbin/mkfs.ext4 %s -F -E offset=%v\n", *overwrite, 8192*512+1100*MB)
+	fmt.Printf("\t/sbin/mkfs.ext4 -F -E offset=%v %s %v\n", 8192*512+1100*MB, *overwrite, packer.PermSizeInKB(uint64(*targetStorageBytes)))
 	fmt.Printf("\n")
 
 	return int64(bs), int64(rs), f.Close()
