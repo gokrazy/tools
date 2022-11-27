@@ -102,7 +102,9 @@ func permSize(devsize uint64) uint32 {
 }
 
 func PermSizeInKB(devsize uint64) uint32 {
-	return permSize(devsize) / 2
+	permSizeLBA := permSize(devsize)
+	permSizeBytes := permSizeLBA * 512
+	return permSizeBytes / 1024
 }
 
 // writePartitionTable writes a Hybrid MBR: it contains the GPT protective
