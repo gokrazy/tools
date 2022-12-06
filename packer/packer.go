@@ -101,6 +101,12 @@ func permSize(devsize uint64) uint32 {
 	return permSize
 }
 
+func PermSizeInKB(devsize uint64) uint32 {
+	permSizeLBA := permSize(devsize)
+	permSizeBytes := permSizeLBA * 512
+	return permSizeBytes / 1024
+}
+
 // writePartitionTable writes a Hybrid MBR: it contains the GPT protective
 // partition so that the Linux kernel recognizes the disk as GPT, but it also
 // contains the FAT32 partition so that the Raspberry Pi bootloader still works.
