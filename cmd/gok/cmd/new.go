@@ -96,14 +96,14 @@ func (r *newImplConfig) addBreakglassAuthorizedKeys(authorizedPath string, match
 }
 
 func (r *newImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	instanceDir := instanceflag.InstanceDir()
+	parentDir := instanceflag.ParentDir()
 	instance := instanceflag.Instance()
 
-	if err := os.MkdirAll(filepath.Join(instanceDir, instance), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(parentDir, instance), 0755); err != nil {
 		return err
 	}
 
-	configJSON := filepath.Join(instanceDir, instance, "config.json")
+	configJSON := filepath.Join(parentDir, instance, "config.json")
 	f, err := os.OpenFile(configJSON, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
 	if err != nil {
 		if os.IsExist(err) {
@@ -130,7 +130,7 @@ func (r *newImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 		}
 		if len(matches) > 0 {
 			packages = append(packages, "github.com/gokrazy/breakglass")
-			authorizedPath := filepath.Join(instanceDir, instance, "breakglass.authorized_keys")
+			authorizedPath := filepath.Join(parentDir, instance, "breakglass.authorized_keys")
 			if err := r.addBreakglassAuthorizedKeys(authorizedPath, matches, packageConfig); err != nil {
 				return err
 			}

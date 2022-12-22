@@ -40,10 +40,10 @@ func init() {
 }
 
 func (r *editImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	instanceDir := instanceflag.InstanceDir()
+	parentDir := instanceflag.ParentDir()
 	instance := instanceflag.Instance()
 
-	configJSON := filepath.Join(instanceDir, instance, "config.json")
+	configJSON := filepath.Join(parentDir, instance, "config.json")
 	editor := os.Getenv("VISUAL")
 	if editor == "" {
 		editor = os.Getenv("EDITOR")

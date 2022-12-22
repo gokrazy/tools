@@ -212,10 +212,10 @@ func (r *addImplConfig) addNonLocal(ctx context.Context, arg string, stdout, std
 }
 
 func (r *addImplConfig) run(ctx context.Context, arg string, stdout, stderr io.Writer) error {
-	instanceDir := instanceflag.InstanceDir()
+	parentDir := instanceflag.ParentDir()
 	instance := instanceflag.Instance()
 
-	if _, err := os.Stat(filepath.Join(instanceDir, instance)); err != nil {
+	if _, err := os.Stat(filepath.Join(parentDir, instance)); err != nil {
 		return fmt.Errorf("instance %q does not exist (%v), create it using 'gok -i %s new'", instance, err, instance)
 	}
 
