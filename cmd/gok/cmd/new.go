@@ -16,8 +16,9 @@ import (
 
 // newCmd is gok new.
 var newCmd = &cobra.Command{
-	Use:   "new",
-	Short: "Create a new gokrazy instance",
+	GroupID: "edit",
+	Use:     "new",
+	Short:   "Create a new gokrazy instance",
 	Long: `Create a new gokrazy instance.
 
 If you are unfamiliar with gokrazy, please follow:

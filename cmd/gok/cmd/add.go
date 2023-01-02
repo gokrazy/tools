@@ -19,6 +19,7 @@ import (
 
 // addCmd is gok add.
 var addCmd = &cobra.Command{
+	GroupID:               "edit",
 	Use:                   "add [flags] importpath[@version]",
 	DisableFlagsInUseLine: true,
 	Short:                 "Add a Go package to a gokrazy instance",

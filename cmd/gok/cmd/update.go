@@ -14,8 +14,9 @@ import (
 
 // updateCmd is gok update.
 var updateCmd = &cobra.Command{
-	Use:   "update",
-	Short: "Build a gokrazy instance and update over the network",
+	GroupID: "deploy",
+	Use:     "update",
+	Short:   "Build a gokrazy instance and update over the network",
 	Long: `Build a gokrazy instance and update over the network.
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {

@@ -21,8 +21,9 @@ import (
 
 // runCmd is gok run.
 var runCmd = &cobra.Command{
-	Use:   "run",
-	Short: "`go install` and run on a running gokrazy instance",
+	GroupID: "runtime",
+	Use:     "run",
+	Short:   "`go install` and run on a running gokrazy instance",
 	Long: "gok run uses `go install` to build the Go program in the current directory," + `
 then it stores the program in RAM of a running gokrazy instance and runs the program.
 

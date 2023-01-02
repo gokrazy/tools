@@ -14,8 +14,9 @@ import (
 
 // overwriteCmd is gok overwrite.
 var overwriteCmd = &cobra.Command{
-	Use:   "overwrite",
-	Short: "Build and deploy a gokrazy instance to a storage device",
+	GroupID: "deploy",
+	Use:     "overwrite",
+	Short:   "Build and deploy a gokrazy instance to a storage device",
 	Long: `Build and deploy a gokrazy instance to a storage device.
 
 You typically need to use the gok overwrite command only once,

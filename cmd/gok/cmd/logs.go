@@ -19,8 +19,9 @@ import (
 
 // logsCmd is gok logs.
 var logsCmd = &cobra.Command{
-	Use:   "logs",
-	Short: "Stream logs from a running gokrazy service",
+	GroupID: "runtime",
+	Use:     "logs",
+	Short:   "Stream logs from a running gokrazy service",
 	Long: `Display the most recent 100 log lines from stdout and stderr each,
 and any new lines the gokrazy service produces (cancel any time with Ctrl-C)`,
 	RunE: func(cmd *cobra.Command, args []string) error {

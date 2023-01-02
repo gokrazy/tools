@@ -45,6 +45,18 @@ func Execute() {
 }
 
 func init() {
+	RootCmd.AddGroup(&cobra.Group{
+		ID:    "edit",
+		Title: "Commands to create and edit a gokrazy instance:",
+	})
+	RootCmd.AddGroup(&cobra.Group{
+		ID:    "deploy",
+		Title: "Commands to deploy and update a gokrazy instance:",
+	})
+	RootCmd.AddGroup(&cobra.Group{
+		ID:    "runtime",
+		Title: "Commands to work with a running gokrazy instance:",
+	})
 	RootCmd.Flags().Bool("version", false, "print gok version")
 	// Only defined so that it appears in documentation like --help.
 	//

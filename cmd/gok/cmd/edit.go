@@ -15,8 +15,9 @@ import (
 
 // editCmd is gok edit.
 var editCmd = &cobra.Command{
-	Use:   "edit",
-	Short: "Edit a gokrazy instance configuration interactively",
+	GroupID: "edit",
+	Use:     "edit",
+	Short:   "Edit a gokrazy instance configuration interactively",
 	Long: `Edit a gokrazy instance configuration interactively.
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
