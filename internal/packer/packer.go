@@ -972,13 +972,6 @@ func logic(cfg *config.Struct) error {
 		cfg.InternalCompatibilityFlags.Sudo = "auto"
 	}
 
-	for _, env := range cfg.InternalCompatibilityFlags.Env {
-		parts := strings.Split(env, "=")
-		if err := os.Setenv(parts[0], parts[1]); err != nil {
-			return err
-		}
-	}
-
 	fmt.Printf("gokrazy packer %s on GOARCH=%s GOOS=%s\n\n",
 		version.ReadBrief(),
 		runtime.GOARCH,
