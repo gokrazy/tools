@@ -104,7 +104,7 @@ func (r *newImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 	}
 
 	configJSON := filepath.Join(parentDir, instance, "config.json")
-	f, err := os.OpenFile(configJSON, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+	f, err := os.OpenFile(configJSON, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		if os.IsExist(err) {
 			return fmt.Errorf("gokrazy instance already exists! If you want to re-create it, rm '%s' and retry", configJSON)
