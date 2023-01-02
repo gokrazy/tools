@@ -144,7 +144,7 @@ func (r *newImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 		Hostname: instance,
 		Packages: packages,
 		Update: &config.UpdateStruct{
-			HttpPassword: pw,
+			HTTPPassword: pw,
 		},
 		PackageConfig: packageConfig,
 		SerialConsole: "disabled",

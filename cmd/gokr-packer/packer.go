@@ -143,8 +143,8 @@ func logic(instanceDir string) error {
 		Hostname:   *hostname,
 		DeviceType: *deviceType,
 		Update: &config.UpdateStruct{
-			HttpPort:  *httpPort,
-			HttpsPort: *httpsPort,
+			HTTPPort:  *httpPort,
+			HTTPSPort: *httpsPort,
 			UseTLS:    tlsflag.GetUseTLS(),
 		},
 		SerialConsole:   *serialConsole,
@@ -164,17 +164,16 @@ func logic(instanceDir string) error {
 			Sudo:               *sudo,
 			Update:             updateflag.GetUpdate(),
 			Insecure:           tlsflag.GetInsecure(),
-			Env:                os.Environ(),
 		},
 	}
 
 	if *writeInstanceConfig != "" {
 		// default value? empty the flag to exclude it from the config file
-		if cfg.Update.HttpPort == "80" {
-			cfg.Update.HttpPort = ""
+		if cfg.Update.HTTPPort == "80" {
+			cfg.Update.HTTPPort = ""
 		}
-		if cfg.Update.HttpsPort == "443" {
-			cfg.Update.HttpsPort = ""
+		if cfg.Update.HTTPSPort == "443" {
+			cfg.Update.HTTPSPort = ""
 		}
 		if cfg.InternalCompatibilityFlags.Sudo == "auto" {
 			cfg.InternalCompatibilityFlags.Sudo = ""

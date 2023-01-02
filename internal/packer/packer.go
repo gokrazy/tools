@@ -960,12 +960,12 @@ func logic(cfg *config.Struct) error {
 		return fmt.Errorf("both -update and -overwrite are specified; use either one, not both")
 	}
 
-	if cfg.Update.HttpPort == "" {
-		cfg.Update.HttpPort = "80"
+	if cfg.Update.HTTPPort == "" {
+		cfg.Update.HTTPPort = "80"
 	}
 
-	if cfg.Update.HttpsPort == "" {
-		cfg.Update.HttpsPort = "443"
+	if cfg.Update.HTTPSPort == "" {
+		cfg.Update.HTTPSPort = "443"
 	}
 
 	if cfg.InternalCompatibilityFlags.Sudo == "" {
@@ -1165,12 +1165,12 @@ func logic(cfg *config.Struct) error {
 	if err != nil {
 		return err
 	}
-	if update.HttpPassword == "" {
+	if update.HTTPPassword == "" {
 		pw, err := ensurePasswordFileExists(updateHostname, defaultPassword)
 		if err != nil {
 			return err
 		}
-		update.HttpPassword = pw
+		update.HTTPPassword = pw
 	}
 
 	for _, dir := range []string{"dev", "etc", "proc", "sys", "tmp", "perm", "lib", "run", "var"} {
@@ -1280,17 +1280,17 @@ func logic(cfg *config.Struct) error {
 	etc.Dirents = append(etc.Dirents, &FileInfo{
 		Filename:    "gokr-pw.txt",
 		Mode:        0400,
-		FromLiteral: update.HttpPassword,
+		FromLiteral: update.HTTPPassword,
 	})
 
 	etc.Dirents = append(etc.Dirents, &FileInfo{
 		Filename:    "http-port.txt",
-		FromLiteral: update.HttpPort,
+		FromLiteral: update.HTTPPort,
 	})
 
 	etc.Dirents = append(etc.Dirents, &FileInfo{
 		Filename:    "https-port.txt",
-		FromLiteral: update.HttpsPort,
+		FromLiteral: update.HTTPSPort,
 	})
 
 	for pkg1, fs := range extraFiles {
@@ -1340,7 +1340,7 @@ func logic(cfg *config.Struct) error {
 	)
 
 	if !updateflag.NewInstallation() {
-		updateBaseUrl, err = updateflag.BaseURL(update.HttpPort, schema, update.Hostname, update.HttpPassword)
+		updateBaseUrl, err = updateflag.BaseURL(update.HTTPPort, schema, update.Hostname, update.HTTPPassword)
 		if err != nil {
 			return err
 		}
@@ -1490,16 +1490,16 @@ func logic(cfg *config.Struct) error {
 	if hostPort == "" {
 		hostPort = cfg.Hostname
 	}
-	if schema == "http" && update.HttpPort != "80" {
-		hostPort = fmt.Sprintf("%s:%s", hostPort, update.HttpPort)
+	if schema == "http" && update.HTTPPort != "80" {
+		hostPort = fmt.Sprintf("%s:%s", hostPort, update.HTTPPort)
 	}
-	if schema == "https" && update.HttpsPort != "443" {
-		hostPort = fmt.Sprintf("%s:%s", hostPort, update.HttpsPort)
+	if schema == "https" && update.HTTPSPort != "443" {
+		hostPort = fmt.Sprintf("%s:%s", hostPort, update.HTTPSPort)
 	}
 
 	fmt.Printf("\nTo interact with the device, gokrazy provides a web interface reachable at:\n")
 	fmt.Printf("\n")
-	fmt.Printf("\t%s://gokrazy:%s@%s/\n", schema, update.HttpPassword, hostPort)
+	fmt.Printf("\t%s://gokrazy:%s@%s/\n", schema, update.HTTPPassword, hostPort)
 	fmt.Printf("\n")
 	fmt.Printf("In addition, the following Linux consoles are set up:\n")
 	fmt.Printf("\n")
