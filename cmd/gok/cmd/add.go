@@ -136,9 +136,11 @@ func (r *addImplConfig) addLocal(ctx context.Context, abs string, stdout, stderr
 		return fmt.Errorf("%v: %v", modEdit.Args, err)
 	}
 
-	// Run go get to add the require line to go.mod. Because of the replace
-	// directive, this will not hit the internet and instead just add version 0.
-	get := exec.CommandContext(ctx, "go", "get", pkg.ImportPath)
+	// Add a require line to go.mod. We use go mod edit instead of go get
+	// because the latter does not work for evcc: “panic: internal error: can't
+	// find reason for requirement on github.com/rogpeppe/go-internal@v1.6.1.”
+	const zeroVersion = "v0.0.0-00010101000000-000000000000"
+	get := exec.CommandContext(ctx, "go", "mod", "edit", "-require", pkg.Module.Path+"@"+zeroVersion)
 	get.Dir = buildDir
 	get.Stderr = os.Stderr
 	if err := get.Run(); err != nil {
