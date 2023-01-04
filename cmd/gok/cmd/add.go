@@ -15,6 +15,7 @@ import (
 	"github.com/gokrazy/internal/instanceflag"
 	"github.com/google/renameio/v2"
 	"github.com/spf13/cobra"
+	"golang.org/x/mod/modfile"
 )
 
 // addCmd is gok add.
@@ -102,9 +103,45 @@ func inspectDir(ctx context.Context, abs string) (*packageInfo, error) {
 func (r *addImplConfig) createGoMod(ctx context.Context, buildDir, path string, stdout, stderr io.Writer) error {
 	modInit := exec.CommandContext(ctx, "go", "mod", "init", "gokrazy/build/"+path)
 	modInit.Dir = buildDir
-	modInit.Stderr = os.Stderr
+	modInit.Stderr = stderr
 	if err := modInit.Run(); err != nil {
 		return fmt.Errorf("%v: %v", modInit.Args, err)
+	}
+	return nil
+}
+
+func (r *addImplConfig) copyReplaceDirectives(ctx context.Context, oldDir, newDir string, stdout, stderr io.Writer) error {
+	oldGoMod, err := os.ReadFile(filepath.Join(oldDir, "go.mod"))
+	if err != nil {
+		return fmt.Errorf("old go.mod does not exist: %v", err)
+	}
+	newPath := filepath.Join(newDir, "go.mod")
+	newGoMod, err := os.ReadFile(newPath)
+	if err != nil {
+		return fmt.Errorf("new go.mod does not exist: %v", err)
+	}
+	oldf, err := modfile.Parse("go.mod", oldGoMod, nil)
+	if err != nil {
+		return fmt.Errorf("parsing old go.mod: %v", err)
+	}
+	newf, err := modfile.Parse("go.mod", newGoMod, nil)
+	if err != nil {
+		return fmt.Errorf("parsing new go.mod: %v", err)
+	}
+
+	for _, r := range oldf.Replace {
+		if err := newf.AddReplace(r.Old.Path, r.Old.Version, r.New.Path, r.New.Version); err != nil {
+			return err
+		}
+	}
+
+	b, err := newf.Format()
+	if err != nil {
+		return err
+	}
+
+	if err := renameio.WriteFile(newPath, b, 0600, renameio.WithExistingPermissions()); err != nil {
+		return err
 	}
 	return nil
 }
@@ -141,6 +178,10 @@ func (r *addImplConfig) addLocal(ctx context.Context, abs string, stdout, stderr
 	modEdit.Stderr = os.Stderr
 	if err := modEdit.Run(); err != nil {
 		return fmt.Errorf("%v: %v", modEdit.Args, err)
+	}
+
+	if err := r.copyReplaceDirectives(ctx, pkg.Module.Dir, buildDir, stdout, stderr); err != nil {
+		return err
 	}
 
 	// Add a require line to go.mod. We use go mod edit instead of go get
