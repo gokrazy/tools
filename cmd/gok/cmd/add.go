@@ -99,6 +99,16 @@ func inspectDir(ctx context.Context, abs string) (*packageInfo, error) {
 	return &info, nil
 }
 
+func (r *addImplConfig) createGoMod(ctx context.Context, buildDir, path string, stdout, stderr io.Writer) error {
+	modInit := exec.CommandContext(ctx, "go", "mod", "init", "gokrazy/build/"+path)
+	modInit.Dir = buildDir
+	modInit.Stderr = os.Stderr
+	if err := modInit.Run(); err != nil {
+		return fmt.Errorf("%v: %v", modInit.Args, err)
+	}
+	return nil
+}
+
 func (r *addImplConfig) addLocal(ctx context.Context, abs string, stdout, stderr io.Writer) error {
 	pkg, err := inspectDir(ctx, abs)
 	if err != nil {
@@ -122,11 +132,8 @@ func (r *addImplConfig) addLocal(ctx context.Context, abs string, stdout, stderr
 		log.Printf("Adding replace directive to existing go.mod")
 	} else {
 		log.Printf("Creating go.mod with replace directive")
-		modInit := exec.CommandContext(ctx, "go", "mod", "init", "gokrazy/build/"+pkg.Module.Path)
-		modInit.Dir = buildDir
-		modInit.Stderr = os.Stderr
-		if err := modInit.Run(); err != nil {
-			return fmt.Errorf("%v: %v", modInit.Args, err)
+		if err := r.createGoMod(ctx, buildDir, pkg.Module.Path, stdout, stderr); err != nil {
+			return err
 		}
 	}
 	modEdit := exec.CommandContext(ctx, "go", "mod", "edit", "-replace", pkg.Module.Path+"="+pkg.Module.Dir, "go.mod")
@@ -196,6 +203,15 @@ func (r *addImplConfig) addNonLocal(ctx context.Context, arg string, stdout, std
 		log.Printf("Creating gokrazy builddir for package %s", importPath)
 		if err := os.MkdirAll(buildDir, 0755); err != nil {
 			return fmt.Errorf("could not create builddir: %v", err)
+		}
+	}
+
+	if _, err := os.Stat(filepath.Join(buildDir, "go.mod")); err == nil {
+		log.Printf("Calling go get with existing go.mod")
+	} else {
+		log.Printf("Creating go.mod before calling go get")
+		if err := r.createGoMod(ctx, buildDir, importPath, stdout, stderr); err != nil {
+			return err
 		}
 	}
 
