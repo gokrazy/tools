@@ -156,9 +156,9 @@ func (r *addImplConfig) addLocal(ctx context.Context, abs string, stdout, stderr
   in Go module: %s
   in local dir: %s`, instanceflag.Instance(), pkg.ImportPath, pkg.Module.Path, pkg.Dir)
 
-	buildDir := filepath.Join(config.InstancePath(), "builddir", pkg.Module.Path)
+	buildDir := filepath.Join(config.InstancePath(), "builddir", pkg.ImportPath)
 	if _, err := os.Stat(buildDir); err != nil {
-		log.Printf("Creating gokrazy builddir for module %s", pkg.Module.Path)
+		log.Printf("Creating gokrazy builddir for package %s", pkg.ImportPath)
 		if err := os.MkdirAll(buildDir, 0755); err != nil {
 			return fmt.Errorf("could not create builddir: %v", err)
 		}
