@@ -8,6 +8,7 @@ require (
 	github.com/gokrazy/gokrazy v0.0.0-20220113081925-ca0fa4174944
 	github.com/gokrazy/internal v0.0.0-20221002211028-7b8403f423a1
 	github.com/gokrazy/updater v0.0.0-20211121155532-30ae8cd650ea
+	github.com/google/go-cmp v0.5.9
 	github.com/google/renameio/v2 v2.0.0
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/pflag v1.0.5

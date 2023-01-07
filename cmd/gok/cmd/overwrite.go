@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/gokrazy/internal/config"
 	"github.com/gokrazy/internal/instanceflag"
@@ -74,6 +75,16 @@ func (r *overwriteImplConfig) run(ctx context.Context, args []string, stdout, st
 	// gok overwrite is mutually exclusive with gok update
 	cfg.InternalCompatibilityFlags.Update = ""
 
+	// Turn all paths into absolute paths so that the output files land in the
+	// current directory despite the os.Chdir() call below.
+	for _, str := range []*string{&r.full, &r.boot, &r.root, &r.mbr} {
+		if *str != "" {
+			*str, err = filepath.Abs(*str)
+			if err != nil {
+				return err
+			}
+		}
+	}
 	cfg.InternalCompatibilityFlags.Overwrite = r.full
 	cfg.InternalCompatibilityFlags.OverwriteBoot = r.boot
 	cfg.InternalCompatibilityFlags.OverwriteRoot = r.root
