@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -166,6 +167,26 @@ func logic(instanceDir string) error {
 		},
 	}
 
+	// Convert common -update URLs (changing the hostname, changing the
+	// password, changing the HTTP port) to their corresponding config.Update
+	// fields.
+	defaultPassword, updateHostname := updateflag.GetUpdateTarget(*hostname)
+	constructed := "http://gokrazy:" + defaultPassword + "@" + updateHostname + "/"
+	if canonical, err := url.Parse(updateflag.GetUpdate()); err == nil {
+		// Ensure both URLs (constructed and -update) end in a trailing slash.
+		canonical.Path = "/"
+		if constructed == canonical.String() {
+			cfg.Update.HTTPPassword = defaultPassword
+			if updateHostname != *hostname {
+				cfg.Update.Hostname = updateHostname
+			}
+			if strings.HasSuffix(cfg.Update.Hostname, ":"+cfg.Update.HTTPPort) {
+				cfg.Update.Hostname = strings.TrimSuffix(cfg.Update.Hostname, ":"+cfg.Update.HTTPPort)
+			}
+			cfg.InternalCompatibilityFlags.Update = "yes"
+		}
+	}
+
 	// PerPackageConfigForMigration expects cfg.Packages and cfg.GokrazyPackages
 	// to be set, and cfg.PackageConfig to not be set yet.
 	packageConfig, err := internalpacker.PerPackageConfigForMigration(&cfg)
@@ -184,6 +205,9 @@ func logic(instanceDir string) error {
 		}
 		if cfg.InternalCompatibilityFlags.Sudo == "auto" {
 			cfg.InternalCompatibilityFlags.Sudo = ""
+		}
+		if cfg.InternalCompatibilityFlags.Update == "yes" {
+			cfg.InternalCompatibilityFlags.Update = ""
 		}
 
 		configJSON := filepath.Join(instanceDir, *writeInstanceConfig, "config.json")
