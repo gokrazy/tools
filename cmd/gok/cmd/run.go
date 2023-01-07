@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/gokrazy/internal/config"
 	"github.com/gokrazy/internal/httpclient"
 	"github.com/gokrazy/internal/humanize"
 	"github.com/gokrazy/internal/instanceflag"
@@ -52,6 +54,16 @@ func init() {
 }
 
 func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+	cfg, err := config.ReadFromFile()
+	if err != nil {
+		if os.IsNotExist(err) {
+			// best-effort compatibility for old setups
+			cfg = &config.Struct{}
+		} else {
+			return err
+		}
+	}
+
 	instance := instanceflag.Instance()
 	if updateflag.NewInstallation() {
 		updateflag.SetUpdate("yes")
@@ -69,22 +81,27 @@ func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 		defer os.RemoveAll(tmp)
 	}
 
-	// basename of the current directory
-	wd, err := os.Getwd()
+	// Get the import path of the Go package in the current directory,
+	// e.g. github.com/stapelberg/scan2drive/cmd/scan2drive
+	list := exec.CommandContext(ctx, "go", "list")
+	list.Stderr = os.Stderr
+	listb, err := list.Output()
 	if err != nil {
-		return err
+		return fmt.Errorf("%v: %v", list.Args, err)
 	}
-	basename := filepath.Base(wd)
-	log.Printf("basename: %q", basename)
+	importPath := strings.TrimSpace(string(listb))
 
-	pkgs := []string{
-		".", // build what is in the current directory
-	}
+	// basename of the current directory
+	basename := filepath.Base(importPath)
+
+	pkgs := []string{importPath}
 	var noBuildPkgs []string
-	// TODO: gather packageBuildFlags
-	var packageBuildFlags map[string][]string
-	// TODO: gather packageBuildTags
-	var packageBuildTags map[string][]string
+	packageBuildFlags := map[string][]string{
+		importPath: cfg.PackageConfig[importPath].GoBuildFlags,
+	}
+	packageBuildTags := map[string][]string{
+		importPath: cfg.PackageConfig[importPath].GoBuildTags,
+	}
 	buildEnv := packer.BuildEnv{
 		// Remain in the current directory instead of building in a separate,
 		// per-package directory.
