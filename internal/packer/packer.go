@@ -1158,6 +1158,9 @@ func logic(cfg *config.Struct) error {
 	if err != nil {
 		return err
 	}
+	if update.Hostname == "" {
+		update.Hostname = updateHostname
+	}
 	if update.HTTPPassword == "" {
 		pw, err := ensurePasswordFileExists(updateHostname, defaultPassword)
 		if err != nil {
