@@ -167,6 +167,14 @@ func logic(instanceDir string) error {
 		},
 	}
 
+	// PerPackageConfigForMigration expects cfg.Packages and cfg.GokrazyPackages
+	// to be set, and cfg.PackageConfig to not be set yet.
+	packageConfig, err := internalpacker.PerPackageConfigForMigration(&cfg)
+	if err != nil {
+		return err
+	}
+	cfg.PackageConfig = packageConfig
+
 	if *writeInstanceConfig != "" {
 		// default value? empty the flag to exclude it from the config file
 		if cfg.Update.HTTPPort == "80" {

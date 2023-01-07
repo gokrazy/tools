@@ -73,21 +73,20 @@ func main() {
 `
 
 var initTmpl = template.Must(template.New("").Funcs(template.FuncMap{
-	"CommandFor": func(flags map[string]string, path string) string {
-		contents := strings.TrimSpace(flags[filepath.Base(path)])
-		if contents == "" {
+	"CommandFor": func(flags map[string][]string, path string) string {
+		contents := flags[filepath.Base(path)]
+		if len(contents) == 0 {
 			return fmt.Sprintf("%#v", path) // no flags
 		}
-		lines := strings.Split(contents, "\n")
-		return fmt.Sprintf("%#v, %#v...", path, lines)
+		return fmt.Sprintf("%#v, %#v...", path, contents)
 	},
 
-	"EnvFor": func(env map[string]string, path string) []string {
-		contents := strings.TrimSpace(env[filepath.Base(path)])
-		if contents == "" {
+	"EnvFor": func(env map[string][]string, path string) []string {
+		contents := env[filepath.Base(path)]
+		if len(contents) == 0 {
 			return nil // no environment variables
 		}
-		return strings.Split(contents, "\n")
+		return contents
 	},
 
 	"DontStart": func(dontStart map[string]bool, path string) bool {
@@ -113,11 +112,19 @@ func flattenFiles(prefix string, root *FileInfo) []string {
 
 type gokrazyInit struct {
 	root             *FileInfo
-	flagFileContents map[string]string
-	envFileContents  map[string]string
+	flagFileContents map[string][]string
+	envFileContents  map[string][]string
 	dontStart        map[string]bool
 	waitForClock     map[string]bool
 	buildTimestamp   string
+}
+
+func mapKeyBasename[M ~map[string]V, V any](m M) M {
+	r := make(M, len(m))
+	for k, v := range m {
+		r[filepath.Base(k)] = v
+	}
+	return r
 }
 
 func (g *gokrazyInit) generate() ([]byte, error) {
@@ -126,17 +133,17 @@ func (g *gokrazyInit) generate() ([]byte, error) {
 	if err := initTmpl.Execute(&buf, struct {
 		Binaries       []string
 		BuildTimestamp string
-		Flags          map[string]string
-		Env            map[string]string
+		Flags          map[string][]string
+		Env            map[string][]string
 		DontStart      map[string]bool
 		WaitForClock   map[string]bool
 	}{
 		Binaries:       flattenFiles("/", g.root),
 		BuildTimestamp: g.buildTimestamp,
-		Flags:          g.flagFileContents,
-		Env:            g.envFileContents,
-		DontStart:      g.dontStart,
-		WaitForClock:   g.waitForClock,
+		Flags:          mapKeyBasename(g.flagFileContents),
+		Env:            mapKeyBasename(g.envFileContents),
+		DontStart:      mapKeyBasename(g.dontStart),
+		WaitForClock:   mapKeyBasename(g.waitForClock),
 	}); err != nil {
 		return nil, err
 	}

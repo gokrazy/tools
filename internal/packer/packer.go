@@ -104,14 +104,14 @@ func buildPackagesFromFlags(cfg *config.Struct) []string {
 	return buildPackages
 }
 
-func findFlagFiles(cfg *config.Struct) (map[string]string, error) {
+func findFlagFiles(cfg *config.Struct) (map[string][]string, error) {
 	if len(cfg.PackageConfig) > 0 {
-		contents := make(map[string]string)
+		contents := make(map[string][]string)
 		for pkg, packageConfig := range cfg.PackageConfig {
 			if len(packageConfig.CommandLineFlags) == 0 {
 				continue
 			}
-			contents[pkg] = strings.Join(packageConfig.CommandLineFlags, "\n")
+			contents[pkg] = packageConfig.CommandLineFlags
 			packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
 				kind:         "be started with command-line flags",
 				path:         cfg.Meta.Path,
@@ -132,7 +132,7 @@ func findFlagFiles(cfg *config.Struct) (map[string]string, error) {
 
 	buildPackages := buildPackageMapFromFlags(cfg)
 
-	contents := make(map[string]string)
+	contents := make(map[string][]string)
 	for _, p := range flagFilePaths {
 		pkg := strings.TrimSuffix(strings.TrimPrefix(p.path, "flags/"), "/flags.txt")
 		if !buildPackages[pkg] {
@@ -149,9 +149,8 @@ func findFlagFiles(cfg *config.Struct) (map[string]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		// NOTE: ideally we would use the full package here, but our init
-		// template only deals with base names right now.
-		contents[filepath.Base(pkg)] = string(b)
+		lines := strings.Split(strings.TrimSpace(string(b)), "\n")
+		contents[pkg] = lines
 	}
 
 	return contents, nil
@@ -287,14 +286,14 @@ func findBuildTagsFiles(cfg *config.Struct) (map[string][]string, error) {
 	return contents, nil
 }
 
-func findEnvFiles(cfg *config.Struct) (map[string]string, error) {
+func findEnvFiles(cfg *config.Struct) (map[string][]string, error) {
 	if len(cfg.PackageConfig) > 0 {
-		contents := make(map[string]string)
+		contents := make(map[string][]string)
 		for pkg, packageConfig := range cfg.PackageConfig {
 			if len(packageConfig.Environment) == 0 {
 				continue
 			}
-			contents[pkg] = strings.Join(packageConfig.Environment, "\n")
+			contents[pkg] = packageConfig.Environment
 			packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
 				kind:         "be started with environment variables",
 				path:         cfg.Meta.Path,
@@ -315,7 +314,7 @@ func findEnvFiles(cfg *config.Struct) (map[string]string, error) {
 
 	buildPackages := buildPackageMapFromFlags(cfg)
 
-	contents := make(map[string]string)
+	contents := make(map[string][]string)
 	for _, p := range buildFlagsFilePaths {
 		pkg := strings.TrimSuffix(strings.TrimPrefix(p.path, "env/"), "/env.txt")
 		if !buildPackages[pkg] {
@@ -332,9 +331,8 @@ func findEnvFiles(cfg *config.Struct) (map[string]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		// NOTE: ideally we would use the full package here, but our init
-		// template only deals with base names right now.
-		contents[filepath.Base(pkg)] = string(b)
+		lines := strings.Split(strings.TrimSpace(string(b)), "\n")
+		contents[pkg] = lines
 	}
 
 	return contents, nil
@@ -510,6 +508,12 @@ func findExtraFilesInDir(pkg, dir string, fi *FileInfo) error {
 }
 
 func mkdirp(root *FileInfo, dir string) *FileInfo {
+	if dir == "/" {
+		// Special case to avoid strings.Split() returning a slice with the
+		// empty string as only element, which would result in creating a
+		// subdirectory of the root directory without a name.
+		return root
+	}
 	parts := strings.Split(strings.TrimPrefix(dir, "/"), "/")
 	parent := root
 	for _, part := range parts {
@@ -642,9 +646,7 @@ func findDontStart(cfg *config.Struct) (map[string]bool, error) {
 			lastModified: p.modTime,
 		})
 
-		// NOTE: ideally we would use the full package here, but our init
-		// template only deals with base names right now.
-		contents[filepath.Base(pkg)] = true
+		contents[pkg] = true
 	}
 
 	return contents, nil
@@ -691,9 +693,7 @@ func findWaitForClock(cfg *config.Struct) (map[string]bool, error) {
 			lastModified: p.modTime,
 		})
 
-		// NOTE: ideally we would use the full package here, but our init
-		// template only deals with base names right now.
-		contents[filepath.Base(pkg)] = true
+		contents[pkg] = true
 	}
 
 	return contents, nil
@@ -1753,4 +1753,85 @@ func Main(cfg *config.Struct) {
 	if err := logic(cfg); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func PerPackageConfigForMigration(cfg *config.Struct) (map[string]config.PackageConfig, error) {
+	packageBuildFlags, err := findBuildFlagsFiles(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	packageBuildTags, err := findBuildTagsFiles(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	flagFileContents, err := findFlagFiles(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	envFileContents, err := findEnvFiles(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	dontStart, err := findDontStart(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	waitForClock, err := findWaitForClock(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]config.PackageConfig)
+
+	for importPath, buildFlags := range packageBuildFlags {
+		pc := result[importPath]
+		pc.GoBuildFlags = buildFlags
+		result[importPath] = pc
+	}
+
+	for importPath, buildTags := range packageBuildTags {
+		pc := result[importPath]
+		pc.GoBuildTags = buildTags
+		result[importPath] = pc
+	}
+
+	for importPath, flags := range flagFileContents {
+		pc := result[importPath]
+		pc.CommandLineFlags = flags
+		result[importPath] = pc
+	}
+
+	for importPath, env := range envFileContents {
+		pc := result[importPath]
+		pc.Environment = env
+		result[importPath] = pc
+	}
+
+	for importPath, dontStart := range dontStart {
+		pc := result[importPath]
+		pc.DontStart = dontStart
+		result[importPath] = pc
+	}
+
+	for importPath, waitForClock := range waitForClock {
+		pc := result[importPath]
+		pc.WaitForClock = waitForClock
+		result[importPath] = pc
+	}
+
+	for _, importPath := range cfg.Packages {
+		dir := filepath.Join("extrafiles", importPath)
+		if _, err := os.Stat(dir); err == nil {
+			pc := result[importPath]
+			pc.ExtraFilePaths = map[string]string{"/": dir}
+			result[importPath] = pc
+		}
+	}
+
+	return result, nil
 }
