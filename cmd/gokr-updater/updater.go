@@ -71,7 +71,7 @@ func main() {
 		if !*tlsInsecure {
 			log.Fatalf("update canceled: TLS certificate found, but negotiating a TLS connection with the target failed")
 		}
-		fmt.Printf("Proceeding anyway as requested (-insecure).\n")
+		fmt.Printf("Proceeding anyway as requested (--insecure).\n")
 	}
 
 	target, err := updater.NewTarget(baseUrl.String(), httpClient)

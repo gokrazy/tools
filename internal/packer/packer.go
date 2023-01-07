@@ -1358,7 +1358,7 @@ func logic(cfg *config.Struct) error {
 			if !tlsflag.Insecure() {
 				log.Fatalf("update canceled: TLS certificate found, but negotiating a TLS connection with the target failed")
 			}
-			fmt.Printf("Proceeding anyway as requested (-insecure).\n")
+			fmt.Printf("Proceeding anyway as requested (--insecure).\n")
 		}
 
 		// Opt out of PARTUUID= for updating until we can check the remote
@@ -1408,13 +1408,13 @@ func logic(cfg *config.Struct) error {
 			lower := 1200*MB + 8192
 
 			if cfg.InternalCompatibilityFlags.TargetStorageBytes == 0 {
-				return fmt.Errorf("-target_storage_bytes is required (e.g. -target_storage_bytes=%d) when using -overwrite with a file", lower)
+				return fmt.Errorf("--target_storage_bytes is required (e.g. --target_storage_bytes=%d) when using overwrite with a file", lower)
 			}
 			if cfg.InternalCompatibilityFlags.TargetStorageBytes%512 != 0 {
-				return fmt.Errorf("-target_storage_bytes must be a multiple of 512 (sector size), use e.g. %d", lower)
+				return fmt.Errorf("--target_storage_bytes must be a multiple of 512 (sector size), use e.g. %d", lower)
 			}
 			if cfg.InternalCompatibilityFlags.TargetStorageBytes < lower {
-				return fmt.Errorf("-target_storage_bytes must be at least %d (for boot + 2 root file systems + 100 MB /perm)", lower)
+				return fmt.Errorf("--target_storage_bytes must be at least %d (for boot + 2 root file systems + 100 MB /perm)", lower)
 			}
 
 			bootSize, rootSize, err = p.overwriteFile(cfg.InternalCompatibilityFlags.Overwrite, root, rootDeviceFiles)
