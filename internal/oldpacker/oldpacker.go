@@ -227,7 +227,7 @@ func logic(instanceDir string) error {
 		return nil
 	}
 
-	internalpacker.Main(&cfg)
+	internalpacker.Main(&cfg, "gokrazy packer")
 	return nil
 }
 

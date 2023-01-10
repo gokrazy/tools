@@ -102,7 +102,7 @@ func (r *overwriteImplConfig) run(ctx context.Context, args []string, stdout, st
 		return err
 	}
 
-	packer.Main(cfg)
+	packer.Main(cfg, "gokrazy gok")
 
 	return nil
 }

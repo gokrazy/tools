@@ -951,7 +951,7 @@ func filterGoEnv(env []string) []string {
 	return relevant
 }
 
-func logic(cfg *config.Struct) error {
+func logic(cfg *config.Struct, programName string) error {
 	updateflag.SetUpdate(cfg.InternalCompatibilityFlags.Update)
 	tlsflag.SetInsecure(cfg.InternalCompatibilityFlags.Insecure)
 	tlsflag.SetUseTLS(cfg.Update.UseTLS)
@@ -972,7 +972,8 @@ func logic(cfg *config.Struct) error {
 		cfg.InternalCompatibilityFlags.Sudo = "auto"
 	}
 
-	fmt.Printf("gokrazy packer %s on GOARCH=%s GOOS=%s\n\n",
+	fmt.Printf("%s %s on GOARCH=%s GOOS=%s\n\n",
+		programName,
 		version.ReadBrief(),
 		runtime.GOARCH,
 		runtime.GOOS)
@@ -1741,19 +1742,19 @@ func updateWithProgress(prog *progress.Reporter, reader io.Reader, target *updat
 	return nil
 }
 
-func Main(cfg *config.Struct) {
+func Main(instance *config.Struct, programName string) {
 	if os.Getenv("GOKR_PACKER_FD") != "" { // partitioning child process
 		p := Pack{
-			Pack: packer.NewPackForHost(cfg.Hostname),
+			Pack: packer.NewPackForHost(instance.Hostname),
 		}
 
-		if _, err := p.SudoPartition(cfg.InternalCompatibilityFlags.Overwrite); err != nil {
+		if _, err := p.SudoPartition(instance.InternalCompatibilityFlags.Overwrite); err != nil {
 			log.Fatal(err)
 		}
 		os.Exit(0)
 	}
 
-	if err := logic(cfg); err != nil {
+	if err := logic(instance, programName); err != nil {
 		log.Fatal(err)
 	}
 }
