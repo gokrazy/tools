@@ -14,7 +14,13 @@ func hostLocaltime(tmpdir string) (string, error) {
 		return hostLocaltime, nil
 	}
 
-	// Fallback to time zone “Factory” from Go’s copy of zoneinfo.zip
+	// Fallback to time zone “Factory” from Go’s copy of zoneinfo.zip.
+	//
+	// Unfortunately, we cannot directly use the time/tzdata package (an
+	// embedded copy of the timezone database in the Go standard library),
+	// because the standard library only provides code to *load* that copy, but
+	// not to write the loadable copy to a file (or to generate a timezone
+	// database file).
 	r, err := zip.OpenReader(filepath.Join(runtime.GOROOT(), "lib", "time", "zoneinfo.zip"))
 	if err != nil {
 		if os.IsNotExist(err) {
