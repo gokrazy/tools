@@ -960,14 +960,6 @@ func logic(cfg *config.Struct, programName string) error {
 		return fmt.Errorf("both -update and -overwrite are specified; use either one, not both")
 	}
 
-	if cfg.Update.HTTPPort == "" {
-		cfg.Update.HTTPPort = "80"
-	}
-
-	if cfg.Update.HTTPSPort == "" {
-		cfg.Update.HTTPSPort = "443"
-	}
-
 	if cfg.InternalCompatibilityFlags.Sudo == "" {
 		cfg.InternalCompatibilityFlags.Sudo = "auto"
 	}
@@ -1159,9 +1151,19 @@ func logic(cfg *config.Struct, programName string) error {
 	if err != nil {
 		return err
 	}
+
+	if update.HTTPPort == "" {
+		update.HTTPPort = "80"
+	}
+
+	if update.HTTPSPort == "" {
+		update.HTTPSPort = "443"
+	}
+
 	if update.Hostname == "" {
 		update.Hostname = updateHostname
 	}
+
 	if update.HTTPPassword == "" {
 		pw, err := ensurePasswordFileExists(updateHostname, defaultPassword)
 		if err != nil {
