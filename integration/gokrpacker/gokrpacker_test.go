@@ -1,13 +1,15 @@
 package gokrpacker_test
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/gokrazy/tools/cmd/gok/cmd"
+	"github.com/gokrazy/internal/instanceflag"
+	"github.com/gokrazy/tools/gok"
 	"github.com/gokrazy/tools/internal/oldpacker"
 	"github.com/google/go-cmp/cmp"
 )
@@ -15,10 +17,6 @@ import (
 func TestMain(m *testing.M) {
 	if os.Getenv("EXEC_GOKR_PACKER") == "1" {
 		oldpacker.Main()
-		return
-	}
-	if os.Getenv("EXEC_GOK") == "1" {
-		cmd.Execute()
 		return
 	}
 	os.Exit(m.Run())
@@ -42,6 +40,7 @@ func TestGokrPacker(t *testing.T) {
 
 	output := t.TempDir()
 	os.Setenv("GOKRAZY_PARENT_DIR", output)
+	instanceflag.SetParentDir(output)
 
 	// Run the gokr-packer code by running our own executable with
 	// EXEC_GOKR_PACKER=1 set, which runs the gokr-packer logic.
@@ -93,14 +92,19 @@ func TestGokrPacker(t *testing.T) {
 		}
 		t.Logf("config.json:\n%s", strings.TrimSpace(string(configb)))
 
-		overwrite := exec.Command(exe, "overwrite", "--root=root.squashfs", "--boot=boot.fat")
-		overwrite.Dir = packer.Dir
-		overwrite.Env = append(os.Environ(), "EXEC_GOK=1")
-		overwrite.Stdout = os.Stdout
-		overwrite.Stderr = os.Stderr
-		t.Logf("running %q", overwrite.Args)
-		if err := overwrite.Run(); err != nil {
-			t.Fatalf("%v: %v", overwrite.Args, err)
+		if err := os.Chdir(packer.Dir); err != nil {
+			t.Fatal(err)
+		}
+		c := gok.Context{
+			Args: []string{
+				"overwrite",
+				"--root=root.squashfs",
+				"--boot=boot.fat",
+			},
+		}
+		t.Logf("running %q", append([]string{"<gok>"}, c.Args...))
+		if err := c.Execute(context.Background()); err != nil {
+			t.Fatalf("%v: %v", c.Args, err)
 		}
 
 		rootFilesGok := unsquashList(t, rootSquashfs)

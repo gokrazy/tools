@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/gokrazy/internal/instanceflag"
 	"github.com/gokrazy/tools/internal/version"
@@ -36,12 +35,6 @@ https://gokrazy.org/quickstart/
 		}
 		return pflag.ErrHelp
 	},
-}
-
-func Execute() {
-	if err := RootCmd.Execute(); err != nil {
-		log.Fatal(err)
-	}
 }
 
 func init() {

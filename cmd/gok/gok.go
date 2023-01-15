@@ -4,8 +4,15 @@
 // etc.
 package main
 
-import "github.com/gokrazy/tools/cmd/gok/cmd"
+import (
+	"context"
+	"log"
+
+	"github.com/gokrazy/tools/gok"
+)
 
 func main() {
-	cmd.Execute()
+	if err := (gok.Context{}).Execute(context.Background()); err != nil {
+		log.Fatal(err)
+	}
 }
