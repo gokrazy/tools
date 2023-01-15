@@ -1147,7 +1147,7 @@ func logic(cfg *config.Struct, programName string) error {
 	}
 
 	defaultPassword, updateHostname := updateflag.GetUpdateTarget(cfg.Hostname)
-	update, err := cfg.Update.WithFallbackToHostSpecific(updateHostname)
+	update, err := cfg.Update.WithFallbackToHostSpecific(cfg.Hostname)
 	if err != nil {
 		return err
 	}
