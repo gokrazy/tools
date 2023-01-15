@@ -58,13 +58,14 @@ func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 	if err != nil {
 		if os.IsNotExist(err) {
 			// best-effort compatibility for old setups
-			cfg = &config.Struct{}
+			cfg = &config.Struct{
+				Hostname: instanceflag.Instance(),
+			}
 		} else {
 			return err
 		}
 	}
 
-	instance := instanceflag.Instance()
 	if updateflag.NewInstallation() {
 		updateflag.SetUpdate("yes")
 	}
@@ -111,7 +112,7 @@ func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 		return err
 	}
 
-	httpClient, updateBaseUrl, err := httpclient.GetHTTPClientForInstance(instance)
+	httpClient, _, updateBaseUrl, err := httpclient.For(cfg)
 	if err != nil {
 		return err
 	}

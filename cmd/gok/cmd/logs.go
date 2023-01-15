@@ -7,9 +7,11 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/donovanhide/eventsource"
+	"github.com/gokrazy/internal/config"
 	"github.com/gokrazy/internal/httpclient"
 	"github.com/gokrazy/internal/instanceflag"
 	"github.com/gokrazy/internal/updateflag"
@@ -42,7 +44,18 @@ func init() {
 }
 
 func (l *logsImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	instance := instanceflag.Instance()
+	cfg, err := config.ReadFromFile()
+	if err != nil {
+		if os.IsNotExist(err) {
+			// best-effort compatibility for old setups
+			cfg = &config.Struct{
+				Hostname: instanceflag.Instance(),
+			}
+		} else {
+			return err
+		}
+	}
+
 	if updateflag.NewInstallation() {
 		updateflag.SetUpdate("yes")
 	}
@@ -51,7 +64,7 @@ func (l *logsImplConfig) run(ctx context.Context, args []string, stdout, stderr 
 		return fmt.Errorf("the -service flag is empty, but required")
 	}
 
-	httpClient, logsUrl, err := httpclient.GetHTTPClientForInstance(instance)
+	httpClient, _, logsUrl, err := httpclient.For(cfg)
 	if err != nil {
 		return err
 	}
@@ -70,7 +83,7 @@ func (l *logsImplConfig) run(ctx context.Context, args []string, stdout, stderr 
 	logsUrl.RawQuery = q.Encode()
 	stderrUrl := logsUrl.String()
 
-	log.Printf("streaming logs of service %q from gokrazy instance %q", l.service, instance)
+	log.Printf("streaming logs of service %q from gokrazy instance %q", l.service, cfg.Hostname)
 	var eg errgroup.Group
 	eg.Go(func() error {
 		return l.streamLog(ctx, stdout, stdoutUrl, httpClient)
