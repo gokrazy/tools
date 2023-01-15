@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"io"
 	"log"
@@ -137,6 +138,18 @@ func (r *newImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 			}
 		}
 	}
+
+	// Create a machine-id(5) file to uniquely identify a gokrazy instance
+	machineId, err := randomMachineId(rand.Reader)
+	if err != nil {
+		return fmt.Errorf("generating random machine id: %v", err)
+	}
+	packageConfig["github.com/gokrazy/gokrazy/cmd/randomd"] = config.PackageConfig{
+		ExtraFileContents: map[string]string{
+			"/etc/machine-id": machineId.String() + "\n",
+		},
+	}
+
 	pw, err := pwgen.RandomPassword(20)
 	if err != nil {
 		return err
