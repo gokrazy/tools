@@ -1076,7 +1076,7 @@ func logic(cfg *config.Struct, programName string) error {
 		noBuildPkgs = append(noBuildPkgs, e)
 	}
 	buildEnv := &packer.BuildEnv{
-		BuildDir: packer.BuildDir,
+		BuildDir: packer.BuildDirOrMigrate,
 	}
 	if err := buildEnv.Build(bindir, pkgs, packageBuildFlags, packageBuildTags, noBuildPkgs); err != nil {
 		return err

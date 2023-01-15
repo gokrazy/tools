@@ -172,7 +172,7 @@ func (g *gokrazyInit) dump(path string) error {
 
 func (g *gokrazyInit) build() (tmpdir string, err error) {
 	const pkg = "init"
-	buildDir, err := packer.BuildDir(pkg)
+	buildDir, err := packer.BuildDirOrMigrate(pkg)
 	if err != nil {
 		return "", fmt.Errorf("PackageDirs(%s): %v", pkg, err)
 	}

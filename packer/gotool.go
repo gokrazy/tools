@@ -82,7 +82,7 @@ func InitDeps(initPkg string) []string {
 	return []string{"github.com/gokrazy/gokrazy"}
 }
 
-func BuildDir(importPath string) (string, error) {
+func BuildDir(importPath string) string {
 	if strings.HasSuffix(importPath, "/...") {
 		importPath = strings.TrimSuffix(importPath, "/...")
 	}
@@ -101,9 +101,14 @@ func BuildDir(importPath string) (string, error) {
 	for idx := len(parts); idx > 0; idx-- {
 		dir := strings.Join(parts[:idx], string(os.PathSeparator))
 		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return dir, nil
+			return dir
 		}
 	}
+	return buildDir
+}
+
+func BuildDirOrMigrate(importPath string) (string, error) {
+	buildDir := BuildDir(importPath)
 
 	// Create and bootstrap a per-package builddir/ by copying go.mod
 	// from the root if there is no go.mod in the builddir yet.
@@ -390,7 +395,7 @@ func (be *BuildEnv) MainPackages(pkgs []string) ([]Pkg, error) {
 }
 
 func PackageDir(pkg string) (string, error) {
-	buildDir, err := BuildDir(pkg)
+	buildDir, err := BuildDirOrMigrate(pkg)
 	if err != nil {
 		return "", fmt.Errorf("PackageDirs(%s): %v", pkg, err)
 	}
