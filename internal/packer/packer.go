@@ -1344,7 +1344,7 @@ func logic(cfg *config.Struct, programName string) error {
 			return err
 		}
 
-		updateHttpClient, foundMatchingCertificate, err = tlsflag.GetTLSHttpClient(updateBaseUrl)
+		updateHttpClient, foundMatchingCertificate, err = httpclient.GetTLSHttpClientByTLSFlag(tlsflag.GetUseTLS(), tlsflag.GetInsecure(), updateBaseUrl)
 		if err != nil {
 			return fmt.Errorf("getting http client by tls flag: %v", err)
 		}
