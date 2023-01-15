@@ -50,7 +50,6 @@ var runImpl runImplConfig
 func init() {
 	runCmd.Flags().BoolVarP(&runImpl.keep, "keep", "k", false, "keep temporary binary")
 	instanceflag.RegisterPflags(runCmd.Flags())
-	updateflag.RegisterPflags(runCmd.Flags(), "update")
 }
 
 func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
@@ -66,9 +65,7 @@ func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 		}
 	}
 
-	if updateflag.NewInstallation() {
-		updateflag.SetUpdate("yes")
-	}
+	updateflag.SetUpdate("yes")
 
 	var tmp string
 	if r.keep {

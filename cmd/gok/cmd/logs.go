@@ -40,7 +40,6 @@ var logsImpl logsImplConfig
 func init() {
 	logsCmd.Flags().StringVarP(&logsImpl.service, "service", "s", "", "gokrazy service to fetch logs for")
 	instanceflag.RegisterPflags(logsCmd.Flags())
-	updateflag.RegisterPflags(logsCmd.Flags(), "update")
 }
 
 func (l *logsImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
@@ -56,9 +55,7 @@ func (l *logsImplConfig) run(ctx context.Context, args []string, stdout, stderr 
 		}
 	}
 
-	if updateflag.NewInstallation() {
-		updateflag.SetUpdate("yes")
-	}
+	updateflag.SetUpdate("yes")
 
 	if l.service == "" {
 		return fmt.Errorf("the -service flag is empty, but required")
