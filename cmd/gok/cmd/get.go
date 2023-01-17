@@ -68,9 +68,7 @@ func (r *getImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 	if err != nil {
 		if os.IsNotExist(err) {
 			// best-effort compatibility for old setups
-			cfg = &config.Struct{
-				Hostname: instanceflag.Instance(),
-			}
+			cfg = config.NewStruct(instanceflag.Instance())
 		} else {
 			return err
 		}
