@@ -9,8 +9,8 @@ github.com/donovanhide/eventsource v0.0.0-20210830082556-c59027999da0/go.mod h1:
 github.com/gokrazy/gokrazy v0.0.0-20220113081925-ca0fa4174944 h1:aZgg4MvvoNdhEgfKxCNi3eCjvtfcJBS3GklxM09Ob4I=
 github.com/gokrazy/gokrazy v0.0.0-20220113081925-ca0fa4174944/go.mod h1:z9nzDhiz6f52Zp21WSGnRzW2MlLBrsJdNLxXZoMti2w=
 github.com/gokrazy/internal v0.0.0-20220111191949-698f19a074ef/go.mod h1:Gc9sU6yJ/qxg3gJZ1pjfcTAULa0swdTa4TH51g1e00E=
-github.com/gokrazy/internal v0.0.0-20230117180442-8b3fd7aed8bb h1:MT59ew5neGiU6hqFOnlqwo6pavSpdX1JUgBOvzDjNec=
-github.com/gokrazy/internal v0.0.0-20230117180442-8b3fd7aed8bb/go.mod h1:ddHcxXZ/VVQOSAWcRBbkYY58+QOw4L145ye6phyDmRA=
+github.com/gokrazy/internal v0.0.0-20230122173118-a6cc5568b333 h1:cMh5Qo+AlKFmkLLdpxIe/sS/USv0nlD2e9HBlYbBf3k=
+github.com/gokrazy/internal v0.0.0-20230122173118-a6cc5568b333/go.mod h1:ddHcxXZ/VVQOSAWcRBbkYY58+QOw4L145ye6phyDmRA=
 github.com/gokrazy/updater v0.0.0-20211121155532-30ae8cd650ea h1:NM/sLCKWWc9mnMtJZGbwOtaAwEpCEe6tlcXWKp3LEKk=
 github.com/gokrazy/updater v0.0.0-20211121155532-30ae8cd650ea/go.mod h1:PYOvzGOL4nlBmuxu7IyKQTFLaxr61+WPRNRzVtuYOHw=
 github.com/google/go-cmp v0.5.5/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
