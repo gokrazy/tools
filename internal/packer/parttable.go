@@ -64,7 +64,10 @@ func (p *Pack) SudoPartition(path string) (*os.File, error) {
 	cmd := exec.Command("sudo", append([]string{"--preserve-env"}, os.Args...)...)
 	// We cannot use cmd.ExtraFiles with sudo, as sudo closes all file
 	// descriptors but stdin, stdout and stderr.
-	cmd.Env = []string{"GOKR_PACKER_FD=1"}
+	cmd.Env = []string{
+		"GOKR_PACKER_FD=1",
+		fmt.Sprintf("HOME=%s", os.Getenv("HOME")), // for instance config detection
+	}
 	cmd.Stdout = os.NewFile(uintptr(pair[1]), "")
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
