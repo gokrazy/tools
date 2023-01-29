@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/gokrazy/tools/cmd/gok/cmd"
+	"github.com/gokrazy/tools/internal/gok"
 )
 
 type gokrazyTestInstance struct {
@@ -121,7 +121,7 @@ func TestGokRun(t *testing.T) {
 
 	// Testing the root command because individual cobra commands cannot be
 	// executed directly.
-	root := cmd.RootCmd
+	root := gok.RootCmd
 	root.SetContext(ctx)
 	logOutputFound := make(chan bool)
 	rd, wr := io.Pipe()

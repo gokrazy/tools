@@ -6,7 +6,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/gokrazy/tools/cmd/gok/cmd"
+	"github.com/gokrazy/tools/internal/gok"
 )
 
 type Context struct {
@@ -17,7 +17,7 @@ type Context struct {
 }
 
 func (c Context) Execute(ctx context.Context) error {
-	root := cmd.RootCmd
+	root := gok.RootCmd
 	if r := c.Stdin; r != nil {
 		root.SetIn(r)
 	}
