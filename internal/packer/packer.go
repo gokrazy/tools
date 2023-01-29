@@ -526,7 +526,7 @@ func mkdirp(root *FileInfo, dir string) *FileInfo {
 	return parent
 }
 
-func findExtraFiles(cfg *config.Struct) (map[string][]*FileInfo, error) {
+func FindExtraFiles(cfg *config.Struct) (map[string][]*FileInfo, error) {
 	extraFiles := make(map[string][]*FileInfo)
 	if len(cfg.PackageConfig) > 0 {
 		for pkg, packageConfig := range cfg.PackageConfig {
@@ -1091,7 +1091,7 @@ func logic(cfg *config.Struct, programName string) error {
 
 	packageConfigFiles = make(map[string][]packageConfigFile)
 
-	extraFiles, err := findExtraFiles(cfg)
+	extraFiles, err := FindExtraFiles(cfg)
 	if err != nil {
 		return err
 	}
