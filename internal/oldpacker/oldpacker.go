@@ -11,9 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	// Imported so that the go tool will download the repositories
-	_ "github.com/gokrazy/gokrazy/empty"
-
 	"github.com/gokrazy/internal/config"
 	"github.com/gokrazy/internal/tlsflag"
 	"github.com/gokrazy/internal/updateflag"

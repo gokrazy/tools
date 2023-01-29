@@ -3,12 +3,7 @@
 // devices supported by gokrazy (see https://gokrazy.org/platforms/).
 package main
 
-import (
-	"github.com/gokrazy/tools/internal/oldpacker"
-
-	// Imported so that the go tool will download the repositories
-	_ "github.com/gokrazy/gokrazy/empty"
-)
+import "github.com/gokrazy/tools/internal/oldpacker"
 
 func main() {
 	oldpacker.Main()
