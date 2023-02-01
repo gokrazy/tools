@@ -32,10 +32,16 @@ then it stores the program in RAM of a running gokrazy instance and runs the pro
 This enables a quick feedback loop when working on a program that is running on gokrazy,
 without having to do a full gok update every time you only want to update a single program.
 
+Command line arguments to the program will be combined from the instance configuration file
+and the ` + "`gok run`" + ` command line, in that order.
+
 Examples:
   % cd ~/go/src/github.com/stapelberg/scan2drive/cmd/scan2drive
   % gok -i scan2drive run
-`,
+
+  # specify extra flags on the command line
+  % gok -i scan2drive run -- -tls_autocert_hosts=scan.example.com
+  `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
 	},
@@ -155,7 +161,9 @@ func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 	// Make gokrazy use the temporary binary instead of
 	// /user/<basename>. Includes an automatic service restart.
 	{
-		if err := target.Divert("/user/"+basename, "gok-run/"+basename); err != nil {
+		flags := append(cfg.PackageConfig[importPath].CommandLineFlags, args...)
+		if err := target.Divert(
+			"/user/"+basename, "gok-run/"+basename, flags); err != nil {
 			return fmt.Errorf("diverting %s: %v", basename, err)
 		}
 	}
