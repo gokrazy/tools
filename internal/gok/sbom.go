@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/gokrazy/internal/config"
 	"github.com/gokrazy/internal/instanceflag"
 	"github.com/gokrazy/internal/updateflag"
 	"github.com/gokrazy/tools/internal/packer"
@@ -45,10 +46,19 @@ func init() {
 }
 
 func (r *sbomConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+	cfg, err := config.ReadFromFile()
+	if err != nil {
+		if os.IsNotExist(err) {
+			// best-effort compatibility for old setups
+			cfg = config.NewStruct(instanceflag.Instance())
+		} else {
+			return err
+		}
+	}
 
 	updateflag.SetUpdate("yes")
 
-	sbomMarshaled, sbomWithHash, err := packer.GenerateSBOM()
+	sbomMarshaled, sbomWithHash, err := packer.GenerateSBOM(cfg)
 	if os.IsNotExist(err) {
 		// Common case, handle with a good error message
 		os.Stderr.WriteString("\n")

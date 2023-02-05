@@ -47,17 +47,7 @@ type SBOMWithHash struct {
 
 // GenerateSBOM generates a Software Bills Of Material (SBOM) for the
 // local gokrazy instance.
-func GenerateSBOM() ([]byte, SBOMWithHash, error) {
-	cfg, err := config.ReadFromFile()
-	if err != nil {
-		if os.IsNotExist(err) {
-			// best-effort compatibility for old setups
-			cfg = config.NewStruct(instanceflag.Instance())
-		} else {
-			return nil, SBOMWithHash{}, err
-		}
-	}
-
+func GenerateSBOM(cfg *config.Struct) ([]byte, SBOMWithHash, error) {
 	wd, err := os.Getwd()
 	if err != nil {
 		return nil, SBOMWithHash{}, err

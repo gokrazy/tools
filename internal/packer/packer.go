@@ -1306,7 +1306,7 @@ func (pack *Pack) logic(programName string) error {
 		FromLiteral: update.HTTPSPort,
 	})
 
-	sbom, _, err := GenerateSBOM()
+	sbom, _, err := GenerateSBOM(cfg)
 	if err != nil {
 		return err
 	}

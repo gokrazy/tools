@@ -49,7 +49,7 @@ func (p *Pack) overwriteGaf(root *FileInfo) error {
 		return err
 	}
 
-	sbomMarshaled, _, err := GenerateSBOM()
+	sbomMarshaled, _, err := GenerateSBOM(p.Cfg)
 	if err != nil {
 		return err
 	}
