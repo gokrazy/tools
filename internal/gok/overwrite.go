@@ -42,6 +42,7 @@ Examples:
 
 type overwriteImplConfig struct {
 	full string
+	gaf  string
 	boot string
 	root string
 	mbr  string
@@ -55,6 +56,7 @@ var overwriteImpl overwriteImplConfig
 func init() {
 	instanceflag.RegisterPflags(overwriteCmd.Flags())
 	overwriteCmd.Flags().StringVarP(&overwriteImpl.full, "full", "", "", "write a full gokrazy device image to the specified device (e.g. /dev/sdx) or path (e.g. /tmp/gokrazy.img)")
+	overwriteCmd.Flags().StringVarP(&overwriteImpl.gaf, "gaf", "", "", "write a .gaf (gokrazy archive format) file to the specified path (e.g. /tmp/gokrazy.gaf)")
 	overwriteCmd.Flags().StringVarP(&overwriteImpl.boot, "boot", "", "", "write the gokrazy boot file system to the specified partition (e.g. /dev/sdx1) or path (e.g. /tmp/boot.fat)")
 	overwriteCmd.Flags().StringVarP(&overwriteImpl.root, "root", "", "", "write the gokrazy root file system to the specified partition (e.g. /dev/sdx2) or path (e.g. /tmp/root.squashfs)")
 	overwriteCmd.Flags().StringVarP(&overwriteImpl.mbr, "mbr", "", "", "write the gokrazy master boot record (MBR) to the specified device (e.g. /dev/sdx) or path (e.g. /tmp/mbr.img). only effective if -boot is specified, too")
@@ -72,12 +74,16 @@ func (r *overwriteImplConfig) run(ctx context.Context, args []string, stdout, st
 		cfg.InternalCompatibilityFlags = &config.InternalCompatibilityFlags{}
 	}
 
+	if r.full != "" && r.gaf != "" {
+		return fmt.Errorf("cannot specify both --full and --gaf")
+	}
+
 	// gok overwrite is mutually exclusive with gok update
 	cfg.InternalCompatibilityFlags.Update = ""
 
 	// Turn all paths into absolute paths so that the output files land in the
 	// current directory despite the os.Chdir() call below.
-	for _, str := range []*string{&r.full, &r.boot, &r.root, &r.mbr} {
+	for _, str := range []*string{&r.full, &r.gaf, &r.boot, &r.root, &r.mbr} {
 		if *str != "" {
 			*str, err = filepath.Abs(*str)
 			if err != nil {
@@ -85,6 +91,18 @@ func (r *overwriteImplConfig) run(ctx context.Context, args []string, stdout, st
 			}
 		}
 	}
+
+	// It's guaranteed that only one is not empty.
+	output := packer.OutputStruct{}
+	switch {
+	case r.full != "":
+		output.Type = packer.OutputTypeFull
+		output.Path = r.full
+	case r.gaf != "":
+		output.Type = packer.OutputTypeGaf
+		output.Path = r.gaf
+	}
+
 	cfg.InternalCompatibilityFlags.Overwrite = r.full
 	cfg.InternalCompatibilityFlags.OverwriteBoot = r.boot
 	cfg.InternalCompatibilityFlags.OverwriteRoot = r.root
@@ -104,6 +122,7 @@ func (r *overwriteImplConfig) run(ctx context.Context, args []string, stdout, st
 
 	pack := &packer.Pack{
 		Cfg:    cfg,
+		Output: &output,
 	}
 
 	pack.Main("gokrazy gok")

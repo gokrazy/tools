@@ -932,10 +932,23 @@ gokr-packer -overwrite_init=<file> <go-package> [<go-package>…]
 Flags:
 `
 
+type OutputType string
+
+const (
+	OutputTypeGaf  OutputType = "gaf"
+	OutputTypeFull OutputType = "full"
+)
+
+type OutputStruct struct {
+	Path string     `json:",omitempty"`
+	Type OutputType `json:",omitempty"`
+}
+
 type Pack struct {
 	packer.Pack
 
-	Cfg *config.Struct
+	Cfg    *config.Struct
+	Output *OutputStruct
 }
 
 func filterGoEnv(env []string) []string {
@@ -1394,7 +1407,9 @@ func (pack *Pack) logic(programName string) error {
 		bootSize, rootSize       int64
 	)
 	switch {
-	case cfg.InternalCompatibilityFlags.Overwrite != "":
+	case cfg.InternalCompatibilityFlags.Overwrite != "" ||
+		(pack.Output != nil && pack.Output.Type == OutputTypeFull && pack.Output.Path != ""):
+
 		st, err := os.Stat(cfg.InternalCompatibilityFlags.Overwrite)
 		if err != nil && !os.IsNotExist(err) {
 			return err
@@ -1428,6 +1443,11 @@ func (pack *Pack) logic(programName string) error {
 
 			fmt.Printf("To boot gokrazy, copy %s to an SD card and plug it into a supported device (see https://gokrazy.org/platforms/)\n", cfg.InternalCompatibilityFlags.Overwrite)
 			fmt.Printf("\n")
+		}
+
+	case pack.Output != nil && pack.Output.Type == OutputTypeGaf && pack.Output.Path != "":
+		if err := pack.overwriteGaf(root); err != nil {
+			return err
 		}
 
 	default:
