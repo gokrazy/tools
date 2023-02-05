@@ -951,7 +951,8 @@ func filterGoEnv(env []string) []string {
 	return relevant
 }
 
-func logic(cfg *config.Struct, programName string) error {
+func (pack *Pack) logic(programName string) error {
+	cfg := pack.Cfg
 	updateflag.SetUpdate(cfg.InternalCompatibilityFlags.Update)
 	tlsflag.SetInsecure(cfg.InternalCompatibilityFlags.Insecure)
 	tlsflag.SetUseTLS(cfg.Update.UseTLS)
@@ -1319,17 +1320,14 @@ func logic(cfg *config.Struct, programName string) error {
 		}
 	}
 
-	p := Pack{
-		Cfg:  cfg,
-		Pack: packer.NewPackForHost(cfg.Hostname),
-	}
+	pack.Pack = packer.NewPackForHost(cfg.Hostname)
 
 	newInstallation := updateflag.NewInstallation()
 	useGPT := newInstallation && !mbrOnlyWithoutGpt
 
-	p.Pack.UsePartuuid = newInstallation
-	p.Pack.UseGPTPartuuid = useGPT
-	p.Pack.UseGPT = useGPT
+	pack.Pack.UsePartuuid = newInstallation
+	pack.Pack.UseGPTPartuuid = useGPT
+	pack.Pack.UseGPT = useGPT
 
 	var (
 		updateHttpClient         *http.Client
@@ -1379,15 +1377,15 @@ func logic(cfg *config.Struct, programName string) error {
 		if err != nil {
 			return fmt.Errorf("checking target partuuid support: %v", err)
 		}
-		p.UsePartuuid = target.Supports("partuuid")
-		p.UseGPTPartuuid = target.Supports("gpt")
-		p.UseGPT = target.Supports("gpt")
+		pack.UsePartuuid = target.Supports("partuuid")
+		pack.UseGPTPartuuid = target.Supports("gpt")
+		pack.UseGPT = target.Supports("gpt")
 	}
 	fmt.Printf("\n")
 	fmt.Printf("Feature summary:\n")
-	fmt.Printf("  use GPT: %v\n", p.UseGPT)
-	fmt.Printf("  use PARTUUID: %v\n", p.UsePartuuid)
-	fmt.Printf("  use GPT PARTUUID: %v\n", p.UseGPTPartuuid)
+	fmt.Printf("  use GPT: %v\n", pack.UseGPT)
+	fmt.Printf("  use PARTUUID: %v\n", pack.UsePartuuid)
+	fmt.Printf("  use GPT PARTUUID: %v\n", pack.UseGPTPartuuid)
 
 	// Determine where to write the boot and root images to.
 	var (
@@ -1405,7 +1403,7 @@ func logic(cfg *config.Struct, programName string) error {
 		isDev = err == nil && st.Mode()&os.ModeDevice == os.ModeDevice
 
 		if isDev {
-			if err := p.overwriteDevice(cfg.InternalCompatibilityFlags.Overwrite, root, rootDeviceFiles); err != nil {
+			if err := pack.overwriteDevice(cfg.InternalCompatibilityFlags.Overwrite, root, rootDeviceFiles); err != nil {
 				return err
 			}
 			fmt.Printf("To boot gokrazy, plug the SD card into a supported device (see https://gokrazy.org/platforms/)\n")
@@ -1423,7 +1421,7 @@ func logic(cfg *config.Struct, programName string) error {
 				return fmt.Errorf("--target_storage_bytes must be at least %d (for boot + 2 root file systems + 100 MB /perm)", lower)
 			}
 
-			bootSize, rootSize, err = p.overwriteFile(cfg.InternalCompatibilityFlags.Overwrite, root, rootDeviceFiles)
+			bootSize, rootSize, err = pack.overwriteFile(cfg.InternalCompatibilityFlags.Overwrite, root, rootDeviceFiles)
 			if err != nil {
 				return err
 			}
@@ -1443,7 +1441,7 @@ func logic(cfg *config.Struct, programName string) error {
 				defer os.Remove(tmpMBR.Name())
 				mbrfn = tmpMBR.Name()
 			}
-			if err := p.writeBootFile(cfg.InternalCompatibilityFlags.OverwriteBoot, mbrfn); err != nil {
+			if err := pack.writeBootFile(cfg.InternalCompatibilityFlags.OverwriteBoot, mbrfn); err != nil {
 				return err
 			}
 		}
@@ -1467,7 +1465,7 @@ func logic(cfg *config.Struct, programName string) error {
 			}
 			defer os.Remove(tmpBoot.Name())
 
-			if err := p.writeBoot(tmpBoot, tmpMBR.Name()); err != nil {
+			if err := pack.writeBoot(tmpBoot, tmpMBR.Name()); err != nil {
 				return err
 			}
 
@@ -1744,19 +1742,18 @@ func updateWithProgress(prog *progress.Reporter, reader io.Reader, target *updat
 	return nil
 }
 
-func Main(instance *config.Struct, programName string) {
+func (pack *Pack) Main(programName string) {
+	instance := pack.Cfg
 	if os.Getenv("GOKR_PACKER_FD") != "" { // partitioning child process
-		p := Pack{
-			Pack: packer.NewPackForHost(instance.Hostname),
-		}
+		pack.Pack = packer.NewPackForHost(instance.Hostname)
 
-		if _, err := p.SudoPartition(instance.InternalCompatibilityFlags.Overwrite); err != nil {
+		if _, err := pack.SudoPartition(instance.InternalCompatibilityFlags.Overwrite); err != nil {
 			log.Fatal(err)
 		}
 		os.Exit(0)
 	}
 
-	if err := logic(instance, programName); err != nil {
+	if err := pack.logic(programName); err != nil {
 		log.Fatal(err)
 	}
 }
