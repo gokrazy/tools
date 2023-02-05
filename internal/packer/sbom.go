@@ -58,8 +58,17 @@ func GenerateSBOM() ([]byte, SBOMWithHash, error) {
 		}
 	}
 
-	if err := os.Chdir(config.InstancePath()); err != nil {
+	wd, err := os.Getwd()
+	if err != nil {
 		return nil, SBOMWithHash{}, err
+	}
+	defer os.Chdir(wd)
+	if err := os.Chdir(config.InstancePath()); err != nil {
+		if os.IsNotExist(err) {
+			// best-effort compatibility for old setups
+		} else {
+			return nil, SBOMWithHash{}, err
+		}
 	}
 
 	formattedCfg, err := cfg.FormatForFile()

@@ -1306,6 +1306,17 @@ func (pack *Pack) logic(programName string) error {
 		FromLiteral: update.HTTPSPort,
 	})
 
+	sbom, _, err := GenerateSBOM()
+	if err != nil {
+		return err
+	}
+	etcGokrazy := &FileInfo{Filename: "gokrazy"}
+	etcGokrazy.Dirents = append(etcGokrazy.Dirents, &FileInfo{
+		Filename:    "sbom.json",
+		FromLiteral: string(sbom),
+	})
+	etc.Dirents = append(etc.Dirents, etcGokrazy)
+
 	for pkg1, fs := range extraFiles {
 		for _, fs1 := range fs {
 			// check against root fs
