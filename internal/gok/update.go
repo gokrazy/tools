@@ -76,7 +76,11 @@ func (r *updateImplConfig) run(ctx context.Context, args []string, stdout, stder
 		return err
 	}
 
-	packer.Main(cfg, "gokrazy gok")
+	pack := &packer.Pack{
+		Cfg: cfg,
+	}
+
+	pack.Main("gokrazy gok")
 
 	return nil
 }
