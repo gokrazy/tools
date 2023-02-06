@@ -978,6 +978,33 @@ func (pack *Pack) logic(programName string) error {
 		cfg.InternalCompatibilityFlags.Sudo = "auto"
 	}
 
+	var mbrOnlyWithoutGpt bool
+	var rootDeviceFiles []deviceconfig.RootFile
+	if cfg.DeviceType != "" {
+		if devcfg, ok := deviceconfig.GetDeviceConfigBySlug(cfg.DeviceType); ok {
+			rootDeviceFiles = devcfg.RootDeviceFiles
+			mbrOnlyWithoutGpt = devcfg.MBROnlyWithoutGPT
+		} else {
+			return fmt.Errorf("unknown device slug %q", cfg.DeviceType)
+		}
+	}
+
+	pack.Pack = packer.NewPackForHost(cfg.Hostname)
+
+	newInstallation := updateflag.NewInstallation()
+	useGPT := newInstallation && !mbrOnlyWithoutGpt
+
+	pack.Pack.UsePartuuid = newInstallation
+	pack.Pack.UseGPTPartuuid = useGPT
+	pack.Pack.UseGPT = useGPT
+
+	if os.Getenv("GOKR_PACKER_FD") != "" { // partitioning child process
+		if _, err := pack.SudoPartition(cfg.InternalCompatibilityFlags.Overwrite); err != nil {
+			log.Fatal(err)
+		}
+		os.Exit(0)
+	}
+
 	fmt.Printf("%s %s on GOARCH=%s GOOS=%s\n\n",
 		programName,
 		version.ReadBrief(),
@@ -1048,17 +1075,6 @@ func (pack *Pack) logic(programName string) error {
 	waitForClock, err := findWaitForClock(cfg)
 	if err != nil {
 		return err
-	}
-
-	var mbrOnlyWithoutGpt bool
-	var rootDeviceFiles []deviceconfig.RootFile
-	if cfg.DeviceType != "" {
-		if devcfg, ok := deviceconfig.GetDeviceConfigBySlug(cfg.DeviceType); ok {
-			rootDeviceFiles = devcfg.RootDeviceFiles
-			mbrOnlyWithoutGpt = devcfg.MBROnlyWithoutGPT
-		} else {
-			return fmt.Errorf("unknown device slug %q", cfg.DeviceType)
-		}
 	}
 
 	args := cfg.Packages
@@ -1343,15 +1359,6 @@ func (pack *Pack) logic(programName string) error {
 			}
 		}
 	}
-
-	pack.Pack = packer.NewPackForHost(cfg.Hostname)
-
-	newInstallation := updateflag.NewInstallation()
-	useGPT := newInstallation && !mbrOnlyWithoutGpt
-
-	pack.Pack.UsePartuuid = newInstallation
-	pack.Pack.UseGPTPartuuid = useGPT
-	pack.Pack.UseGPT = useGPT
 
 	var (
 		updateHttpClient         *http.Client
@@ -1774,16 +1781,6 @@ func updateWithProgress(prog *progress.Reporter, reader io.Reader, target *updat
 }
 
 func (pack *Pack) Main(programName string) {
-	instance := pack.Cfg
-	if os.Getenv("GOKR_PACKER_FD") != "" { // partitioning child process
-		pack.Pack = packer.NewPackForHost(instance.Hostname)
-
-		if _, err := pack.SudoPartition(instance.InternalCompatibilityFlags.Overwrite); err != nil {
-			log.Fatal(err)
-		}
-		os.Exit(0)
-	}
-
 	if err := pack.logic(programName); err != nil {
 		log.Fatal(err)
 	}
