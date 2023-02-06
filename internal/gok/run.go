@@ -161,9 +161,12 @@ func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 	// Make gokrazy use the temporary binary instead of
 	// /user/<basename>. Includes an automatic service restart.
 	{
-		flags := append(cfg.PackageConfig[importPath].CommandLineFlags, args...)
-		if err := target.Divert(
-			"/user/"+basename, "gok-run/"+basename, flags); err != nil {
+		err := target.Divert(
+			"/user/"+basename,
+			"gok-run/"+basename,
+			cfg.PackageConfig[importPath].CommandLineFlags,
+			args)
+		if err != nil {
 			return fmt.Errorf("diverting %s: %v", basename, err)
 		}
 	}
