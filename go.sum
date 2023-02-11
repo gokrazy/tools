@@ -3,8 +3,8 @@ github.com/breml/rootcerts v0.2.0/go.mod h1:24FDtzYMpqIeYC7QzaE8VPRQaFZU5TIUDlyk
 github.com/cpuguy83/go-md2man/v2 v2.0.2/go.mod h1:tgQtvFlXSQOSOSIRvRPT7W67SCa46tRHOmNcaadrF8o=
 github.com/donovanhide/eventsource v0.0.0-20210830082556-c59027999da0 h1:C7t6eeMaEQVy6e8CarIhscYQlNmw5e3G36y7l7Y21Ao=
 github.com/donovanhide/eventsource v0.0.0-20210830082556-c59027999da0/go.mod h1:56wL82FO0bfMU5RvfXoIwSOP2ggqqxT+tAfNEIyxuHw=
-github.com/gokrazy/internal v0.0.0-20230206074349-05b433541632 h1:u6xIRoQRKXiwWCaSo5xHWAMeCVygpIUMw845tlP9DcM=
-github.com/gokrazy/internal v0.0.0-20230206074349-05b433541632/go.mod h1:ddHcxXZ/VVQOSAWcRBbkYY58+QOw4L145ye6phyDmRA=
+github.com/gokrazy/internal v0.0.0-20230211171410-9608422911d0 h1:QTi0skQ/OM7he/5jEWA9k/DYgdwGAhw3hrUoiPGGZHM=
+github.com/gokrazy/internal v0.0.0-20230211171410-9608422911d0/go.mod h1:ddHcxXZ/VVQOSAWcRBbkYY58+QOw4L145ye6phyDmRA=
 github.com/gokrazy/updater v0.0.0-20230206220435-64f39da38fa6 h1:4oHWkkyHw9NN0ZsfuGKkjw+SADUKiQmLYHy/U8G9MFg=
 github.com/gokrazy/updater v0.0.0-20230206220435-64f39da38fa6/go.mod h1:PYOvzGOL4nlBmuxu7IyKQTFLaxr61+WPRNRzVtuYOHw=
 github.com/google/go-cmp v0.5.9 h1:O2Tfq5qg4qc4AmwVlvv0oLiVAGB7enBSJ2x2DqQFi38=
