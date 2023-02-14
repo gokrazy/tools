@@ -230,36 +230,56 @@ func (r *addImplConfig) addPackageToConfig(importPath string) error {
 func (r *addImplConfig) addNonLocal(ctx context.Context, arg string, stdout, stderr io.Writer) error {
 	log.Printf("Adding %s as a (non-local) package to gokrazy instance %s", arg, instanceflag.Instance())
 	importPath := arg
-	importPathWithVersion := arg
+	version := "latest"
 	if idx := strings.IndexByte(importPath, '@'); idx > -1 {
 		// Trim @version suffix from import path, if any
+		version = importPath[idx+1:]
 		importPath = importPath[:idx]
-	} else {
-		// Add an explicit @latest to make the Go tool look up the latest
-		// version instead of happily using whatever is in the local disk cache.
-		importPathWithVersion += "@latest"
 	}
-	buildDir := filepath.Join(config.InstancePath(), "builddir", importPath)
+	resolved, err := resolveModule(ctx, importPath, version)
+	if err != nil {
+		return err
+	}
+	log.Printf(`Adding the following package to gokrazy instance %q:
+  Go package  : %s
+  in Go module: %s`, instanceflag.Instance(), importPath, resolved.module)
+
+	buildDir := filepath.Join(config.InstancePath(), "builddir", resolved.module)
 	if _, err := os.Stat(buildDir); err != nil {
-		log.Printf("Creating gokrazy builddir for package %s", importPath)
+		log.Printf("Creating gokrazy builddir for module %s", resolved.module)
 		if err := os.MkdirAll(buildDir, 0755); err != nil {
 			return fmt.Errorf("could not create builddir: %v", err)
 		}
 	}
 
 	if _, err := os.Stat(filepath.Join(buildDir, "go.mod")); err == nil {
-		log.Printf("Calling go get with existing go.mod")
+		log.Printf("Adding require line to existing go.mod")
 	} else {
-		log.Printf("Creating go.mod before calling go get")
-		if err := r.createGoMod(ctx, buildDir, importPath, stdout, stderr); err != nil {
+		log.Printf("Creating go.mod based on upstream go.mod")
+		modf, err := modfile.Parse("go.mod", resolved.goMod, nil)
+		if err != nil {
+			return fmt.Errorf("parsing old go.mod: %v", err)
+		}
+		if err := modf.AddModuleStmt("gokrazy/build/" + resolved.module); err != nil {
+			return err
+		}
+
+		b, err := modf.Format()
+		if err != nil {
+			return err
+		}
+
+		if err := os.WriteFile(filepath.Join(buildDir, "go.mod"), b, 0600); err != nil {
 			return err
 		}
 	}
 
-	get := exec.CommandContext(ctx, "go", "get", importPathWithVersion)
+	// Add a require line to go.mod. We use go mod edit instead of go get
+	// because the latter does not work for evcc: “panic: internal error: can't
+	// find reason for requirement on github.com/rogpeppe/go-internal@v1.6.1.”
+	get := exec.CommandContext(ctx, "go", "mod", "edit", "-require", resolved.module+"@"+resolved.version)
 	get.Dir = buildDir
 	get.Stderr = os.Stderr
-	log.Printf("running %s", get.Args)
 	if err := get.Run(); err != nil {
 		return fmt.Errorf("%v: %v", get.Args, err)
 	}
