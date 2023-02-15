@@ -222,13 +222,13 @@ func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 
 	// EEPROM update procedure. See also:
 	// https://news.ycombinator.com/item?id=21674550
-	writeEepromUpdateFile := func(globPattern, target string) error {
+	writeEepromUpdateFile := func(globPattern, target string) (sig string, _ error) {
 		matches, err := filepath.Glob(globPattern)
 		if err != nil {
-			return err
+			return "", err
 		}
 		if len(matches) == 0 {
-			return fmt.Errorf("invalid -eeprom_package: no files matching %s", filepath.Base(globPattern))
+			return "", fmt.Errorf("invalid -eeprom_package: no files matching %s", filepath.Base(globPattern))
 		}
 
 		// Select the EEPROM file that sorts last.
@@ -238,28 +238,28 @@ func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 
 		f, err := os.Open(matches[0])
 		if err != nil {
-			return err
+			return "", err
 		}
 		defer f.Close()
 		st, err := f.Stat()
 		if err != nil {
-			return err
+			return "", err
 		}
 		// Copy the EEPROM file into the image and calculate its SHA256 hash
 		// while doing so:
 		w, err := fw.File(target, st.ModTime())
 		if err != nil {
-			return err
+			return "", err
 		}
 		h := sha256.New()
 		if _, err := io.Copy(w, io.TeeReader(f, h)); err != nil {
-			return err
+			return "", err
 		}
 
-		if filepath.Base(target) == "recovery.bin" {
-			fmt.Printf("  recovery.bin\n")
+		if base := filepath.Base(target); base == "recovery.bin" || base == "RECOVERY.000" {
+			fmt.Printf("  %s\n", base)
 			// No signature required for recovery.bin itself.
-			return nil
+			return "", nil
 		}
 		fmt.Printf("  %s (sig %s)\n", filepath.Base(target), shortenSHA256(h.Sum(nil)))
 
@@ -267,25 +267,33 @@ func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 		sigFn := target
 		ext := filepath.Ext(sigFn)
 		if ext == "" {
-			return fmt.Errorf("BUG: cannot derive signature file name from matches[0]=%q", matches[0])
+			return "", fmt.Errorf("BUG: cannot derive signature file name from matches[0]=%q", matches[0])
 		}
 		sigFn = strings.TrimSuffix(sigFn, ext) + ".sig"
 		w, err = fw.File(sigFn, st.ModTime())
 		if err != nil {
-			return err
+			return "", err
 		}
 		_, err = fmt.Fprintf(w, "%x\n", h.Sum(nil))
-		return err
+		return fmt.Sprintf("%x", h.Sum(nil)), err
 	}
 	if eepromDir != "" {
 		fmt.Printf("EEPROM update summary:\n")
-		if err := writeEepromUpdateFile(filepath.Join(eepromDir, "pieeprom-*.bin"), "/pieeprom.upd"); err != nil {
+		pieSig, err := writeEepromUpdateFile(filepath.Join(eepromDir, "pieeprom-*.bin"), "/pieeprom.upd")
+		if err != nil {
 			return err
 		}
-		if err := writeEepromUpdateFile(filepath.Join(eepromDir, "recovery.bin"), "/recovery.bin"); err != nil {
+		vlSig, err := writeEepromUpdateFile(filepath.Join(eepromDir, "vl805-*.bin"), "/vl805.bin")
+		if err != nil {
 			return err
 		}
-		if err := writeEepromUpdateFile(filepath.Join(eepromDir, "vl805-*.bin"), "/vl805.bin"); err != nil {
+		targetFilename := "/recovery.bin"
+		if pieSig == p.ExistingEEPROM.PieepromSHA256 &&
+			vlSig == p.ExistingEEPROM.VL805SHA256 {
+			fmt.Printf("  installing recovery.bin as RECOVERY.000 (EEPROM already up-to-date)\n")
+			targetFilename = "/RECOVERY.000"
+		}
+		if _, err := writeEepromUpdateFile(filepath.Join(eepromDir, "recovery.bin"), targetFilename); err != nil {
 			return err
 		}
 	}

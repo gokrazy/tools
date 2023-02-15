@@ -22,6 +22,10 @@ type Pack struct {
 	UsePartuuid    bool
 	UseGPTPartuuid bool
 	UseGPT         bool
+	ExistingEEPROM struct {
+		PieepromSHA256 string // pieeprom.sig
+		VL805SHA256    string // vl805.sig
+	}
 }
 
 func NewPackForHost(hostname string) Pack {

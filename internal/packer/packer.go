@@ -1411,6 +1411,7 @@ func (pack *Pack) logic(programName string) error {
 		pack.UsePartuuid = target.Supports("partuuid")
 		pack.UseGPTPartuuid = target.Supports("gpt")
 		pack.UseGPT = target.Supports("gpt")
+		pack.ExistingEEPROM = target.InstalledEEPROM()
 	}
 	fmt.Printf("\n")
 	fmt.Printf("Feature summary:\n")
