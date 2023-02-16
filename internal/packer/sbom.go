@@ -12,6 +12,7 @@ import (
 	"github.com/gokrazy/internal/config"
 	"github.com/gokrazy/internal/instanceflag"
 	"github.com/gokrazy/tools/packer"
+	"golang.org/x/mod/modfile"
 )
 
 type FileHash struct {
@@ -80,6 +81,8 @@ func GenerateSBOM(cfg *config.Struct) ([]byte, SBOMWithHash, error) {
 
 	packages := append(getGokrazySystemPackages(cfg), cfg.Packages...)
 
+	dirSeen := make(map[string]bool)
+
 	for _, pkgAndVersion := range packages {
 		pkg := pkgAndVersion
 		if idx := strings.IndexByte(pkg, '@'); idx > -1 {
@@ -103,6 +106,33 @@ func GenerateSBOM(cfg *config.Struct) ([]byte, SBOMWithHash, error) {
 			Path: path,
 			Hash: fmt.Sprintf("%x", sha256.Sum256(b)),
 		})
+
+		modf, err := modfile.Parse("go.mod", b, nil)
+		if err != nil {
+			return nil, SBOMWithHash{}, err
+		}
+		for _, r := range modf.Replace {
+			if r.New.Version != "" {
+				// replace directive that references a ModulePath
+				continue
+			}
+			// replace directive that references a FilePath
+			dir := r.New.Path
+			// Especially when a go.mod template was used, the same replace
+			// directive can be repeated many times across different packages,
+			// hence we maintain a cache from dir to hash.
+			if _, ok := dirSeen[dir]; !ok {
+				h, err := hashDir(dir)
+				if err != nil {
+					return nil, SBOMWithHash{}, err
+				}
+				dirSeen[dir] = true
+				result.GoModHashes = append(result.GoModHashes, FileHash{
+					Path: dir,
+					Hash: h,
+				})
+			}
+		}
 
 		files := append([]*FileInfo{}, extraFiles[pkg]...)
 		for len(files) > 0 {
