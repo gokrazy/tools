@@ -50,6 +50,10 @@ func init() {
 		ID:    "runtime",
 		Title: "Commands to work with a running gokrazy instance:",
 	})
+	RootCmd.AddGroup(&cobra.Group{
+		ID:    "server",
+		Title: "Commands to work with a remote GUS server:",
+	})
 	RootCmd.Flags().Bool("version", false, "print gok version")
 	// Only defined so that it appears in documentation like --help.
 	//
@@ -66,4 +70,5 @@ func init() {
 	RootCmd.AddCommand(addCmd)
 	RootCmd.AddCommand(getCmd)
 	RootCmd.AddCommand(sbomCmd)
+	RootCmd.AddCommand(pushCmd)
 }
