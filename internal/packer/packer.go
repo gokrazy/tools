@@ -1539,14 +1539,14 @@ func (pack *Pack) logic(programName string) error {
 	fmt.Printf("\n")
 	fmt.Printf("In addition, the following Linux consoles are set up:\n")
 	fmt.Printf("\n")
-	if cfg.SerialConsole != "disabled" {
+	if cfg.SerialConsoleOrDefault() != "disabled" {
 		fmt.Printf("\t1. foreground Linux console on the serial port (115200n8, pin 6, 8, 10 for GND, TX, RX), accepting input\n")
 		fmt.Printf("\t2. secondary Linux framebuffer console on HDMI; shows Linux kernel message but no init system messages\n")
 	} else {
 		fmt.Printf("\t1. foreground Linux framebuffer console on HDMI\n")
 	}
 
-	if cfg.SerialConsole != "disabled" {
+	if cfg.SerialConsoleOrDefault() != "disabled" {
 		fmt.Printf("\n")
 		fmt.Printf("Use -serial_console=disabled to make gokrazy not touch the serial port,\nand instead make the framebuffer console on HDMI the foreground console\n")
 	}
