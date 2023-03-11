@@ -54,9 +54,11 @@ func GenerateSBOM(cfg *config.Struct) ([]byte, SBOMWithHash, error) {
 		return nil, SBOMWithHash{}, err
 	}
 	defer os.Chdir(wd)
-	if err := os.Chdir(config.InstancePath()); err != nil {
+	instancePath := config.InstancePath()
+	if err := os.Chdir(instancePath); err != nil {
 		if os.IsNotExist(err) {
 			// best-effort compatibility for old setups
+			instancePath = wd
 		} else {
 			return nil, SBOMWithHash{}, err
 		}
@@ -89,15 +91,24 @@ func GenerateSBOM(cfg *config.Struct) ([]byte, SBOMWithHash, error) {
 			pkg = pkg[:idx]
 		}
 		buildDir := packer.BuildDir(pkg)
-		if _, err := os.Stat(buildDir); err != nil {
-			wd, _ := os.Getwd()
-			errStr := fmt.Sprintf("Error: build directory %q does not exist in %q\n", buildDir, wd)
-			errStr += fmt.Sprintf("Try 'gok -i %s add %s' followed by an update.\n", instanceflag.Instance(), pkg)
-			errStr += fmt.Sprintf("Afterwards, your 'gok sbom' command should work")
-			return nil, SBOMWithHash{}, fmt.Errorf("%s: %w", errStr, err)
+		buildDir = filepath.Join(instancePath, buildDir)
+
+		if err := os.Chdir(buildDir); err != nil {
+			if os.IsNotExist(err) {
+				wd, _ := os.Getwd()
+				errStr := fmt.Sprintf("Error: build directory %q does not exist in %q\n", buildDir, wd)
+				errStr += fmt.Sprintf("Try 'gok -i %s add %s' followed by an update.\n", instanceflag.Instance(), pkg)
+				errStr += fmt.Sprintf("Afterwards, your 'gok sbom' command should work")
+				return nil, SBOMWithHash{}, fmt.Errorf("%s: %w", errStr, err)
+			} else {
+				return nil, SBOMWithHash{}, err
+			}
 		}
 
-		path := filepath.Join(buildDir, "go.mod")
+		path, err := filepath.Abs("go.mod")
+		if err != nil {
+			return nil, SBOMWithHash{}, err
+		}
 		b, err := os.ReadFile(path)
 		if err != nil {
 			return nil, SBOMWithHash{}, err
@@ -117,7 +128,10 @@ func GenerateSBOM(cfg *config.Struct) ([]byte, SBOMWithHash, error) {
 				continue
 			}
 			// replace directive that references a FilePath
-			dir := r.New.Path
+			dir, err := filepath.Abs(r.New.Path)
+			if err != nil {
+				return nil, SBOMWithHash{}, err
+			}
 			// Especially when a go.mod template was used, the same replace
 			// directive can be repeated many times across different packages,
 			// hence we maintain a cache from dir to hash.
@@ -135,6 +149,18 @@ func GenerateSBOM(cfg *config.Struct) ([]byte, SBOMWithHash, error) {
 		}
 
 		files := append([]*FileInfo{}, extraFiles[pkg]...)
+		if len(files) == 0 {
+			continue
+		}
+
+		if err := os.Chdir(config.InstancePath()); err != nil {
+			if os.IsNotExist(err) {
+				// best-effort compatibility for old setups
+			} else {
+				return nil, SBOMWithHash{}, err
+			}
+		}
+
 		for len(files) > 0 {
 			fi := files[0]
 			files = files[1:]
@@ -145,7 +171,10 @@ func GenerateSBOM(cfg *config.Struct) ([]byte, SBOMWithHash, error) {
 				continue
 			}
 
-			path := fi.FromHost
+			path, err := filepath.Abs(fi.FromHost)
+			if err != nil {
+				return nil, SBOMWithHash{}, err
+			}
 			b, err := os.ReadFile(path)
 			if err != nil {
 				return nil, SBOMWithHash{}, err
