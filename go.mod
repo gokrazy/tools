@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/breml/rootcerts v0.2.10
 	github.com/donovanhide/eventsource v0.0.0-20210830082556-c59027999da0
-	github.com/gokrazy/internal v0.0.0-20230228211039-5c1bb011aacf
+	github.com/gokrazy/internal v0.0.0-20230313074923-5f469e7488b0
 	github.com/gokrazy/updater v0.0.0-20230215172637-813ccc7f21e2
 	github.com/google/go-cmp v0.5.9
 	github.com/google/renameio/v2 v2.0.0
