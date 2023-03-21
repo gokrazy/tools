@@ -413,22 +413,21 @@ func PackageDir(pkg string) (string, error) {
 	return strings.TrimSpace(string(b)), nil
 }
 
+// PackageDirs returns the package directories, in the same order as the argument
 func PackageDirs(pkgs []string) ([]string, error) {
-	var (
-		eg     errgroup.Group
-		dirsMu sync.Mutex
-		dirs   []string
-	)
-	for _, pkg := range pkgs {
+	var eg errgroup.Group
+
+	// pre-allocate the slice for concurrent writes
+	dirs := make([]string, len(pkgs))
+	for i, pkg := range pkgs {
+		i := i     // copy
 		pkg := pkg // copy
 		eg.Go(func() error {
 			dir, err := PackageDir(pkg)
 			if err != nil {
 				return err
 			}
-			dirsMu.Lock()
-			defer dirsMu.Unlock()
-			dirs = append(dirs, dir)
+			dirs[i] = dir
 			return nil
 		})
 	}
