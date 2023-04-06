@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	gokversion "github.com/gokrazy/tools/internal/version"
+	"golang.org/x/mod/module"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -24,7 +25,7 @@ type latestResp struct {
 	Version string `json:"Version"`
 }
 
-func proxyRequest(proxyRelativeURL string) (*http.Request, error) {
+func proxyRequest(importPath, suffix string) (*http.Request, error) {
 	proxyBase := "https://proxy.golang.org"
 	if gp := os.Getenv("GOPROXY"); gp != "" {
 		if strings.ContainsRune(gp, ',') ||
@@ -35,7 +36,18 @@ func proxyRequest(proxyRelativeURL string) (*http.Request, error) {
 		}
 		proxyBase = strings.TrimSuffix(gp, "/")
 	}
-	req, err := http.NewRequest("GET", proxyBase+"/"+proxyRelativeURL, nil)
+	escapedSuffix, err := module.EscapeVersion(suffix)
+	if err != nil {
+		return nil, err
+	}
+	if escapedSuffix != "@latest" {
+		escapedSuffix = "@v/" + escapedSuffix
+	}
+	escapedImportPath, err := module.EscapePath(importPath)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest("GET", proxyBase+"/"+escapedImportPath+"/"+escapedSuffix, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -44,11 +56,11 @@ func proxyRequest(proxyRelativeURL string) (*http.Request, error) {
 }
 
 func moduleInfo(ctx context.Context, importPath, version string) (*latestResp, error) {
-	suffix := "/@v/" + version + ".info"
+	suffix := version + ".info"
 	if version == "latest" {
-		suffix = "/@latest"
+		suffix = "@latest"
 	}
-	req, err := proxyRequest(importPath + suffix)
+	req, err := proxyRequest(importPath, suffix)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +91,7 @@ func moduleInfo(ctx context.Context, importPath, version string) (*latestResp, e
 }
 
 func resolveGoMod(ctx context.Context, importPath string, latest *latestResp) (*resolvedModule, error) {
-	req, err := proxyRequest(importPath + "/@v/" + latest.Version + ".mod")
+	req, err := proxyRequest(importPath, latest.Version+".mod")
 	if err != nil {
 		return nil, err
 	}
