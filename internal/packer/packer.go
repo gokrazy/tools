@@ -1130,6 +1130,16 @@ func (pack *Pack) logic(programName string) error {
 	if err != nil {
 		return err
 	}
+	for _, packageExtraFiles := range extraFiles {
+		for _, ef := range packageExtraFiles {
+			for _, de := range ef.Dirents {
+				if de.Filename != "perm" {
+					continue
+				}
+				return fmt.Errorf("invalid ExtraFilePaths or ExtraFileContents: cannot write extra files to user-controlled /perm partition")
+			}
+		}
+	}
 
 	if len(packageConfigFiles) > 0 {
 		fmt.Printf("Including extra files for Go packages:\n\n")
