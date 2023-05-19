@@ -20,6 +20,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gokrazy/internal/config"
@@ -1742,13 +1743,17 @@ func (pack *Pack) logic(programName string) error {
 		}
 	}
 
-	fmt.Printf("Triggering reboot\n")
-	if err := target.Reboot(); err != nil {
-		return fmt.Errorf("reboot: %v", err)
-	}
-
 	// Stop progress reporting to not mess up the following logs output.
 	canc()
+
+	fmt.Printf("Triggering reboot\n")
+	if err := target.Reboot(); err != nil {
+		if errors.Is(err, syscall.ECONNRESET) {
+			fmt.Printf("ignoring reboot error: %v\n", err)
+		} else {
+			return fmt.Errorf("reboot: %v", err)
+		}
+	}
 
 	const polltimeout = 5 * time.Minute
 	fmt.Printf("Updated, waiting %v for the device to become reachable (cancel with Ctrl-C any time)\n", polltimeout)
