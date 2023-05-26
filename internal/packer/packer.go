@@ -1834,7 +1834,7 @@ func (pack *Pack) validateTargetArchMatchesKernel() error {
 	}
 	targetArch := packer.TargetArch()
 	if kernelArch != targetArch {
-		return fmt.Errorf("target architecture %q doesn't match the %s kernel type %q",
+		return fmt.Errorf("target architecture %q (GOARCH) doesn't match the %s kernel type %q",
 			targetArch,
 			cfg.KernelPackageOrDefault(),
 			kernelArch)
