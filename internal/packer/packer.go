@@ -1349,6 +1349,11 @@ func (pack *Pack) logic(programName string) error {
 	})
 	etc.Dirents = append(etc.Dirents, etcGokrazy)
 
+	empty := &FileInfo{Filename: ""}
+	if paths := getDuplication(root, empty); len(paths) > 0 {
+		return fmt.Errorf("root file system contains duplicate files: your config contains multiple packages that install %s", paths)
+	}
+
 	for pkg1, fs := range extraFiles {
 		for _, fs1 := range fs {
 			// check against root fs
