@@ -411,6 +411,29 @@ type archiveExtraction struct {
 	dirs map[string]*FileInfo
 }
 
+func (ae *archiveExtraction) mkdirp(dir string) {
+	if dir == "/" {
+		// Special case to avoid strings.Split() returning a slice with the
+		// empty string as only element, which would result in creating a
+		// subdirectory of the root directory without a name.
+		return
+	}
+	parts := strings.Split(strings.TrimPrefix(dir, "/"), "/")
+	parent := ae.dirs["."]
+	for idx, part := range parts {
+		path := strings.Join(parts[:1+idx], "/")
+		if _, ok := ae.dirs[path]; ok {
+			continue
+		}
+		subdir := &FileInfo{
+			Filename: part,
+		}
+		parent.Dirents = append(parent.Dirents, subdir)
+		ae.dirs[path] = subdir
+		parent = subdir
+	}
+}
+
 func (ae *archiveExtraction) extractArchive(path string) (time.Time, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -445,7 +468,12 @@ func (ae *archiveExtraction) extractArchive(path string) (time.Time, error) {
 			latestTime = header.ModTime
 		}
 
-		parent := ae.dirs[filepath.Dir(filename)]
+		dir := filepath.Dir(filename)
+		// Create all directory elements. Archives can contain directory entries
+		// without having entries for their parent, e.g. web/assets/fonts/ might
+		// be the first entry in an archive.
+		ae.mkdirp(dir)
+		parent := ae.dirs[dir]
 		parent.Dirents = append(parent.Dirents, fi)
 
 		switch header.Typeflag {
