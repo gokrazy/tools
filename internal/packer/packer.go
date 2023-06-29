@@ -422,7 +422,8 @@ func (ae *archiveExtraction) mkdirp(dir string) {
 	parent := ae.dirs["."]
 	for idx, part := range parts {
 		path := strings.Join(parts[:1+idx], "/")
-		if _, ok := ae.dirs[path]; ok {
+		if dir, ok := ae.dirs[path]; ok {
+			parent = dir
 			continue
 		}
 		subdir := &FileInfo{
