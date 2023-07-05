@@ -62,6 +62,7 @@ func init() {
 	instanceflag.RegisterPflags(RootCmd.Flags())
 	RootCmd.AddCommand(runCmd)
 	RootCmd.AddCommand(logsCmd)
+	RootCmd.AddCommand(svcsCmd)
 	RootCmd.AddCommand(updateCmd)
 	RootCmd.AddCommand(overwriteCmd)
 	RootCmd.AddCommand(versionCmd)
