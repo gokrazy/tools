@@ -1136,6 +1136,9 @@ func (pack *Pack) logic(programName string) error {
 	if e := cfg.EEPROMPackageOrDefault(); e != "" {
 		noBuildPkgs = append(noBuildPkgs, e)
 	}
+	// Ensure all build processes use umask 022. Programs like ntp which do
+	// privilege separation need the o+x bit.
+	syscall.Umask(0022)
 	buildEnv := &packer.BuildEnv{
 		BuildDir: packer.BuildDirOrMigrate,
 	}
