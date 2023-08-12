@@ -401,6 +401,7 @@ func PackageDir(pkg string) (string, error) {
 	}
 
 	cmd := exec.Command("go", "list", "-mod=mod", "-tags", "gokrazy", "-f", "{{ .Dir }}", pkg)
+	cmd.Env = Env()
 	cmd.Dir = buildDir
 	cmd.Stderr = os.Stderr
 	if logExec {
