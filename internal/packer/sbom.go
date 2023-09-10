@@ -72,7 +72,7 @@ func GenerateSBOM(cfg *config.Struct) ([]byte, SBOMWithHash, error) {
 	result := SBOM{
 		ConfigHash: FileHash{
 			Path: config.InstanceConfigPath(),
-			Hash: fmt.Sprintf("%x", sha256.Sum256([]byte(formattedCfg))),
+			Hash: fmt.Sprintf("%x", sha256.Sum256([]byte(string(formattedCfg)))),
 		},
 	}
 

@@ -115,13 +115,13 @@ func (p *Pack) SudoPartition(path string) (*os.File, error) {
 }
 
 func (p *Pack) partition(path string) (*os.File, error) {
-	if p.Cfg.InternalCompatibilityFlags.Sudo == "always" {
+	if p.Cfg.InternalCompatibilityFlags.SudoOrDefault() == "always" {
 		return p.SudoPartition(path)
 	}
 	o, err := os.Create(path)
 	if err != nil {
 		pe, ok := err.(*os.PathError)
-		if ok && pe.Err == syscall.EACCES && p.Cfg.InternalCompatibilityFlags.Sudo == "auto" {
+		if ok && pe.Err == syscall.EACCES && p.Cfg.InternalCompatibilityFlags.SudoOrDefault() == "auto" {
 			// permission denied
 			log.Printf("Using sudo to gain permission to format %s", path)
 			log.Printf("If you prefer, cancel and use: sudo setfacl -m u:${USER}:rw %s", path)

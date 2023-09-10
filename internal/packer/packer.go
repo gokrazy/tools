@@ -1005,10 +1005,6 @@ func (pack *Pack) logic(programName string) error {
 		return fmt.Errorf("both -update and -overwrite are specified; use either one, not both")
 	}
 
-	if cfg.InternalCompatibilityFlags.Sudo == "" {
-		cfg.InternalCompatibilityFlags.Sudo = "auto"
-	}
-
 	var mbrOnlyWithoutGpt bool
 	var rootDeviceFiles []deviceconfig.RootFile
 	if cfg.DeviceType != "" {
