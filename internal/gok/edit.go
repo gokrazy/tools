@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"syscall"
 
@@ -52,9 +51,6 @@ func (r *editImplConfig) run(ctx context.Context, args []string, stdout, stderr 
 	if editor == "" {
 		editor = "vi" // most likely available
 	}
-	absEditor, err := exec.LookPath(editor)
-	if err != nil {
-		return err
-	}
-	return syscall.Exec(absEditor, []string{absEditor, configJSON}, os.Environ())
+	shellCmd := fmt.Sprintf("%s %q", editor, configJSON)
+	return syscall.Exec("/bin/sh", []string{"/bin/sh", "-c", shellCmd}, os.Environ())
 }
