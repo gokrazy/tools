@@ -212,7 +212,6 @@ func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 			return err
 		}
 	}
-
 	kernelDir, err := packer.PackageDir(p.Cfg.KernelPackageOrDefault())
 	if err != nil {
 		return err
