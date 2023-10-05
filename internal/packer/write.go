@@ -203,7 +203,6 @@ func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 			return err
 		}
 	}
-
 	var eepromDir string
 	if eeprom := p.Cfg.EEPROMPackageOrDefault(); eeprom != "" {
 		var err error
