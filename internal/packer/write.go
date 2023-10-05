@@ -159,8 +159,32 @@ var (
 		"boot.scr", // u-boot script file
 		"vmlinuz",
 		"*.dtb",
+		"overlays/*.dtbo",
 	}
 )
+
+func (p *Pack) copyGlobsToBoot(fw *fat.Writer, srcDir string, globs []string) error {
+	for _, pattern := range globs {
+		matches, err := filepath.Glob(filepath.Join(srcDir, pattern))
+		if err != nil {
+			return err
+		}
+		for _, m := range matches {
+			src, err := os.Open(m)
+			if err != nil {
+				return err
+			}
+			relPath, err := filepath.Rel(srcDir, m)
+			if err != nil {
+				return err
+			}
+			if err := copyFile(fw, "/"+relPath, src); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
 
 func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 	fmt.Printf("\n")
@@ -171,16 +195,15 @@ func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 		done(fragment)
 	}()
 
-	globs := make([]string, 0, len(firmwareGlobs)+len(kernelGlobs))
+	var firmwareDir string
 	if fw := p.Cfg.FirmwarePackageOrDefault(); fw != "" {
-		firmwareDir, err := packer.PackageDir(fw)
+		var err error
+		firmwareDir, err = packer.PackageDir(fw)
 		if err != nil {
 			return err
 		}
-		for _, glob := range firmwareGlobs {
-			globs = append(globs, filepath.Join(firmwareDir, glob))
-		}
 	}
+
 	var eepromDir string
 	if eeprom := p.Cfg.EEPROMPackageOrDefault(); eeprom != "" {
 		var err error
@@ -189,34 +212,29 @@ func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 			return err
 		}
 	}
+
 	kernelDir, err := packer.PackageDir(p.Cfg.KernelPackageOrDefault())
 	if err != nil {
 		return err
 	}
 
 	fmt.Printf("\nKernel directory: %s\n", kernelDir)
-	for _, glob := range kernelGlobs {
-		globs = append(globs, filepath.Join(kernelDir, glob))
-	}
 
 	bufw := bufio.NewWriter(f)
 	fw, err := fat.NewWriter(bufw)
 	if err != nil {
 		return err
 	}
-	for _, pattern := range globs {
-		matches, err := filepath.Glob(pattern)
+
+	err = p.copyGlobsToBoot(fw, kernelDir, kernelGlobs)
+	if err != nil {
+		return err
+	}
+
+	if firmwareDir != "" {
+		err = p.copyGlobsToBoot(fw, firmwareDir, firmwareGlobs)
 		if err != nil {
 			return err
-		}
-		for _, m := range matches {
-			src, err := os.Open(m)
-			if err != nil {
-				return err
-			}
-			if err := copyFile(fw, "/"+filepath.Base(m), src); err != nil {
-				return err
-			}
 		}
 	}
 
