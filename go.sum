@@ -1,8 +1,6 @@
 github.com/breml/rootcerts v0.2.10 h1:UGVZ193UTSUASpGtg6pbDwzOd7XQP+at0Ssg1/2E4h8=
 github.com/breml/rootcerts v0.2.10/go.mod h1:24FDtzYMpqIeYC7QzaE8VPRQaFZU5TIUDlyk8qwjD88=
 github.com/cpuguy83/go-md2man/v2 v2.0.2/go.mod h1:tgQtvFlXSQOSOSIRvRPT7W67SCa46tRHOmNcaadrF8o=
-github.com/damdo/internal v0.0.0-20231010185710-329afa6a2d6e h1:8gKsjwVk9zS/SYhK0f5wmGE6Mm1fTd3Xo17JPSNYC+0=
-github.com/damdo/internal v0.0.0-20231010185710-329afa6a2d6e/go.mod h1:CIE3ta1pA9UGyV1BM6wSc9BvNIZTm6keFCy/ifi6PCw=
 github.com/donovanhide/eventsource v0.0.0-20210830082556-c59027999da0 h1:C7t6eeMaEQVy6e8CarIhscYQlNmw5e3G36y7l7Y21Ao=
 github.com/donovanhide/eventsource v0.0.0-20210830082556-c59027999da0/go.mod h1:56wL82FO0bfMU5RvfXoIwSOP2ggqqxT+tAfNEIyxuHw=
 github.com/gokrazy/internal v0.0.0-20231010202000-a93c67aeb340 h1:ddYQ2L0WsOFaD28ex00IgDP9r3oRlDVyprwaUk2BGYo=
