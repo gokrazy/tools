@@ -58,6 +58,11 @@ func (r *sbomConfig) run(ctx context.Context, args []string, stdout, stderr io.W
 
 	updateflag.SetUpdate("yes")
 
+	// GenerateSBOM() must be provided with a cfg
+	// that hasn't been modified by gok at runtime,
+	// as the SBOM should reflect what’s going into gokrazy,
+	// not its internal implementation details
+	// (i.e.  cfg.InternalCompatibilityFlags untouched).
 	sbomMarshaled, sbomWithHash, err := packer.GenerateSBOM(cfg)
 	if os.IsNotExist(err) {
 		// Common case, handle with a good error message
