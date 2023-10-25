@@ -225,7 +225,8 @@ func logic(instanceDir string) error {
 	}
 
 	pack := &internalpacker.Pack{
-		Cfg: &cfg,
+		FileCfg: &cfg,
+		Cfg:     &cfg,
 	}
 
 	pack.Main("gokrazy packer")

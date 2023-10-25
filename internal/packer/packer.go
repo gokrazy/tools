@@ -978,8 +978,11 @@ type OutputStruct struct {
 type Pack struct {
 	packer.Pack
 
-	Cfg    *config.Struct
-	Output *OutputStruct
+	// FileCfg holds an untouched copy
+	// of the config file, as it was read from disk.
+	FileCfg *config.Struct
+	Cfg     *config.Struct
+	Output  *OutputStruct
 }
 
 func filterGoEnv(env []string) []string {
@@ -1366,10 +1369,16 @@ func (pack *Pack) logic(programName string) error {
 		FromLiteral: update.HTTPSPort,
 	})
 
-	sbom, _, err := GenerateSBOM(cfg)
+	// GenerateSBOM() must be provided with a cfg
+	// that hasn't been modified by gok at runtime,
+	// as the SBOM should reflect what’s going into gokrazy,
+	// not its internal implementation details
+	// (i.e.  cfg.InternalCompatibilityFlags untouched).
+	sbom, _, err := GenerateSBOM(pack.FileCfg)
 	if err != nil {
 		return err
 	}
+
 	etcGokrazy := &FileInfo{Filename: "gokrazy"}
 	etcGokrazy.Dirents = append(etcGokrazy.Dirents, &FileInfo{
 		Filename:    "sbom.json",

@@ -45,6 +45,11 @@ func init() {
 }
 
 func (r *updateImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+	fileCfg, err := config.ReadFromFile()
+	if err != nil {
+		return err
+	}
+
 	cfg, err := config.ReadFromFile()
 	if err != nil {
 		return err
@@ -77,7 +82,8 @@ func (r *updateImplConfig) run(ctx context.Context, args []string, stdout, stder
 	}
 
 	pack := &packer.Pack{
-		Cfg: cfg,
+		FileCfg: fileCfg,
+		Cfg:     cfg,
 	}
 
 	pack.Main("gokrazy gok")

@@ -49,7 +49,12 @@ func (p *Pack) overwriteGaf(root *FileInfo) error {
 		return err
 	}
 
-	sbomMarshaled, _, err := GenerateSBOM(p.Cfg)
+	// GenerateSBOM() must be provided with a cfg
+	// that hasn't been modified by gok at runtime,
+	// as the SBOM should reflect what’s going into gokrazy,
+	// not its internal implementation details
+	// (i.e.  cfg.InternalCompatibilityFlags untouched).
+	sbomMarshaled, _, err := GenerateSBOM(p.FileCfg)
 	if err != nil {
 		return err
 	}
