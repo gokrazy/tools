@@ -1426,7 +1426,7 @@ func (pack *Pack) logic(programName string) error {
 	)
 
 	if !updateflag.NewInstallation() {
-		updateBaseUrl, err = updateflag.BaseURL(update.HTTPPort, schema, update.Hostname, update.HTTPPassword)
+		updateBaseUrl, err = updateflag.BaseURL(update.HTTPPort, update.HTTPSPort, schema, update.Hostname, update.HTTPPassword)
 		if err != nil {
 			return err
 		}
