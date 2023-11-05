@@ -190,7 +190,30 @@ func BuildDirOrMigrate(importPath string) (string, error) {
 	return buildDir, nil
 }
 
+func warnWithoutProxy() {
+	goproxy := exec.Command("go", "env", "GOPROXY")
+	goproxy.Env = Env()
+	goproxy.Stderr = os.Stderr
+	if logExec {
+		log.Printf("getIncomplete: %v", goproxy.Args)
+	}
+	out, err := goproxy.Output()
+	if err != nil {
+		log.Printf("%v: %v", goproxy.Args, err)
+	}
+	if strings.TrimSpace(string(out)) != "direct" {
+		return
+	}
+	fmt.Println()
+	log.Printf("WARNING: you’re using GOPROXY=direct, which means " +
+		"the go tool needs to work with Git repositories, which is " +
+		"inefficient and slow. Consider enabling the Go Proxy: " +
+		"go env -w GOPROXY=https://proxy.golang.org,direct")
+}
+
 func getIncomplete(buildDir string, incomplete []string) error {
+	warnWithoutProxy()
+
 	log.Printf("getting incomplete packages %v", incomplete)
 	cmd := exec.Command("go",
 		append([]string{
