@@ -154,6 +154,7 @@ var (
 		"*.elf",
 		"*.upd",
 		"*.sig",
+		"overlays/*.dtbo",
 	}
 	kernelGlobs = []string{
 		"boot.scr", // u-boot script file
