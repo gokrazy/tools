@@ -131,6 +131,8 @@ func (p *Pack) writeConfig(fw *fat.Writer, src string) error {
 	if p.Cfg.SerialConsoleOrDefault() != "off" {
 		config = strings.ReplaceAll(config, "enable_uart=0", "enable_uart=1")
 	}
+	config += "\n"
+	config += strings.Join(p.Cfg.BootloaderExtraLines, "\n")
 	w, err := fw.File("/config.txt", time.Now())
 	if err != nil {
 		return err
