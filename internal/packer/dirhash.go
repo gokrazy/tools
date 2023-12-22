@@ -7,11 +7,10 @@ import (
 	"hash/fnv"
 	"io"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
-	"golang.org/x/mod/sumdb/dirhash"
+	"golang.org/x/mod/zip"
 )
 
 func quickHash(files []string, open func(string) (io.ReadCloser, error)) (string, error) {
@@ -40,21 +39,13 @@ func quickHash(files []string, open func(string) (io.ReadCloser, error)) (string
 // hashDir is like dirhash.HashDir, but it filters hidden files and uses
 // quickHash.
 func hashDir(dir string) (string, error) {
-	files, err := dirhash.DirFiles(dir, dir)
-	if err != nil {
-		return "", err
+	checked, _ := zip.CheckDir(dir)
+	checked.SizeError = nil // ignore maximum module size of 500 MB
+	if err := checked.Err(); err != nil {
+		return "", fmt.Errorf("CheckDir(%s): %v", dir, err)
 	}
-	n := 0
-	for _, f := range files {
-		rel := strings.TrimPrefix(f, filepath.Clean(dir)+"/")
-		if strings.HasPrefix(rel, ".") {
-			continue
-		}
-		files[n] = f
-		n++
-	}
-	files = files[:n]
-	h, err := quickHash(files, func(name string) (io.ReadCloser, error) {
+
+	h, err := quickHash(checked.Valid, func(name string) (io.ReadCloser, error) {
 		return os.Open(name)
 	})
 	if err != nil {
