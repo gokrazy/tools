@@ -842,7 +842,7 @@ func (p *Pack) overwriteDevice(dev string, root *FileInfo, rootDeviceFiles []dev
 	}
 	defer f.Close()
 
-	if _, err := f.Seek(8192*512, io.SeekStart); err != nil {
+	if _, err := f.Seek(p.FirstPartitionOffsetSectors*512, io.SeekStart); err != nil {
 		return err
 	}
 
@@ -850,11 +850,11 @@ func (p *Pack) overwriteDevice(dev string, root *FileInfo, rootDeviceFiles []dev
 		return err
 	}
 
-	if err := writeMBR(&offsetReadSeeker{f, 8192 * 512}, f, p.Partuuid); err != nil {
+	if err := writeMBR(p.FirstPartitionOffsetSectors, &offsetReadSeeker{f, p.FirstPartitionOffsetSectors * 512}, f, p.Partuuid); err != nil {
 		return err
 	}
 
-	if _, err := f.Seek((8192+(100*MB/512))*512, io.SeekStart); err != nil {
+	if _, err := f.Seek((p.FirstPartitionOffsetSectors+(100*MB/512))*512, io.SeekStart); err != nil {
 		return err
 	}
 
@@ -913,7 +913,7 @@ func (ors *offsetReadSeeker) Seek(offset int64, whence int) (int64, error) {
 	return ors.ReadSeeker.Seek(offset, whence)
 }
 
-func (p *Pack) overwriteFile(filename string, root *FileInfo, rootDeviceFiles []deviceconfig.RootFile) (bootSize int64, rootSize int64, err error) {
+func (p *Pack) overwriteFile(filename string, root *FileInfo, rootDeviceFiles []deviceconfig.RootFile, firstPartitionOffsetSectors int64) (bootSize int64, rootSize int64, err error) {
 	f, err := os.Create(p.Cfg.InternalCompatibilityFlags.Overwrite)
 	if err != nil {
 		return 0, 0, err
@@ -927,7 +927,7 @@ func (p *Pack) overwriteFile(filename string, root *FileInfo, rootDeviceFiles []
 		return 0, 0, err
 	}
 
-	if _, err := f.Seek(8192*512, io.SeekStart); err != nil {
+	if _, err := f.Seek(p.FirstPartitionOffsetSectors*512, io.SeekStart); err != nil {
 		return 0, 0, err
 	}
 	var bs countingWriter
@@ -935,11 +935,11 @@ func (p *Pack) overwriteFile(filename string, root *FileInfo, rootDeviceFiles []
 		return 0, 0, err
 	}
 
-	if err := writeMBR(&offsetReadSeeker{f, 8192 * 512}, f, p.Partuuid); err != nil {
+	if err := writeMBR(p.FirstPartitionOffsetSectors, &offsetReadSeeker{f, p.FirstPartitionOffsetSectors * 512}, f, p.Partuuid); err != nil {
 		return 0, 0, err
 	}
 
-	if _, err := f.Seek(8192*512+100*MB, io.SeekStart); err != nil {
+	if _, err := f.Seek(p.FirstPartitionOffsetSectors*512+100*MB, io.SeekStart); err != nil {
 		return 0, 0, err
 	}
 
@@ -967,7 +967,7 @@ func (p *Pack) overwriteFile(filename string, root *FileInfo, rootDeviceFiles []
 	}
 
 	fmt.Printf("If your applications need to store persistent data, create a file system using e.g.:\n")
-	fmt.Printf("\t/sbin/mkfs.ext4 -F -E offset=%v %s %v\n", 8192*512+1100*MB, p.Cfg.InternalCompatibilityFlags.Overwrite, packer.PermSizeInKB(uint64(p.Cfg.InternalCompatibilityFlags.TargetStorageBytes)))
+	fmt.Printf("\t/sbin/mkfs.ext4 -F -E offset=%v %s %v\n", p.FirstPartitionOffsetSectors*512+1100*MB, p.Cfg.InternalCompatibilityFlags.Overwrite, packer.PermSizeInKB(firstPartitionOffsetSectors, uint64(p.Cfg.InternalCompatibilityFlags.TargetStorageBytes)))
 	fmt.Printf("\n")
 
 	return int64(bs), int64(rs), f.Close()
@@ -1043,17 +1043,21 @@ func (pack *Pack) logic(programName string) error {
 	}
 
 	var mbrOnlyWithoutGpt bool
+	firstPartitionOffsetSectors := deviceconfig.DefaultBootPartitionStartLBA
 	var rootDeviceFiles []deviceconfig.RootFile
 	if cfg.DeviceType != "" {
 		if devcfg, ok := deviceconfig.GetDeviceConfigBySlug(cfg.DeviceType); ok {
 			rootDeviceFiles = devcfg.RootDeviceFiles
 			mbrOnlyWithoutGpt = devcfg.MBROnlyWithoutGPT
+			if devcfg.BootPartitionStartLBA != 0 {
+				firstPartitionOffsetSectors = devcfg.BootPartitionStartLBA
+			}
 		} else {
 			return fmt.Errorf("unknown device slug %q", cfg.DeviceType)
 		}
 	}
 
-	pack.Pack = packer.NewPackForHost(cfg.Hostname)
+	pack.Pack = packer.NewPackForHost(firstPartitionOffsetSectors, cfg.Hostname)
 
 	newInstallation := updateflag.NewInstallation()
 	useGPT := newInstallation && !mbrOnlyWithoutGpt
@@ -1565,7 +1569,7 @@ func (pack *Pack) logic(programName string) error {
 			fmt.Printf("To boot gokrazy, plug the SD card into a supported device (see https://gokrazy.org/platforms/)\n")
 			fmt.Printf("\n")
 		} else {
-			lower := 1200*MB + 8192
+			lower := 1200*MB + int(firstPartitionOffsetSectors)
 
 			if cfg.InternalCompatibilityFlags.TargetStorageBytes == 0 {
 				return fmt.Errorf("--target_storage_bytes is required (e.g. --target_storage_bytes=%d) when using overwrite with a file", lower)
@@ -1577,7 +1581,7 @@ func (pack *Pack) logic(programName string) error {
 				return fmt.Errorf("--target_storage_bytes must be at least %d (for boot + 2 root file systems + 100 MB /perm)", lower)
 			}
 
-			bootSize, rootSize, err = pack.overwriteFile(cfg.InternalCompatibilityFlags.Overwrite, root, rootDeviceFiles)
+			bootSize, rootSize, err = pack.overwriteFile(cfg.InternalCompatibilityFlags.Overwrite, root, rootDeviceFiles, firstPartitionOffsetSectors)
 			if err != nil {
 				return err
 			}
@@ -1719,7 +1723,7 @@ func (pack *Pack) logic(programName string) error {
 			if err != nil {
 				return err
 			}
-			if _, err := bootFile.Seek(8192*512, io.SeekStart); err != nil {
+			if _, err := bootFile.Seek(firstPartitionOffsetSectors*512, io.SeekStart); err != nil {
 				return err
 			}
 			bootReader = &io.LimitedReader{
@@ -1731,7 +1735,7 @@ func (pack *Pack) logic(programName string) error {
 			if err != nil {
 				return err
 			}
-			if _, err := rootFile.Seek(8192*512+100*MB, io.SeekStart); err != nil {
+			if _, err := rootFile.Seek(firstPartitionOffsetSectors*512+100*MB, io.SeekStart); err != nil {
 				return err
 			}
 			rootReader = &io.LimitedReader{
