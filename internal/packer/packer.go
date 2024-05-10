@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -1403,6 +1404,14 @@ func (pack *Pack) logic(programName string) error {
 	etcGokrazy.Dirents = append(etcGokrazy.Dirents, &FileInfo{
 		Filename:    "sbom.json",
 		FromLiteral: string(sbom),
+	})
+	mountdevices, err := json.Marshal(cfg.MountDevices)
+	if err != nil {
+		return err
+	}
+	etcGokrazy.Dirents = append(etcGokrazy.Dirents, &FileInfo{
+		Filename:    "mountdevices.json",
+		FromLiteral: string(mountdevices),
 	})
 	etc.Dirents = append(etc.Dirents, etcGokrazy)
 
