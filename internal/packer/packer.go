@@ -1249,7 +1249,7 @@ func (pack *Pack) logic(programName string) error {
 		update.HTTPPassword = pw
 	}
 
-	for _, dir := range []string{"dev", "etc", "proc", "sys", "tmp", "perm", "lib", "run"} {
+	for _, dir := range []string{"dev", "etc", "proc", "sys", "tmp", "perm", "lib", "run", "mnt"} {
 		root.Dirents = append(root.Dirents, &FileInfo{
 			Filename: dir,
 		})
@@ -1259,6 +1259,21 @@ func (pack *Pack) logic(programName string) error {
 		Filename:    "var",
 		SymlinkDest: "/perm/var",
 	})
+
+	mnt := root.mustFindDirent("mnt")
+	for _, md := range cfg.MountDevices {
+		if !strings.HasPrefix(md.Target, "/mnt/") {
+			continue
+		}
+		rest := strings.TrimPrefix(md.Target, "/mnt/")
+		rest = strings.TrimSuffix(rest, "/")
+		if strings.Contains(rest, "/") {
+			continue
+		}
+		mnt.Dirents = append(mnt.Dirents, &FileInfo{
+			Filename: rest,
+		})
+	}
 
 	// include lib/modules from kernelPackage dir, if present
 	kernelDir, err := packer.PackageDir(cfg.KernelPackageOrDefault())
