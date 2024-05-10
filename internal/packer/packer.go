@@ -1249,11 +1249,16 @@ func (pack *Pack) logic(programName string) error {
 		update.HTTPPassword = pw
 	}
 
-	for _, dir := range []string{"dev", "etc", "proc", "sys", "tmp", "perm", "lib", "run", "var"} {
+	for _, dir := range []string{"dev", "etc", "proc", "sys", "tmp", "perm", "lib", "run"} {
 		root.Dirents = append(root.Dirents, &FileInfo{
 			Filename: dir,
 		})
 	}
+
+	root.Dirents = append(root.Dirents, &FileInfo{
+		Filename:    "var",
+		SymlinkDest: "/perm/var",
+	})
 
 	// include lib/modules from kernelPackage dir, if present
 	kernelDir, err := packer.PackageDir(cfg.KernelPackageOrDefault())
