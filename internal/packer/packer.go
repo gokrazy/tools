@@ -1242,7 +1242,7 @@ func (pack *Pack) logic(programName string) error {
 		update.Hostname = updateHostname
 	}
 
-	if update.HTTPPassword == "" {
+	if update.HTTPPassword == "" && !update.NoPassword {
 		pw, err := ensurePasswordFileExists(updateHostname, defaultPassword)
 		if err != nil {
 			return err
@@ -1374,11 +1374,13 @@ func (pack *Pack) logic(programName string) error {
 
 	etc.Dirents = append(etc.Dirents, ssl)
 
-	etc.Dirents = append(etc.Dirents, &FileInfo{
-		Filename:    "gokr-pw.txt",
-		Mode:        0400,
-		FromLiteral: update.HTTPPassword,
-	})
+	if !update.NoPassword {
+		etc.Dirents = append(etc.Dirents, &FileInfo{
+			Filename:    "gokr-pw.txt",
+			Mode:        0400,
+			FromLiteral: update.HTTPPassword,
+		})
+	}
 
 	etc.Dirents = append(etc.Dirents, &FileInfo{
 		Filename:    "http-port.txt",

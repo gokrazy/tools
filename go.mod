@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/breml/rootcerts v0.2.10
 	github.com/donovanhide/eventsource v0.0.0-20210830082556-c59027999da0
-	github.com/gokrazy/internal v0.0.0-20240510165500-68dd68393b7a
+	github.com/gokrazy/internal v0.0.0-20240607160728-3c7bf66a62e9
 	github.com/gokrazy/updater v0.0.0-20230215172637-813ccc7f21e2
 	github.com/google/go-cmp v0.5.9
 	github.com/google/renameio/v2 v2.0.0
