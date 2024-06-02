@@ -1467,7 +1467,7 @@ func (pack *Pack) logic(programName string) error {
 		done := measure.Interactively("probing https")
 		remoteScheme, err := httpclient.GetRemoteScheme(updateBaseUrl)
 		done("")
-		if remoteScheme == "https" && !tlsflag.Insecure() {
+		if remoteScheme == "https" {
 			updateBaseUrl.Scheme = "https"
 			updateflag.SetUpdate(updateBaseUrl.String())
 		}
