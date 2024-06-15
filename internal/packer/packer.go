@@ -499,7 +499,7 @@ func (ae *archiveExtraction) extractArchive(path string) (time.Time, error) {
 	return latestTime, nil
 }
 
-func findExtraFilesInDir(pkg, dir string, fi *FileInfo) error {
+func addExtraFilesFromDir(pkg, dir string, fi *FileInfo) error {
 	ae := archiveExtraction{
 		dirs: make(map[string]*FileInfo),
 	}
@@ -581,7 +581,7 @@ func FindExtraFiles(cfg *config.Struct) (map[string][]*FileInfo, error) {
 				} else {
 					// Copy a tarball or directory from the host
 					dir := mkdirp(root, dest)
-					if err := findExtraFilesInDir(pkg, path, dir); err != nil {
+					if err := addExtraFilesFromDir(pkg, path, dir); err != nil {
 						return nil, err
 					}
 				}
@@ -617,7 +617,7 @@ func FindExtraFiles(cfg *config.Struct) (map[string][]*FileInfo, error) {
 			// Look for extra files in $PWD/extrafiles/<pkg>/
 			dir := filepath.Join("extrafiles", pkg)
 			root := &FileInfo{}
-			if err := findExtraFilesInDir(pkg, dir, root); err != nil {
+			if err := addExtraFilesFromDir(pkg, dir, root); err != nil {
 				return nil, err
 			}
 			extraFiles[pkg] = append(extraFiles[pkg], root)
@@ -627,7 +627,7 @@ func FindExtraFiles(cfg *config.Struct) (map[string][]*FileInfo, error) {
 			dir := packageDirs[idx]
 			subdir := filepath.Join(dir, "_gokrazy", "extrafiles")
 			root := &FileInfo{}
-			if err := findExtraFilesInDir(pkg, subdir, root); err != nil {
+			if err := addExtraFilesFromDir(pkg, subdir, root); err != nil {
 				return nil, err
 			}
 			extraFiles[pkg] = append(extraFiles[pkg], root)
