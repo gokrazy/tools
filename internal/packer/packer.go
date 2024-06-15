@@ -499,6 +499,32 @@ func (ae *archiveExtraction) extractArchive(path string) (time.Time, error) {
 	return latestTime, nil
 }
 
+// findExtraFilesInDir probes for extrafiles .tar files (possibly with an
+// architecture suffix like _amd64), or whether dir itself exists.
+func findExtraFilesInDir(dir string) (string, error) {
+	targetArch := packer.TargetArch()
+
+	var err error
+	for _, p := range []string{
+		dir + "_" + targetArch + ".tar",
+		dir + ".tar",
+		dir,
+	} {
+		_, err = os.Stat(p)
+		if err == nil {
+			return p, nil
+		}
+		if !os.IsNotExist(err) {
+			return "", err
+		}
+	}
+	return "", err // return last error
+}
+
+// TODO(cleanup): It would be nice to de-duplicate the path resolution logic
+// between findExtraFilesInDir and addExtraFilesFromDir. Maybe
+// findExtraFilesInDir could os.Open the file and pass the file handle to the
+// caller. That would prevent any TOCTOU problems.
 func addExtraFilesFromDir(pkg, dir string, fi *FileInfo) error {
 	ae := archiveExtraction{
 		dirs: make(map[string]*FileInfo),
@@ -579,6 +605,13 @@ func FindExtraFiles(cfg *config.Struct) (map[string][]*FileInfo, error) {
 						lastModified: st.ModTime(),
 					})
 				} else {
+					// Check if the ExtraFilePaths entry refers to an extrafiles
+					// .tar archive or an existing directory. If nothing can be
+					// found, report the error so the user can fix their config.
+					_, err := findExtraFilesInDir(path)
+					if err != nil {
+						return nil, fmt.Errorf("ExtraFilePaths of %s: %v", pkg, err)
+					}
 					// Copy a tarball or directory from the host
 					dir := mkdirp(root, dest)
 					if err := addExtraFilesFromDir(pkg, path, dir); err != nil {
