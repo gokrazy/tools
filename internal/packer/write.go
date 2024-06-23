@@ -27,10 +27,17 @@ import (
 	"github.com/gokrazy/tools/third_party/systemd-250.5-1"
 )
 
-func copyFile(fw *fat.Writer, dest string, src fs.File) error {
+func copyFile(fw *fat.Writer, dest string, src fs.File, srcName string) error {
 	st, err := src.Stat()
 	if err != nil {
 		return err
+	}
+	exists, err := fw.Exists(dest)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return fmt.Errorf("copyFile(%s, %s): file already exists", dest, srcName)
 	}
 	w, err := fw.File(dest, st.ModTime())
 	if err != nil {
@@ -181,7 +188,7 @@ func (p *Pack) copyGlobsToBoot(fw *fat.Writer, srcDir string, globs []string) er
 			if err != nil {
 				return err
 			}
-			if err := copyFile(fw, "/"+relPath, src); err != nil {
+			if err := copyFile(fw, "/"+relPath, src, m); err != nil {
 				return err
 			}
 		}
@@ -330,7 +337,7 @@ func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 		if err != nil {
 			return err
 		}
-		if err := copyFile(fw, "/EFI/BOOT/BOOTX64.EFI", srcX86); err != nil {
+		if err := copyFile(fw, "/EFI/BOOT/BOOTX64.EFI", srcX86, "<embedded>"); err != nil {
 			return err
 		}
 
@@ -338,7 +345,7 @@ func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 		if err != nil {
 			return err
 		}
-		if err := copyFile(fw, "/EFI/BOOT/BOOTAA64.EFI", srcAA86); err != nil {
+		if err := copyFile(fw, "/EFI/BOOT/BOOTAA64.EFI", srcAA86, "<embedded>"); err != nil {
 			return err
 		}
 	}
