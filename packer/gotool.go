@@ -321,7 +321,7 @@ func (be *BuildEnv) Build(bindir string, packages []string, packageBuildFlags, p
 				args := []string{
 					"build",
 					"-mod=mod",
-					"-o", filepath.Join(bindir, filepath.Base(pkg.Target)),
+					"-o", filepath.Join(bindir, pkg.Basename()),
 				}
 				tags := append(DefaultTags(), packageBuildTags[pkg.ImportPath]...)
 				args = append(args, "-tags="+strings.Join(tags, ","))
