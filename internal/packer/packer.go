@@ -94,9 +94,7 @@ func buildPackageMapFromFlags(cfg *config.Struct) map[string]bool {
 
 func buildPackagesFromFlags(cfg *config.Struct) []string {
 	var buildPackages []string
-	for _, pkg := range cfg.Packages {
-		buildPackages = append(buildPackages, pkg)
-	}
+	buildPackages = append(buildPackages, cfg.Packages...)
 	for _, pkg := range cfg.GokrazyPackagesOrDefault() {
 		if strings.TrimSpace(pkg) == "" {
 			continue

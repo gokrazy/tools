@@ -235,7 +235,7 @@ func logic(instanceDir string) error {
 
 func Main() {
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, usage)
+		fmt.Fprint(os.Stderr, usage)
 		flag.PrintDefaults()
 		os.Exit(2)
 	}

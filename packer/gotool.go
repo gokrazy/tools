@@ -83,9 +83,7 @@ func InitDeps(initPkg string) []string {
 }
 
 func BuildDir(importPath string) string {
-	if strings.HasSuffix(importPath, "/...") {
-		importPath = strings.TrimSuffix(importPath, "/...")
-	}
+	importPath = strings.TrimSuffix(importPath, "/...")
 	buildDir := filepath.Join("builddir", importPath)
 
 	// Search for go.mod from most specific to least specific directory,
