@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 )
@@ -27,7 +27,7 @@ func pollUpdated1(ctx context.Context, updateHttpClient *http.Client, updateBase
 	if got, want := resp.StatusCode, http.StatusOK; got != want {
 		return fmt.Errorf("unexpected HTTP status code: got %d, want %d", got, want)
 	}
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}

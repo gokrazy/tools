@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -148,7 +147,7 @@ func findFlagFiles(cfg *config.Struct) (map[string][]string, error) {
 			lastModified: p.modTime,
 		})
 
-		b, err := ioutil.ReadFile(p.path)
+		b, err := os.ReadFile(p.path)
 		if err != nil {
 			return nil, err
 		}
@@ -200,7 +199,7 @@ func findBuildFlagsFiles(cfg *config.Struct) (map[string][]string, error) {
 			lastModified: p.modTime,
 		})
 
-		b, err := ioutil.ReadFile(p.path)
+		b, err := os.ReadFile(p.path)
 		if err != nil {
 			return nil, err
 		}
@@ -265,7 +264,7 @@ func findBuildTagsFiles(cfg *config.Struct) (map[string][]string, error) {
 			lastModified: p.modTime,
 		})
 
-		b, err := ioutil.ReadFile(p.path)
+		b, err := os.ReadFile(p.path)
 		if err != nil {
 			return nil, err
 		}
@@ -330,7 +329,7 @@ func findEnvFiles(cfg *config.Struct) (map[string][]string, error) {
 			lastModified: p.modTime,
 		})
 
-		b, err := ioutil.ReadFile(p.path)
+		b, err := os.ReadFile(p.path)
 		if err != nil {
 			return nil, err
 		}
@@ -488,7 +487,7 @@ func (ae *archiveExtraction) extractArchive(path string) (time.Time, error) {
 		default:
 			// TODO(optimization): do not hold file data in memory, instead
 			// stream the archive contents lazily to conserve RAM
-			b, err := ioutil.ReadAll(rd)
+			b, err := io.ReadAll(rd)
 			if err != nil {
 				return time.Time{}, err
 			}
@@ -807,7 +806,7 @@ func partitionPath(base, num string) string {
 }
 
 func verifyNotMounted(dev string) error {
-	b, err := ioutil.ReadFile("/proc/self/mountinfo")
+	b, err := os.ReadFile("/proc/self/mountinfo")
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil // platform does not have /proc/self/mountinfo, fall back to not verifying
@@ -858,7 +857,7 @@ func (p *Pack) overwriteDevice(dev string, root *FileInfo, rootDeviceFiles []dev
 		return err
 	}
 
-	tmp, err := ioutil.TempFile("", "gokr-packer")
+	tmp, err := os.CreateTemp("", "gokr-packer")
 	if err != nil {
 		return err
 	}
@@ -943,7 +942,7 @@ func (p *Pack) overwriteFile(filename string, root *FileInfo, rootDeviceFiles []
 		return 0, 0, err
 	}
 
-	tmp, err := ioutil.TempFile("", "gokr-packer")
+	tmp, err := os.CreateTemp("", "gokr-packer")
 	if err != nil {
 		return 0, 0, err
 	}
@@ -1105,7 +1104,7 @@ func (pack *Pack) logic(programName string) error {
 		return err
 	}
 
-	bindir, err := ioutil.TempDir("", "gokrazy-bins-")
+	bindir, err := os.MkdirTemp("", "gokrazy-bins-")
 	if err != nil {
 		return err
 	}
@@ -1329,7 +1328,7 @@ func (pack *Pack) logic(programName string) error {
 	}
 
 	etc := root.mustFindDirent("etc")
-	tmpdir, err := ioutil.TempDir("", "gokrazy")
+	tmpdir, err := os.MkdirTemp("", "gokrazy")
 	if err != nil {
 		return err
 	}
@@ -1595,7 +1594,7 @@ func (pack *Pack) logic(programName string) error {
 		if cfg.InternalCompatibilityFlags.OverwriteBoot != "" {
 			mbrfn := cfg.InternalCompatibilityFlags.OverwriteMBR
 			if cfg.InternalCompatibilityFlags.OverwriteMBR == "" {
-				tmpMBR, err = ioutil.TempFile("", "gokrazy")
+				tmpMBR, err = os.CreateTemp("", "gokrazy")
 				if err != nil {
 					return err
 				}
@@ -1614,13 +1613,13 @@ func (pack *Pack) logic(programName string) error {
 		}
 
 		if cfg.InternalCompatibilityFlags.OverwriteBoot == "" && cfg.InternalCompatibilityFlags.OverwriteRoot == "" {
-			tmpMBR, err = ioutil.TempFile("", "gokrazy")
+			tmpMBR, err = os.CreateTemp("", "gokrazy")
 			if err != nil {
 				return err
 			}
 			defer os.Remove(tmpMBR.Name())
 
-			tmpBoot, err = ioutil.TempFile("", "gokrazy")
+			tmpBoot, err = os.CreateTemp("", "gokrazy")
 			if err != nil {
 				return err
 			}
@@ -1630,7 +1629,7 @@ func (pack *Pack) logic(programName string) error {
 				return err
 			}
 
-			tmpRoot, err = ioutil.TempFile("", "gokrazy")
+			tmpRoot, err = os.CreateTemp("", "gokrazy")
 			if err != nil {
 				return err
 			}

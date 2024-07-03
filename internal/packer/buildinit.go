@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"go/format"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -177,7 +176,7 @@ func (g *gokrazyInit) build() (tmpdir string, err error) {
 		return "", fmt.Errorf("PackageDirs(%s): %v", pkg, err)
 	}
 
-	tmpdir, err = ioutil.TempDir("", "gokr-packer")
+	tmpdir, err = os.MkdirTemp("", "gokr-packer")
 	if err != nil {
 		return "", err
 	}
@@ -188,7 +187,7 @@ func (g *gokrazyInit) build() (tmpdir string, err error) {
 	}
 
 	initGo := filepath.Join(tmpdir, "init.go")
-	if err := ioutil.WriteFile(initGo, b, 0644); err != nil {
+	if err := os.WriteFile(initGo, b, 0644); err != nil {
 		return "", err
 	}
 	defer os.Remove(initGo)

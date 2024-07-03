@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -70,7 +69,7 @@ func copyFileSquash(d *squashfs.Directory, dest, src string) error {
 }
 
 func (p *Pack) writeCmdline(fw *fat.Writer, src string) error {
-	b, err := ioutil.ReadFile(src)
+	b, err := os.ReadFile(src)
 	if err != nil {
 		return err
 	}
@@ -130,7 +129,7 @@ linux /vmlinuz
 }
 
 func (p *Pack) writeConfig(fw *fat.Writer, src string) error {
-	b, err := ioutil.ReadFile(src)
+	b, err := os.ReadFile(src)
 	if err != nil {
 		return err
 	}
