@@ -284,10 +284,6 @@ func (be *BuildEnv) Build(bindir string, packages []string, packageBuildFlags, p
 	done := measure.Interactively("building (go compiler)")
 	defer done("")
 
-	incompletePkgs := make([]string, 0, len(packages)+len(noBuildPackages))
-	incompletePkgs = append(incompletePkgs, packages...)
-	incompletePkgs = append(incompletePkgs, noBuildPackages...)
-
 	var eg errgroup.Group
 	for _, incompleteNoBuildPkg := range noBuildPackages {
 		buildDir, err := be.BuildDir(incompleteNoBuildPkg)

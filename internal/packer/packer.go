@@ -910,7 +910,7 @@ func (ors *offsetReadSeeker) Seek(offset int64, whence int) (int64, error) {
 	return ors.ReadSeeker.Seek(offset, whence)
 }
 
-func (p *Pack) overwriteFile(filename string, root *FileInfo, rootDeviceFiles []deviceconfig.RootFile) (bootSize int64, rootSize int64, err error) {
+func (p *Pack) overwriteFile(root *FileInfo, rootDeviceFiles []deviceconfig.RootFile) (bootSize int64, rootSize int64, err error) {
 	f, err := os.Create(p.Cfg.InternalCompatibilityFlags.Overwrite)
 	if err != nil {
 		return 0, 0, err
@@ -969,30 +969,6 @@ func (p *Pack) overwriteFile(filename string, root *FileInfo, rootDeviceFiles []
 
 	return int64(bs), int64(rs), f.Close()
 }
-
-const usage = `
-gokr-packer packs gokrazy installations into SD card or file system images.
-
-Usage:
-To directly partition and overwrite an SD card:
-gokr-packer -overwrite=<device> <go-package> [<go-package>…]
-
-To create an SD card image on the file system:
-gokr-packer -overwrite=<file> -target_storage_bytes=<bytes> <go-package> [<go-package>…]
-
-To create a file system image of the boot or root file system:
-gokr-packer [-overwrite_boot=<file>|-overwrite_root=<file>] <go-package> [<go-package>…]
-
-To create file system images of both file systems:
-gokr-packer -overwrite_boot=<file> -overwrite_root=<file> <go-package> [<go-package>…]
-
-All of the above commands can be combined with the -update flag.
-
-To dump the auto-generated init source code (for use with -init_pkg later):
-gokr-packer -overwrite_init=<file> <go-package> [<go-package>…]
-
-Flags:
-`
 
 type OutputType string
 
@@ -1574,7 +1550,7 @@ func (pack *Pack) logic(programName string) error {
 				return fmt.Errorf("--target_storage_bytes must be at least %d (for boot + 2 root file systems + 100 MB /perm)", lower)
 			}
 
-			bootSize, rootSize, err = pack.overwriteFile(cfg.InternalCompatibilityFlags.Overwrite, root, rootDeviceFiles)
+			bootSize, rootSize, err = pack.overwriteFile(root, rootDeviceFiles)
 			if err != nil {
 				return err
 			}
