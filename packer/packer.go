@@ -114,7 +114,7 @@ func PermSizeInKB(devsize uint64) uint32 {
 // writePartitionTable writes a Hybrid MBR: it contains the GPT protective
 // partition so that the Linux kernel recognizes the disk as GPT, but it also
 // contains the FAT32 partition so that the Raspberry Pi bootloader still works.
-func writePartitionTable(w io.Writer, devsize uint64) error {
+func writePartitionTable(w io.Writer) error {
 	for _, v := range []interface{}{
 		[446]byte{}, // boot code
 
@@ -430,7 +430,7 @@ func (p *Pack) Partition(o *os.File, devsize uint64) error {
 		return writeMBRPartitionTable(o, devsize)
 	}
 
-	if err := writePartitionTable(o, devsize); err != nil {
+	if err := writePartitionTable(o); err != nil {
 		return err
 	}
 

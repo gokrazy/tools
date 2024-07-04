@@ -57,7 +57,13 @@ func main() {
 	}
 	baseUrl.Path = "/"
 	httpClient, foundMatchingCertificate, err := httpclient.GetTLSHttpClientByTLSFlag(*useTLS, *tlsInsecure, baseUrl)
+	if err != nil {
+		log.Fatal(err)
+	}
 	remoteScheme, err := httpclient.GetRemoteScheme(baseUrl)
+	if err != nil {
+		log.Fatal(err)
+	}
 	if remoteScheme == "https" {
 		baseUrl.Scheme = "https"
 		*update = baseUrl.String()

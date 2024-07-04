@@ -2,7 +2,6 @@ package packer
 
 import (
 	"errors"
-	"io/ioutil"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -42,7 +41,7 @@ func ensurePasswordFileExists(hostname, defaultPassword string) (password string
 	// Save the password without a trailing \n so that xclip can be used to
 	// copy&paste the password into a browser:
 	//   % xclip < ~/.config/gokrazy/http-password.txt
-	if err := ioutil.WriteFile(filepath.Join(config.Gokrazy(), configBaseName), []byte(pw), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(config.Gokrazy(), configBaseName), []byte(pw), 0600); err != nil {
 		return "", err
 	}
 
