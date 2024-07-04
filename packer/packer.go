@@ -26,16 +26,18 @@ type Pack struct {
 		PieepromSHA256 string // pieeprom.sig
 		VL805SHA256    string // vl805.sig
 	}
+	FirstPartitionOffsetSectors int64
 }
 
-func NewPackForHost(hostname string) Pack {
+func NewPackForHost(firstPartitionOffsetSectors int64, hostname string) Pack {
 	h := fnv.New32a()
 	h.Write([]byte(hostname))
 	return Pack{
-		Partuuid:       h.Sum32(),
-		UsePartuuid:    true,
-		UseGPTPartuuid: true,
-		UseGPT:         true,
+		Partuuid:                    h.Sum32(),
+		UsePartuuid:                 true,
+		UseGPTPartuuid:              true,
+		UseGPT:                      true,
+		FirstPartitionOffsetSectors: firstPartitionOffsetSectors,
 	}
 }
 
@@ -94,9 +96,9 @@ var (
 
 const MB = 1024 * 1024
 
-func permSize(devsize uint64) uint32 {
-	permStart := uint32(8192 + (1100 * MB / 512))
-	permSize := uint32((devsize / 512) - 8192 - (1100 * MB / 512))
+func permSize(firstPartitionOffsetSectors int64, devsize uint64) uint32 {
+	permStart := uint32(firstPartitionOffsetSectors + (1100 * MB / 512))
+	permSize := uint32((devsize / 512) - uint64(firstPartitionOffsetSectors) - (1100 * MB / 512))
 	// LBA -33 to LBA -1 need to remain unused for the secondary GPT header
 	lastAddressable := uint32((devsize / 512) - 1) // 0-indexed
 	if lastLBA := uint32(lastAddressable - 33); permStart+permSize >= lastLBA {
@@ -105,8 +107,8 @@ func permSize(devsize uint64) uint32 {
 	return permSize
 }
 
-func PermSizeInKB(devsize uint64) uint32 {
-	permSizeLBA := permSize(devsize)
+func PermSizeInKB(firstPartitionOffsetSectors int64, devsize uint64) uint32 {
+	permSizeLBA := permSize(firstPartitionOffsetSectors, devsize)
 	permSizeBytes := permSizeLBA * 512
 	return permSizeBytes / 1024
 }
@@ -114,7 +116,7 @@ func PermSizeInKB(devsize uint64) uint32 {
 // writePartitionTable writes a Hybrid MBR: it contains the GPT protective
 // partition so that the Linux kernel recognizes the disk as GPT, but it also
 // contains the FAT32 partition so that the Raspberry Pi bootloader still works.
-func writePartitionTable(w io.Writer) error {
+func writePartitionTable(firstPartitionOffsetSectors int64, w io.Writer) error {
 	for _, v := range []interface{}{
 		[446]byte{}, // boot code
 
@@ -123,7 +125,7 @@ func writePartitionTable(w io.Writer) error {
 		invalidCHS,
 		FAT,
 		invalidCHS,
-		uint32(8192),           // start at 8192 sectors
+		uint32(firstPartitionOffsetSectors),
 		uint32(100 * MB / 512), // 100MB in size
 
 		// Partition 2 is the protective GPT partition so that the Linux kernel
@@ -133,7 +135,7 @@ func writePartitionTable(w io.Writer) error {
 		byte(0xEE),
 		invalidCHS,
 		uint32(1),
-		uint32(8191),
+		uint32(firstPartitionOffsetSectors - 1),
 
 		[16]byte{}, // partition 3
 		[16]byte{}, // partition 4
@@ -153,7 +155,7 @@ func writePartitionTable(w io.Writer) error {
 // by GPT metadata. For example, Odroid HC2 clobbers sectors 1-2046 with binary blobs
 // required for booting - these devices are incompatible with GPT. See
 // https://wiki.odroid.com/odroid-xu4/software/partition_table#ubuntu_partition_table.
-func writeMBRPartitionTable(w io.Writer, devsize uint64) error {
+func writeMBRPartitionTable(firstPartitionOffsetSectors int64, w io.Writer, devsize uint64) error {
 	for _, v := range []interface{}{
 		[446]byte{}, // boot code
 
@@ -162,7 +164,7 @@ func writeMBRPartitionTable(w io.Writer, devsize uint64) error {
 		invalidCHS,
 		FAT,
 		invalidCHS,
-		uint32(8192),           // start at 8192 sectors
+		uint32(firstPartitionOffsetSectors),
 		uint32(100 * MB / 512), // 100MB in size
 
 		// Partition 2 is squash partition 1.
@@ -170,7 +172,7 @@ func writeMBRPartitionTable(w io.Writer, devsize uint64) error {
 		invalidCHS,
 		Linux,
 		invalidCHS,
-		uint32(8192 + 100*MB/512),
+		uint32(firstPartitionOffsetSectors + 100*MB/512),
 		uint32(500 * MB / 512),
 
 		// Partition 3 is squash partition 2.
@@ -178,7 +180,7 @@ func writeMBRPartitionTable(w io.Writer, devsize uint64) error {
 		invalidCHS,
 		Linux,
 		invalidCHS,
-		uint32(8192 + 600*MB/512),
+		uint32(firstPartitionOffsetSectors + 600*MB/512),
 		uint32(500 * MB / 512),
 
 		// Partition 4 is the perm partition.
@@ -186,8 +188,8 @@ func writeMBRPartitionTable(w io.Writer, devsize uint64) error {
 		invalidCHS,
 		Linux,
 		invalidCHS,
-		uint32(8192 + 1100*MB/512),
-		uint32(devsize/512 - 8192 - 1100*MB/512),
+		uint32(firstPartitionOffsetSectors + 1100*MB/512),
+		uint32(devsize/512 - uint64(firstPartitionOffsetSectors) - 1100*MB/512),
 
 		signature,
 	} {
@@ -270,7 +272,7 @@ func (p *Pack) writeGPT(w io.Writer, devsize uint64, primary bool) error {
 		Attributes uint64
 		Name       [72]byte
 	}
-	partition0First := uint64(8192)
+	partition0First := uint64(p.FirstPartitionOffsetSectors)
 	partition0Last := partition0First + (100 * MB / 512) - 1
 
 	partition1First := partition0Last + 1
@@ -280,7 +282,7 @@ func (p *Pack) writeGPT(w io.Writer, devsize uint64, primary bool) error {
 	partition2Last := partition2First + (500 * MB / 512) - 1
 
 	partition3First := partition2Last + 1
-	partition3Last := partition3First + uint64(permSize(devsize)) - 1
+	partition3Last := partition3First + uint64(permSize(p.FirstPartitionOffsetSectors, devsize)) - 1
 
 	rootType := mustParseGUID(partitionTypeLinuxRootPartitionARM64)
 	if os.Getenv("GOARCH") == "amd64" {
@@ -427,10 +429,10 @@ func (p *Pack) Partition(o *os.File, devsize uint64) error {
 		return fmt.Errorf("device is too small (at least %d MB needed, %d MB available)", minsize/MB, devsize/MB)
 	}
 	if !p.UseGPT {
-		return writeMBRPartitionTable(o, devsize)
+		return writeMBRPartitionTable(p.FirstPartitionOffsetSectors, o, devsize)
 	}
 
-	if err := writePartitionTable(o); err != nil {
+	if err := writePartitionTable(p.FirstPartitionOffsetSectors, o); err != nil {
 		return err
 	}
 

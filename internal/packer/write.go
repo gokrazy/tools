@@ -371,7 +371,7 @@ func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 			return err
 		}
 		defer fmbr.Close()
-		if err := writeMBR(f.(io.ReadSeeker), fmbr, p.Partuuid); err != nil {
+		if err := writeMBR(p.FirstPartitionOffsetSectors, f.(io.ReadSeeker), fmbr, p.Partuuid); err != nil {
 			return err
 		}
 		if err := fmbr.Close(); err != nil {
@@ -593,7 +593,7 @@ func (p *Pack) writeRootDeviceFiles(f io.WriteSeeker, rootDeviceFiles []deviceco
 	return nil
 }
 
-func writeMBR(f io.ReadSeeker, fw io.WriteSeeker, partuuid uint32) error {
+func writeMBR(firstPartitionOffsetSectors int64, f io.ReadSeeker, fw io.WriteSeeker, partuuid uint32) error {
 	rd, err := fat.NewReader(f)
 	if err != nil {
 		return err
@@ -610,8 +610,8 @@ func writeMBR(f io.ReadSeeker, fw io.WriteSeeker, partuuid uint32) error {
 	if _, err := fw.Seek(0, io.SeekStart); err != nil {
 		return err
 	}
-	vmlinuzLba := uint32((vmlinuzOffset / 512) + 8192)
-	cmdlineTxtLba := uint32((cmdlineOffset / 512) + 8192)
+	vmlinuzLba := uint32((vmlinuzOffset / 512) + firstPartitionOffsetSectors)
+	cmdlineTxtLba := uint32((cmdlineOffset / 512) + firstPartitionOffsetSectors)
 
 	fmt.Printf("MBR summary:\n")
 	fmt.Printf("  LBAs: vmlinuz=%d cmdline.txt=%d\n", vmlinuzLba, cmdlineTxtLba)
