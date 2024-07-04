@@ -97,8 +97,7 @@ func TestGokRun(t *testing.T) {
 		if f, ok := w.(http.Flusher); ok {
 			f.Flush()
 		}
-		for {
-		}
+		select {}
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "handler not implemented", http.StatusNotImplemented)

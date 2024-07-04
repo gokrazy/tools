@@ -102,7 +102,7 @@ func GenerateSBOM(cfg *config.Struct) ([]byte, SBOMWithHash, error) {
 				wd, _ := os.Getwd()
 				errStr := fmt.Sprintf("Error: build directory %q does not exist in %q\n", buildDir, wd)
 				errStr += fmt.Sprintf("Try 'gok -i %s add %s' followed by an update.\n", instanceflag.Instance(), pkg)
-				errStr += fmt.Sprintf("Afterwards, your 'gok sbom' command should work")
+				errStr += "Afterwards, your 'gok sbom' command should work"
 				return nil, SBOMWithHash{}, fmt.Errorf("%s: %w", errStr, err)
 			} else {
 				return nil, SBOMWithHash{}, err
