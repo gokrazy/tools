@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -315,7 +316,7 @@ func (be *BuildEnv) Build(bindir string, packages []string, packageBuildFlags, p
 				args := []string{
 					"build",
 					"-mod=mod",
-					"-o", filepath.Join(bindir, filepath.Base(pkg.Target)),
+					"-o", filepath.Join(bindir, pkg.Basename()),
 				}
 				tags := append(DefaultTags(), packageBuildTags[pkg.ImportPath]...)
 				args = append(args, "-tags="+strings.Join(tags, ","))
@@ -347,7 +348,32 @@ type Pkg struct {
 }
 
 func (p *Pkg) Basename() string {
-	return filepath.Base(p.Target)
+	if p.Target != "" {
+		return filepath.Base(p.Target)
+	}
+	// when GOBIN is set in the GOENV file, the target field is empty
+	// see https://github.com/gokrazy/tools/issues/71
+	base := path.Base(p.ImportPath)
+	if isVersionElement(base) {
+		return path.Base(path.Dir(p.ImportPath))
+	}
+	return base
+}
+
+// isVersionElement reports whether s is a well-formed path version element:
+// v2, v3, v10, etc, but not v0, v05, v1.
+// copied from https://github.com/golang/go/blob/go1.22.5/src/cmd/go/internal/load/pkg.go#L1338
+// governed by a BSD-style license
+func isVersionElement(s string) bool {
+	if len(s) < 2 || s[0] != 'v' || s[1] == '0' || s[1] == '1' && len(s) == 2 {
+		return false
+	}
+	for i := 1; i < len(s); i++ {
+		if s[i] < '0' || '9' < s[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func (be *BuildEnv) mainPackage(pkg string) ([]Pkg, error) {
