@@ -169,6 +169,7 @@ var (
 		"vmlinuz",
 		"*.dtb",
 		"overlays/*.dtbo",
+		"overlays/overlay_map.dtb",
 	}
 )
 
