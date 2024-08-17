@@ -262,6 +262,7 @@ func (p *Pack) writeGPT(w io.Writer, devsize uint64, primary bool) error {
 		partitionTypeLinuxFilesystemData     = "0FC63DAF-8483-4772-8E79-3D69D8477DE4"
 		partitionTypeLinuxRootPartitionAMD64 = "4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709"
 		partitionTypeLinuxRootPartitionARM64 = "B921B045-1DF0-41C3-AF44-4C6F280D3FAE"
+		partitionTypeLinuxRootPartitionX86   = "44479540-f297-41b2-9af7-d131d5f0458a"
 	)
 
 	type partitionEntry struct {
@@ -284,10 +285,16 @@ func (p *Pack) writeGPT(w io.Writer, devsize uint64, primary bool) error {
 	partition3First := partition2Last + 1
 	partition3Last := partition3First + uint64(permSize(p.FirstPartitionOffsetSectors, devsize)) - 1
 
-	rootType := mustParseGUID(partitionTypeLinuxRootPartitionARM64)
-	if os.Getenv("GOARCH") == "amd64" {
+	var rootType [16]byte
+	switch os.Getenv("GOARCH") {
+	case "386":
+		rootType = mustParseGUID(partitionTypeLinuxRootPartitionX86)
+	case "amd64":
 		rootType = mustParseGUID(partitionTypeLinuxRootPartitionAMD64)
+	default:
+		rootType = mustParseGUID(partitionTypeLinuxRootPartitionARM64)
 	}
+
 	partitionEntries := []partitionEntry{
 		{
 			TypeGUID:   mustParseGUID(partitionTypeEFISystemPartition),

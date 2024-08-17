@@ -1861,7 +1861,7 @@ func (pack *Pack) logic(programName string) error {
 }
 
 // kernelGoarch returns the GOARCH value that corresponds to the provided
-// vmlinuz header. It returns one of "arm64", "arm", "amd64", or the empty
+// vmlinuz header. It returns one of "arm", "arm64", "386", "amd64" or the empty
 // string if not detected.
 func kernelGoarch(hdr []byte) string {
 	// Some constants from the file(1) command's magic.
@@ -1873,17 +1873,23 @@ func kernelGoarch(hdr []byte) string {
 		arm64Magic       = 0x644d5241
 		arm64MagicOffset = 0x38
 		// x86: https://github.com/file/file/blob/65be1904/magic/Magdir/linux#L137-L152
-		x86Magic       = 0xaa55
-		x86MagicOffset = 0x1fe
+		x86Magic            = 0xaa55
+		x86MagicOffset      = 0x1fe
+		x86XloadflagsOffset = 0x236
 	)
 	if len(hdr) >= arm64MagicOffset+4 && binary.LittleEndian.Uint32(hdr[arm64MagicOffset:]) == arm64Magic {
 		return "arm64"
 	}
-	if len(hdr) >= arm64MagicOffset+4 && binary.LittleEndian.Uint32(hdr[arm32MagicOffset:]) == arm32Magic {
+	if len(hdr) >= arm32MagicOffset+4 && binary.LittleEndian.Uint32(hdr[arm32MagicOffset:]) == arm32Magic {
 		return "arm"
 	}
-	if len(hdr) >= arm64MagicOffset+2 && binary.LittleEndian.Uint16(hdr[x86MagicOffset:]) == x86Magic {
-		return "amd64" // we'll assume 386 is unsupported
+	if len(hdr) >= x86XloadflagsOffset+2 && binary.LittleEndian.Uint16(hdr[x86MagicOffset:]) == x86Magic {
+		// XLF0 in arch/x86/boot/header.S
+		if hdr[x86XloadflagsOffset]&1 != 0 {
+			return "amd64"
+		} else {
+			return "386"
+		}
 	}
 	return ""
 }
