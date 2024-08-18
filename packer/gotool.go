@@ -237,6 +237,7 @@ func getPkg(buildDir string, pkg string) error {
 			"list",
 			"-mod=mod",
 			"-e",
+			"-tags", "gokrazy",
 			"-f", "{{ .ImportPath }} {{ if .Incomplete }}error{{ else }}ok{{ end }}",
 		}, pkg)...)
 	cmd.Env = Env()
