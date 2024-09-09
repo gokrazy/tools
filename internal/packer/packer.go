@@ -92,18 +92,6 @@ func buildPackageMapFromFlags(cfg *config.Struct) map[string]bool {
 	return buildPackages
 }
 
-func buildPackagesFromFlags(cfg *config.Struct) []string {
-	var buildPackages []string
-	buildPackages = append(buildPackages, cfg.Packages...)
-	for _, pkg := range cfg.GokrazyPackagesOrDefault() {
-		if strings.TrimSpace(pkg) == "" {
-			continue
-		}
-		buildPackages = append(buildPackages, pkg)
-	}
-	return buildPackages
-}
-
 func findFlagFiles(cfg *config.Struct) (map[string][]string, error) {
 	if len(cfg.PackageConfig) > 0 {
 		contents := make(map[string][]string)
@@ -637,7 +625,7 @@ func FindExtraFiles(cfg *config.Struct) (map[string][]*FileInfo, error) {
 		// fall through to look for extra files in <pkg>/_gokrazy/extrafiles
 	}
 
-	buildPackages := buildPackagesFromFlags(cfg)
+	buildPackages := getGokrazySystemPackages(cfg)
 	packageDirs, err := packer.PackageDirs(buildPackages)
 	if err != nil {
 		return nil, err
