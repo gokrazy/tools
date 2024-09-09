@@ -56,6 +56,10 @@ func (r *sbomConfig) run(ctx context.Context, args []string, stdout, stderr io.W
 		}
 	}
 
+	if err := os.Chdir(config.InstancePath()); err != nil {
+		return err
+	}
+
 	updateflag.SetUpdate("yes")
 
 	// GenerateSBOM() must be provided with a cfg

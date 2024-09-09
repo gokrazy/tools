@@ -53,20 +53,11 @@ type SBOMWithHash struct {
 // not its internal implementation details
 // (i.e.  cfg.InternalCompatibilityFlags untouched).
 func GenerateSBOM(cfg *config.Struct) ([]byte, SBOMWithHash, error) {
-	wd, err := os.Getwd()
+	instancePath, err := os.Getwd()
 	if err != nil {
 		return nil, SBOMWithHash{}, err
 	}
-	defer os.Chdir(wd)
-	instancePath := config.InstancePath()
-	if err := os.Chdir(instancePath); err != nil {
-		if os.IsNotExist(err) {
-			// best-effort compatibility for old setups
-			instancePath = wd
-		} else {
-			return nil, SBOMWithHash{}, err
-		}
-	}
+	defer os.Chdir(instancePath)
 
 	formattedCfg, err := cfg.FormatForFile()
 	if err != nil {
