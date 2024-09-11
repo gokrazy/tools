@@ -143,17 +143,18 @@ func GenerateSBOM(cfg *config.Struct) ([]byte, SBOMWithHash, error) {
 			}
 		}
 
-		files := append([]*FileInfo{}, extraFiles[pkg]...)
-		if len(files) == 0 {
-			continue
-		}
-
+		// Restore the working directory before possibly 'continue'ing.
 		if err := os.Chdir(config.InstancePath()); err != nil {
 			if os.IsNotExist(err) {
 				// best-effort compatibility for old setups
 			} else {
 				return nil, SBOMWithHash{}, err
 			}
+		}
+
+		files := append([]*FileInfo{}, extraFiles[pkg]...)
+		if len(files) == 0 {
+			continue
 		}
 
 		for len(files) > 0 {
