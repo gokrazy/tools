@@ -54,6 +54,10 @@ func init() {
 		ID:    "server",
 		Title: "Commands to work with a remote GUS server:",
 	})
+	RootCmd.AddGroup(&cobra.Group{
+		ID:    "vm",
+		Title: "Commands to work with Virtual Machines (VMs):",
+	})
 	RootCmd.Flags().Bool("version", false, "print gok version")
 	// Only defined so that it appears in documentation like --help.
 	//
@@ -71,4 +75,5 @@ func init() {
 	RootCmd.AddCommand(getCmd)
 	RootCmd.AddCommand(sbomCmd)
 	RootCmd.AddCommand(pushCmd)
+	RootCmd.AddCommand(vmCmd)
 }
