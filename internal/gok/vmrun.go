@@ -14,6 +14,7 @@ import (
 	"github.com/gokrazy/internal/config"
 	"github.com/gokrazy/internal/instanceflag"
 	"github.com/gokrazy/tools/internal/packer"
+	edk "github.com/gokrazy/tools/third_party/edk2-2022.11-6"
 	"github.com/spf13/cobra"
 )
 
@@ -120,6 +121,20 @@ func (r *vmRunConfig) buildFullDiskImage(ctx context.Context, dest string) error
 }
 
 func (r *vmRunConfig) runQEMU(ctx context.Context, fullDiskImage string) error {
+	tmp, err := os.MkdirTemp("", "gokrazy-vm")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmp)
+	amd64EFI := filepath.Join(tmp, "amd64-OVMF_CODE.fd")
+	if err := os.WriteFile(amd64EFI, edk.Amd64EFI, 0644); err != nil {
+		return err
+	}
+	arm64EFI := filepath.Join(tmp, "arm64-QEMU_EFI.fd")
+	if err := os.WriteFile(arm64EFI, edk.Arm64EFI, 0644); err != nil {
+		return err
+	}
+
 	qemuBin := "qemu-system-x86_64"
 	switch r.arch {
 	case "amd64":
@@ -145,22 +160,11 @@ func (r *vmRunConfig) runQEMU(ctx context.Context, fullDiskImage string) error {
 	case "arm64":
 		qemu.Args = append(qemu.Args,
 			"-machine", "virt,highmem=off",
-			"-cpu", "cortex-a72")
-		// TODO: set -bios to an embedded copy of qemu-efi-aarch64/QEMU_EFI.fd
+			"-cpu", "cortex-a72",
+			"-bios", arm64EFI)
 
 	case "amd64":
-		for _, location := range []string{
-			// Debian, Fedora
-			"/usr/share/OVMF/OVMF_CODE.fd",
-			// Arch Linux
-			"/usr/share/edk2-ovmf/x64/OVMF_CODE.fd",
-		} {
-			if _, err := os.Stat(location); err == nil {
-				fmt.Printf("starting in UEFI mode, OVMF found at %s\n", location)
-				qemu.Args = append(qemu.Args, "-bios", location)
-				break
-			}
-		}
+		qemu.Args = append(qemu.Args, "-bios", amd64EFI)
 	}
 
 	if r.arch == runtime.GOARCH {
