@@ -1255,7 +1255,7 @@ func (pack *Pack) logic(programName string) error {
 		update.HTTPPassword = pw
 	}
 
-	for _, dir := range []string{"dev", "etc", "proc", "sys", "tmp", "perm", "lib", "run", "mnt"} {
+	for _, dir := range []string{"bin", "dev", "etc", "proc", "sys", "tmp", "perm", "lib", "run", "mnt"} {
 		root.Dirents = append(root.Dirents, &FileInfo{
 			Filename: dir,
 		})
