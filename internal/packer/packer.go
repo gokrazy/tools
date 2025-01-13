@@ -18,6 +18,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/trace"
 	"sort"
 	"strings"
 	"syscall"
@@ -1147,24 +1148,37 @@ func (pack *Pack) logic(programName string) error {
 	buildEnv := &packer.BuildEnv{
 		BuildDir: packer.BuildDirOrMigrate,
 	}
-	if err := buildEnv.Build(bindir, pkgs, packageBuildFlags, packageBuildTags, noBuildPkgs); err != nil {
-		return err
+	var buildErr error
+	trace.WithRegion(context.Background(), "build", func() {
+		buildErr = buildEnv.Build(bindir, pkgs, packageBuildFlags, packageBuildTags, noBuildPkgs)
+	})
+	if buildErr != nil {
+		return buildErr
 	}
 
 	fmt.Println()
 
-	if err := pack.validateTargetArchMatchesKernel(); err != nil {
+	trace.WithRegion(context.Background(), "validate", func() {
+		err = pack.validateTargetArchMatchesKernel()
+	})
+	if err != nil {
 		return err
 	}
 
-	root, err := findBins(cfg, buildEnv, bindir)
+	var root *FileInfo
+	trace.WithRegion(context.Background(), "findbins", func() {
+		root, err = findBins(cfg, buildEnv, bindir)
+	})
 	if err != nil {
 		return err
 	}
 
 	packageConfigFiles = make(map[string][]packageConfigFile)
 
-	extraFiles, err := FindExtraFiles(cfg)
+	var extraFiles map[string][]*FileInfo
+	trace.WithRegion(context.Background(), "findextrafiles", func() {
+		extraFiles, err = FindExtraFiles(cfg)
+	})
 	if err != nil {
 		return err
 	}
@@ -1212,7 +1226,10 @@ func (pack *Pack) logic(programName string) error {
 			return gokrazyInit.dump(cfg.InternalCompatibilityFlags.OverwriteInit)
 		}
 
-		tmpdir, err := gokrazyInit.build()
+		var tmpdir string
+		trace.WithRegion(context.Background(), "buildinit", func() {
+			tmpdir, err = gokrazyInit.build()
+		})
 		if err != nil {
 			return err
 		}
@@ -1292,7 +1309,9 @@ func (pack *Pack) logic(programName string) error {
 		modules := &FileInfo{
 			Filename: "modules",
 		}
-		_, err := addToFileInfo(modules, modulesDir)
+		trace.WithRegion(context.Background(), "kernelmod", func() {
+			_, err = addToFileInfo(modules, modulesDir)
+		})
 		if err != nil {
 			return err
 		}
@@ -1402,7 +1421,10 @@ func (pack *Pack) logic(programName string) error {
 	// as the SBOM should reflect what’s going into gokrazy,
 	// not its internal implementation details
 	// (i.e.  cfg.InternalCompatibilityFlags untouched).
-	sbom, _, err := GenerateSBOM(pack.FileCfg)
+	var sbom []byte
+	trace.WithRegion(context.Background(), "sbom", func() {
+		sbom, _, err = GenerateSBOM(pack.FileCfg)
+	})
 	if err != nil {
 		return err
 	}
@@ -1580,8 +1602,12 @@ func (pack *Pack) logic(programName string) error {
 		}
 
 		if cfg.InternalCompatibilityFlags.OverwriteRoot != "" {
-			if err := writeRootFile(cfg.InternalCompatibilityFlags.OverwriteRoot, root); err != nil {
-				return err
+			var rootErr error
+			trace.WithRegion(context.Background(), "writeroot", func() {
+				writeRootFile(cfg.InternalCompatibilityFlags.OverwriteRoot, root)
+			})
+			if rootErr != nil {
+				return rootErr
 			}
 		}
 

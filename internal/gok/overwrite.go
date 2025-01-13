@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime/trace"
 
 	"github.com/gokrazy/internal/config"
 	"github.com/gokrazy/internal/instanceflag"
@@ -49,6 +50,8 @@ type overwriteImplConfig struct {
 
 	sudo               string
 	targetStorageBytes int
+
+	traceFile string
 }
 
 var overwriteImpl overwriteImplConfig
@@ -62,9 +65,22 @@ func init() {
 	overwriteCmd.Flags().StringVarP(&overwriteImpl.mbr, "mbr", "", "", "write the gokrazy master boot record (MBR) to the specified device (e.g. /dev/sdx) or path (e.g. /tmp/mbr.img). only effective if -boot is specified, too")
 	overwriteCmd.Flags().StringVarP(&overwriteImpl.sudo, "sudo", "", "", "Whether to elevate privileges using sudo when required (one of auto, always, never, default auto)")
 	overwriteCmd.Flags().IntVarP(&overwriteImpl.targetStorageBytes, "target_storage_bytes", "", 0, "Number of bytes which the target storage device (SD card) has. Required for using -full=<file>")
+	overwriteCmd.Flags().StringVarP(&overwriteImpl.traceFile, "trace_file", "", "", "If non-empty, write a Go runtime/trace to this file (for performance analysis)")
 }
 
 func (r *overwriteImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+	if r.traceFile != "" {
+		out, err := os.Create(r.traceFile)
+		if err != nil {
+			return err
+		}
+		defer out.Close()
+		if err := trace.Start(out); err != nil {
+			return err
+		}
+		defer trace.Stop()
+	}
+
 	fileCfg, err := config.ReadFromFile()
 	if err != nil {
 		return err
