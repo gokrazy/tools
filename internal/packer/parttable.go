@@ -67,6 +67,7 @@ func (p *Pack) SudoPartition(path string) (*os.File, error) {
 	cmd.Env = []string{
 		"GOKR_PACKER_FD=1",
 		fmt.Sprintf("HOME=%s", os.Getenv("HOME")), // for instance config detection
+		fmt.Sprintf("GOKRAZY_PARENT_DIR=%s", os.Getenv("GOKRAZY_PARENT_DIR")), // ditto
 	}
 	cmd.Stdout = os.NewFile(uintptr(pair[1]), "")
 	cmd.Stderr = os.Stderr
