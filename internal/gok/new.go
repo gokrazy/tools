@@ -91,7 +91,7 @@ func (r *newImplConfig) addBreakglassAuthorizedKeys(authorizedPath string, match
 			"-authorized_keys=/etc/breakglass.authorized_keys",
 		},
 		ExtraFilePaths: map[string]string{
-			"/etc/breakglass.authorized_keys": authorizedPath,
+			"/etc/breakglass.authorized_keys": filepath.Base(authorizedPath),
 		},
 	}
 	return nil
