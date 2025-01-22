@@ -26,7 +26,11 @@ jobs:
       run: |
         [ "$(gofmt -l $(find . -name '*.go') 2>&1)" = "" ]
 
-    - name: Build, Test and Create Disk Image
+    - name: Build and run tests
+      # TestRelativeParentDir verifies breakglass.authorized_keys
+      # is correctly included, and the gok CLI only creates that
+      # file when it finds SSH keys.
       run: |
+        mkdir -p ~/.ssh && echo dummy > ~/.ssh/id_ed25519.pub
         go install -mod=mod ./cmd/...
         go test -mod=mod -v ./...
