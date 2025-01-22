@@ -586,6 +586,11 @@ func FindExtraFiles(cfg *config.Struct) (map[string][]*FileInfo, error) {
 			for dest, path := range packageConfig.ExtraFilePaths {
 				root := &FileInfo{}
 				if st, err := os.Stat(path); err == nil && st.Mode().IsRegular() {
+					var err error
+					path, err = filepath.Abs(path)
+					if err != nil {
+						return nil, err
+					}
 					// Copy a file from the host
 					dir := mkdirp(root, filepath.Dir(dest))
 					dir.Dirents = append(dir.Dirents, &FileInfo{

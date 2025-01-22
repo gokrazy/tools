@@ -167,11 +167,7 @@ func GenerateSBOM(cfg *config.Struct) ([]byte, SBOMWithHash, error) {
 				continue
 			}
 
-			path, err := filepath.Abs(fi.FromHost)
-			if err != nil {
-				return nil, SBOMWithHash{}, err
-			}
-			b, err := os.ReadFile(path)
+			b, err := os.ReadFile(fi.FromHost /* already absolute */)
 			if err != nil {
 				return nil, SBOMWithHash{}, err
 			}

@@ -58,5 +58,18 @@ func TestRelativeParentDir(t *testing.T) {
 		t.Errorf("ExtraFilePaths[\"/etc/breakglass.authorized_keys\"] = %s, want %s", keys, want)
 	}
 
-	// TODO: verify overwrite works (i.e. locates extrafiles)
+	// verify overwrite works (i.e. locates extrafiles)
+	c = gok.Context{
+		Args: []string{
+			"--parent_dir", "packaging/gokrazy",
+			"-i", "evcc",
+			"overwrite",
+			"--root=root.squashfs",
+		},
+	}
+	t.Logf("running %q", append([]string{"<gok>"}, c.Args...))
+	if err := c.Execute(context.Background()); err != nil {
+		t.Fatalf("%v: %v", c.Args, err)
+	}
+
 }
