@@ -144,7 +144,7 @@ func GenerateSBOM(cfg *config.Struct) ([]byte, SBOMWithHash, error) {
 		}
 
 		// Restore the working directory before possibly 'continue'ing.
-		if err := os.Chdir(config.InstancePath()); err != nil {
+		if err := os.Chdir(instancePath); err != nil {
 			if os.IsNotExist(err) {
 				// best-effort compatibility for old setups
 			} else {
