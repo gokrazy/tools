@@ -160,6 +160,10 @@ func (r *newImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 		Update: &config.UpdateStruct{
 			HTTPPassword: pw,
 		},
+		Environment: []string{
+			"GOOS=linux",
+			"GOARCH=arm64",
+		},
 		PackageConfig: packageConfig,
 		SerialConsole: "disabled",
 	}
