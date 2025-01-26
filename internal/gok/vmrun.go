@@ -147,12 +147,14 @@ func (r *vmRunConfig) runQEMU(ctx context.Context, fullDiskImage string) error {
 	}
 
 	ports := "user,id=net0,hostfwd=tcp::8080-:80,hostfwd=tcp::8022-:22"
-	for _, port := range strings.Split(r.ports, ",") {
-		p := strings.Split(port, ":")
-		if len(p) != 2 {
-			return fmt.Errorf("invalid port forwarding specification: %q", port)
+	if r.ports != "" {
+		for _, port := range strings.Split(r.ports, ",") {
+			p := strings.Split(port, ":")
+			if len(p) != 2 {
+				return fmt.Errorf("invalid port forwarding specification: %q", port)
+			}
+			ports += ",hostfwd=tcp::" + p[0] + "-:" + p[1]
 		}
-		ports += ",hostfwd=tcp::" + p[0] + "-:" + p[1]
 	}
 
 	qemu := exec.CommandContext(ctx, qemuBin,
