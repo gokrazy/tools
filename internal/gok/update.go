@@ -45,12 +45,12 @@ func init() {
 }
 
 func (r *updateImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	fileCfg, err := config.ReadFromFile()
+	fileCfg, err := config.ApplyInstanceFlag()
 	if err != nil {
 		return err
 	}
 
-	cfg, err := config.ReadFromFile()
+	cfg, err := config.ReadFromFile(fileCfg.Meta.Path)
 	if err != nil {
 		return err
 	}

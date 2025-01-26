@@ -81,12 +81,12 @@ func (r *overwriteImplConfig) run(ctx context.Context, args []string, stdout, st
 		defer trace.Stop()
 	}
 
-	fileCfg, err := config.ReadFromFile()
+	fileCfg, err := config.ApplyInstanceFlag()
 	if err != nil {
 		return err
 	}
 
-	cfg, err := config.ReadFromFile()
+	cfg, err := config.ReadFromFile(fileCfg.Meta.Path)
 	if err != nil {
 		return err
 	}

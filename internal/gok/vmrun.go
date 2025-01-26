@@ -48,12 +48,20 @@ type vmRunConfig struct {
 	arch               string
 }
 
+func (r *vmRunConfig) effectiveGoarch() string {
+	goarch := os.Getenv("GOARCH")
+	if goarch != "" {
+		return goarch
+	}
+	return runtime.GOARCH
+}
+
 var vmRunImpl vmRunConfig
 
 func init() {
 	vmRunCmd.Flags().StringVarP(&vmRunImpl.sudo, "sudo", "", "", "Whether to elevate privileges using sudo when required (one of auto, always, never, default auto)")
 	vmRunCmd.Flags().IntVarP(&vmRunImpl.targetStorageBytes, "target_storage_bytes", "", 1258299392, "Size of the disk image in bytes")
-	vmRunCmd.Flags().StringVarP(&vmRunImpl.arch, "arch", "", runtime.GOARCH, "architecture for which to build and run QEMU. One of 'amd64' or 'arm64'")
+	vmRunCmd.Flags().StringVarP(&vmRunImpl.arch, "arch", "", "", "architecture for which to build and run QEMU. One of 'amd64' or 'arm64'")
 	vmRunCmd.Flags().BoolVarP(&vmRunImpl.keep, "keep", "", false, "keep ephemeral disk images around instead of deleting them when QEMU exits")
 	vmRunCmd.Flags().BoolVarP(&vmRunImpl.dry, "dryrun", "", false, "Whether to actually run QEMU or merely print the command")
 	vmRunCmd.Flags().BoolVarP(&vmRunImpl.graphic, "graphic", "", true, "Run QEMU in graphical mode?")
@@ -61,14 +69,16 @@ func init() {
 }
 
 func (r *vmRunConfig) buildFullDiskImage(ctx context.Context, dest string) error {
-	os.Setenv("GOARCH", r.arch)
-
-	fileCfg, err := config.ReadFromFile()
+	fileCfg, err := config.ApplyInstanceFlag()
 	if err != nil {
 		return err
 	}
 
-	cfg, err := config.ReadFromFile()
+	if r.arch != "" {
+		os.Setenv("GOARCH", r.arch)
+	}
+
+	cfg, err := config.ReadFromFile(fileCfg.Meta.Path)
 	if err != nil {
 		return err
 	}
@@ -135,8 +145,9 @@ func (r *vmRunConfig) runQEMU(ctx context.Context, fullDiskImage string) error {
 		return err
 	}
 
+	goarch := r.effectiveGoarch()
 	qemuBin := "qemu-system-x86_64"
-	switch r.arch {
+	switch goarch {
 	case "amd64":
 		// default
 	case "arm64":
@@ -156,7 +167,7 @@ func (r *vmRunConfig) runQEMU(ctx context.Context, fullDiskImage string) error {
 
 	// Start in EFI mode (not legacy BIOS) so that we get a frame buffer (for
 	// gokrazy’s fbstatus program) and serial console.
-	switch r.arch {
+	switch goarch {
 	case "arm64":
 		qemu.Args = append(qemu.Args,
 			"-machine", "virt,highmem=off",
@@ -167,7 +178,7 @@ func (r *vmRunConfig) runQEMU(ctx context.Context, fullDiskImage string) error {
 		qemu.Args = append(qemu.Args, "-bios", amd64EFI)
 	}
 
-	if r.arch == runtime.GOARCH {
+	if goarch == runtime.GOARCH {
 		// Hardware acceleration (in both cases) is only available for the
 		// native architecture, e.g. arm64 for M1 MacBooks.
 		switch runtime.GOOS {
