@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 
 	"github.com/gokrazy/internal/config"
 	"github.com/gokrazy/internal/instanceflag"
@@ -46,6 +47,7 @@ type vmRunConfig struct {
 	sudo               string
 	targetStorageBytes int
 	arch               string
+	ports              string
 }
 
 var vmRunImpl vmRunConfig
@@ -54,6 +56,7 @@ func init() {
 	vmRunCmd.Flags().StringVarP(&vmRunImpl.sudo, "sudo", "", "", "Whether to elevate privileges using sudo when required (one of auto, always, never, default auto)")
 	vmRunCmd.Flags().IntVarP(&vmRunImpl.targetStorageBytes, "target_storage_bytes", "", 1258299392, "Size of the disk image in bytes")
 	vmRunCmd.Flags().StringVarP(&vmRunImpl.arch, "arch", "", runtime.GOARCH, "architecture for which to build and run QEMU. One of 'amd64' or 'arm64'")
+	vmRunCmd.Flags().StringVarP(&vmRunImpl.ports, "ports", "", "", "additional ports to forward to the VM (comma-separated list of host:vm TCP ports)")
 	vmRunCmd.Flags().BoolVarP(&vmRunImpl.keep, "keep", "", false, "keep ephemeral disk images around instead of deleting them when QEMU exits")
 	vmRunCmd.Flags().BoolVarP(&vmRunImpl.dry, "dryrun", "", false, "Whether to actually run QEMU or merely print the command")
 	vmRunCmd.Flags().BoolVarP(&vmRunImpl.graphic, "graphic", "", true, "Run QEMU in graphical mode?")
@@ -127,11 +130,11 @@ func (r *vmRunConfig) runQEMU(ctx context.Context, fullDiskImage string) error {
 	}
 	defer os.RemoveAll(tmp)
 	amd64EFI := filepath.Join(tmp, "amd64-OVMF_CODE.fd")
-	if err := os.WriteFile(amd64EFI, edk.Amd64EFI, 0644); err != nil {
+	if err := os.WriteFile(amd64EFI, edk.Amd64EFI, 0o644); err != nil {
 		return err
 	}
 	arm64EFI := filepath.Join(tmp, "arm64-QEMU_EFI.fd")
-	if err := os.WriteFile(arm64EFI, edk.Arm64EFI, 0644); err != nil {
+	if err := os.WriteFile(arm64EFI, edk.Arm64EFI, 0o644); err != nil {
 		return err
 	}
 
@@ -143,6 +146,15 @@ func (r *vmRunConfig) runQEMU(ctx context.Context, fullDiskImage string) error {
 		qemuBin = "qemu-system-aarch64"
 	}
 
+	ports := "user,id=net0,hostfwd=tcp::8080-:80,hostfwd=tcp::8022-:22"
+	for _, port := range strings.Split(r.ports, ",") {
+		p := strings.Split(port, ":")
+		if len(p) != 2 {
+			return fmt.Errorf("invalid port forwarding specification: %q", port)
+		}
+		ports += ",hostfwd=tcp::" + p[0] + "-:" + p[1]
+	}
+
 	qemu := exec.CommandContext(ctx, qemuBin,
 		"-name", instanceflag.Instance(),
 		"-boot", "order=d",
@@ -151,7 +163,7 @@ func (r *vmRunConfig) runQEMU(ctx context.Context, fullDiskImage string) error {
 		"-watchdog-action", "reset",
 		"-smp", strconv.Itoa(max(runtime.NumCPU(), 2)),
 		"-device", "e1000,netdev=net0",
-		"-netdev", "user,id=net0,hostfwd=tcp::8080-:80,hostfwd=tcp::8022-:22",
+		"-netdev", ports,
 		"-m", "1024")
 
 	// Start in EFI mode (not legacy BIOS) so that we get a frame buffer (for
