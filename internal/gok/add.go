@@ -205,7 +205,7 @@ func (r *addImplConfig) addLocal(ctx context.Context, abs string, stdout, stderr
 }
 
 func (r *addImplConfig) addPackageToConfig(importPath string) error {
-	cfg, err := config.ReadFromFile()
+	cfg, err := config.ApplyInstanceFlag()
 	if err != nil {
 		return err
 	}
