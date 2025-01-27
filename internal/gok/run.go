@@ -59,7 +59,7 @@ func init() {
 }
 
 func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	cfg, err := config.ReadFromFile()
+	cfg, err := config.ApplyInstanceFlag()
 	if err != nil {
 		if os.IsNotExist(err) {
 			// best-effort compatibility for old setups

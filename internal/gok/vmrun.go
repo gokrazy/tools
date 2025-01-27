@@ -49,6 +49,14 @@ type vmRunConfig struct {
 	netdev             string
 }
 
+func (r *vmRunConfig) effectiveGoarch() string {
+	goarch := os.Getenv("GOARCH")
+	if goarch != "" {
+		return goarch
+	}
+	return runtime.GOARCH
+}
+
 var vmRunImpl vmRunConfig
 
 func init() {
@@ -63,14 +71,16 @@ func init() {
 }
 
 func (r *vmRunConfig) buildFullDiskImage(ctx context.Context, dest string) error {
-	os.Setenv("GOARCH", r.arch)
-
-	fileCfg, err := config.ReadFromFile()
+	fileCfg, err := config.ApplyInstanceFlag()
 	if err != nil {
 		return err
 	}
 
-	cfg, err := config.ReadFromFile()
+	if r.arch != "" {
+		os.Setenv("GOARCH", r.arch)
+	}
+
+	cfg, err := config.ReadFromFile(fileCfg.Meta.Path)
 	if err != nil {
 		return err
 	}
@@ -137,8 +147,9 @@ func (r *vmRunConfig) runQEMU(ctx context.Context, fullDiskImage string) error {
 		return err
 	}
 
+	goarch := r.effectiveGoarch()
 	qemuBin := "qemu-system-x86_64"
-	switch r.arch {
+	switch goarch {
 	case "amd64":
 		// default
 	case "arm64":
@@ -163,7 +174,7 @@ func (r *vmRunConfig) runQEMU(ctx context.Context, fullDiskImage string) error {
 
 	// Start in EFI mode (not legacy BIOS) so that we get a frame buffer (for
 	// gokrazy’s fbstatus program) and serial console.
-	switch r.arch {
+	switch goarch {
 	case "arm64":
 		qemu.Args = append(qemu.Args,
 			"-machine", "virt,highmem=off",
@@ -174,7 +185,7 @@ func (r *vmRunConfig) runQEMU(ctx context.Context, fullDiskImage string) error {
 		qemu.Args = append(qemu.Args, "-bios", amd64EFI)
 	}
 
-	if r.arch == runtime.GOARCH {
+	if goarch == runtime.GOARCH {
 		// Hardware acceleration (in both cases) is only available for the
 		// native architecture, e.g. arm64 for M1 MacBooks.
 		switch runtime.GOOS {
