@@ -46,6 +46,7 @@ type vmRunConfig struct {
 	sudo               string
 	targetStorageBytes int
 	arch               string
+	netdev             string
 }
 
 func (r *vmRunConfig) effectiveGoarch() string {
@@ -62,6 +63,7 @@ func init() {
 	vmRunCmd.Flags().StringVarP(&vmRunImpl.sudo, "sudo", "", "", "Whether to elevate privileges using sudo when required (one of auto, always, never, default auto)")
 	vmRunCmd.Flags().IntVarP(&vmRunImpl.targetStorageBytes, "target_storage_bytes", "", 1258299392, "Size of the disk image in bytes")
 	vmRunCmd.Flags().StringVarP(&vmRunImpl.arch, "arch", "", "", "architecture for which to build and run QEMU. One of 'amd64' or 'arm64'")
+	vmRunCmd.Flags().StringVarP(&vmRunImpl.netdev, "netdev", "", "user,id=net0,hostfwd=tcp::8080-:80,hostfwd=tcp::8022-:22", "QEMU -netdev argument")
 	vmRunCmd.Flags().BoolVarP(&vmRunImpl.keep, "keep", "", false, "keep ephemeral disk images around instead of deleting them when QEMU exits")
 	vmRunCmd.Flags().BoolVarP(&vmRunImpl.dry, "dryrun", "", false, "Whether to actually run QEMU or merely print the command")
 	vmRunCmd.Flags().BoolVarP(&vmRunImpl.graphic, "graphic", "", true, "Run QEMU in graphical mode?")
@@ -166,7 +168,7 @@ func (r *vmRunConfig) runQEMU(ctx context.Context, fullDiskImage string) error {
 		"-watchdog-action", "reset",
 		"-smp", strconv.Itoa(max(runtime.NumCPU(), 2)),
 		"-device", "e1000,netdev=net0",
-		"-netdev", "user,id=net0,hostfwd=tcp::8080-:80,hostfwd=tcp::8022-:22",
+		"-netdev", r.netdev,
 		"-m", "1024")
 
 	// Start in EFI mode (not legacy BIOS) so that we get a frame buffer (for
