@@ -147,7 +147,7 @@ func (r *vmRunConfig) runQEMU(ctx context.Context, fullDiskImage string) error {
 		return err
 	}
 	arm64EFI := filepath.Join(tmp, "arm64-QEMU_EFI.fd")
-	if err := os.WriteFile(arm64EFI, edk.Arm64EFI, 0o644); err != nil {
+	if err := os.WriteFile(arm64EFI, edk.Arm64EFI, 0644); err != nil {
 		return err
 	}
 
