@@ -6,5 +6,8 @@ import _ "embed"
 //go:embed QEMU_EFI.fd
 var Arm64EFI []byte
 
-//go:embed OVMF_CODE.fd
-var Amd64EFI []byte
+//go:embed OVMF_CODE_4M.fd
+var Amd64OVMFCODE4M []byte
+
+//go:embed OVMF_VARS_4M.fd
+var Amd64OVMFVARS4M []byte
