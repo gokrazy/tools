@@ -14,7 +14,7 @@ import (
 	"github.com/gokrazy/internal/config"
 	"github.com/gokrazy/internal/instanceflag"
 	"github.com/gokrazy/tools/internal/packer"
-	edk "github.com/gokrazy/tools/third_party/edk2-2022.11-6"
+	edk "github.com/gokrazy/tools/third_party/edk2-2024.11-4"
 	"github.com/spf13/cobra"
 )
 
@@ -138,8 +138,12 @@ func (r *vmRunConfig) runQEMU(ctx context.Context, fullDiskImage string) error {
 		return err
 	}
 	defer os.RemoveAll(tmp)
-	amd64EFI := filepath.Join(tmp, "amd64-OVMF_CODE.fd")
-	if err := os.WriteFile(amd64EFI, edk.Amd64EFI, 0o644); err != nil {
+	amd64OVMFCODE4M := filepath.Join(tmp, "amd64-OVMF_CODE_4M.fd")
+	if err := os.WriteFile(amd64OVMFCODE4M, edk.Amd64OVMFCODE4M, 0644); err != nil {
+		return err
+	}
+	amd64OVMFVARS4M := filepath.Join(tmp, "amd64-OVMF_VARS_4M.fd")
+	if err := os.WriteFile(amd64OVMFVARS4M, edk.Amd64OVMFVARS4M, 0644); err != nil {
 		return err
 	}
 	arm64EFI := filepath.Join(tmp, "arm64-QEMU_EFI.fd")
@@ -177,7 +181,14 @@ func (r *vmRunConfig) runQEMU(ctx context.Context, fullDiskImage string) error {
 			"-bios", arm64EFI)
 
 	case "amd64":
-		qemu.Args = append(qemu.Args, "-bios", amd64EFI)
+		qemu.Args = append(qemu.Args,
+			// -bios with unified 2M firmware images was deprecated in favor of
+			// two pflash -drive lines with separated CODE/VARS 4M images.
+			// for details see:
+			//  https://salsa.debian.org/qemu-team/edk2/-/blob/debian/latest/debian/howto-2M-to-4M-migration.md
+			"-drive", "if=pflash,format=raw,unit=0,readonly=on,file="+amd64OVMFCODE4M,
+			"-drive", "if=pflash,format=raw,unit=1,readonly=off,file="+amd64OVMFVARS4M,
+		)
 	}
 
 	if goarch == runtime.GOARCH {
