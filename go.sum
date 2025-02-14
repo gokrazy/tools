@@ -5,6 +5,8 @@ github.com/donovanhide/eventsource v0.0.0-20210830082556-c59027999da0 h1:C7t6eeM
 github.com/donovanhide/eventsource v0.0.0-20210830082556-c59027999da0/go.mod h1:56wL82FO0bfMU5RvfXoIwSOP2ggqqxT+tAfNEIyxuHw=
 github.com/gokrazy/internal v0.0.0-20250126213949-423a5b587b57 h1:f5bEvO4we3fbfiBkECrrUgWQ8OH6J3SdB2Dwxid/Yx4=
 github.com/gokrazy/internal v0.0.0-20250126213949-423a5b587b57/go.mod h1:SJG1KwuJQXFEoBgryaNCkMbdISyovDgZd0xmXJRZmiw=
+github.com/gokrazy/internal v0.0.0-20250214203001-b1610a6e7271 h1:CG2P/McW77phMh+iUSsGweJd4VwGhGS4UQJ92gV7Ihg=
+github.com/gokrazy/internal v0.0.0-20250214203001-b1610a6e7271/go.mod h1:vvnvmAv/38qDCHJ9b6Bq7yvUap6DcGtjZWjGuv/RA1k=
 github.com/gokrazy/updater v0.0.0-20230215172637-813ccc7f21e2 h1:kBY5R1tSf+EYZ+QaSrofLaVJtBqYsVNVBWkdMq3Smcg=
 github.com/gokrazy/updater v0.0.0-20230215172637-813ccc7f21e2/go.mod h1:PYOvzGOL4nlBmuxu7IyKQTFLaxr61+WPRNRzVtuYOHw=
 github.com/google/go-cmp v0.5.9 h1:O2Tfq5qg4qc4AmwVlvv0oLiVAGB7enBSJ2x2DqQFi38=
