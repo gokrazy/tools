@@ -12,14 +12,12 @@ jobs:
     steps:
 
     - name: Check out code into the Go module directory
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Set up Go 1.x
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@v5
       with:
-        # Run on the latest stable Go version, e.g. 1.23.0:
-        # Currently on Go 1.22 because of https://go.dev/issue/68928
-        go-version: '1.22'
+        go-version: '1.24'
       id: go
 
     - name: Ensure all files were formatted as per gofmt
