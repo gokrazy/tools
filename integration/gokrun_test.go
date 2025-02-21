@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/gokrazy/tools/internal/gok"
@@ -34,13 +35,28 @@ func writeGokrazyInstance(t *testing.T) *gokrazyTestInstance {
 
 	// Redirect os.UserConfigDir() to a temporary directory under our
 	// control. gokrazy always uses a path under os.UserConfigDir().
-	homeDir := t.TempDir()
-	os.Setenv("XDG_CONFIG_HOME", homeDir) // what linux looks for first
-	os.Setenv("HOME", homeDir)            // what darwin looks for first
-	configDir := filepath.Join(homeDir, "gokrazy")
+	var configDir string
+	switch runtime.GOOS {
+	case "linux":
+		configHomeDir := t.TempDir()
+		os.Setenv("XDG_CONFIG_HOME", configHomeDir)
+		// where linux looks:
+		configDir = filepath.Join(configHomeDir, "gokrazy")
+
+	case "darwin":
+		homeDir := t.TempDir()
+		os.Setenv("HOME", homeDir)
+		// where darwin looks:
+		configDir = filepath.Join(homeDir, "Library", "Application Support", "gokrazy")
+
+	default:
+		t.Fatalf("GOOS=%s unsupported", runtime.GOOS)
+	}
+
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		t.Fatal(err)
 	}
+
 	return &gokrazyTestInstance{
 		configDir: configDir,
 	}
