@@ -1586,7 +1586,7 @@ func (pack *Pack) logic(programName string) error {
 		}
 
 	case pack.Output != nil && pack.Output.Type == OutputTypeGaf && pack.Output.Path != "":
-		if err := pack.overwriteGaf(root); err != nil {
+		if err := pack.overwriteGaf(root, sbom); err != nil {
 			return err
 		}
 

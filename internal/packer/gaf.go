@@ -10,7 +10,7 @@ import (
 // overwriteGaf writes a gaf (gokrazy archive format) file
 // by packing build artifacts and
 // storing them into a newly created, uncompressed zip.
-func (p *Pack) overwriteGaf(root *FileInfo) error {
+func (p *Pack) overwriteGaf(root *FileInfo, sbomMarshaled []byte) error {
 	dir, err := os.MkdirTemp("", "gokrazy")
 	if err != nil {
 		return err
@@ -46,16 +46,6 @@ func (p *Pack) overwriteGaf(root *FileInfo) error {
 	}
 
 	if err := writeRoot(tmpRoot, root); err != nil {
-		return err
-	}
-
-	// GenerateSBOM() must be provided with a cfg
-	// that hasn't been modified by gok at runtime,
-	// as the SBOM should reflect what’s going into gokrazy,
-	// not its internal implementation details
-	// (i.e.  cfg.InternalCompatibilityFlags untouched).
-	sbomMarshaled, _, err := GenerateSBOM(p.FileCfg)
-	if err != nil {
 		return err
 	}
 
