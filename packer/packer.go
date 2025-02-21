@@ -12,8 +12,6 @@ import (
 	"log"
 	"os"
 	"unicode/utf16"
-
-	"golang.org/x/sys/unix"
 )
 
 // Pack represents one pack process.
@@ -463,13 +461,9 @@ func (p *Pack) Partition(o *os.File, devsize uint64) error {
 }
 
 func (p *Pack) RereadPartitions(o *os.File) error {
-	// Make Linux re-read the partition table. Sequence of system calls like in fdisk(8).
-	unix.Sync()
-
 	if err := rereadPartitions(o); err != nil {
 		log.Printf("Re-reading partition table failed: %v. Remember to unplug and re-plug the SD card before creating a file system for persistent data, if desired.", err)
 	}
 
-	unix.Sync()
 	return nil
 }
