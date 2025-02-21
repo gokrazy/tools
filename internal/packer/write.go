@@ -451,7 +451,13 @@ func (fi *FileInfo) mustFindDirent(path string) *FileInfo {
 	return nil
 }
 
-func findBins(cfg *config.Struct, buildEnv *packer.BuildEnv, bindir string) (*FileInfo, error) {
+type foundBin struct {
+	gokrazyPath string
+	hostPath    string
+}
+
+func findBins(cfg *config.Struct, buildEnv *packer.BuildEnv, bindir string) (*FileInfo, []foundBin, error) {
+	var found []foundBin
 	result := FileInfo{Filename: ""}
 
 	// TODO: doing all three packer.MainPackages calls concurrently hides go
@@ -459,7 +465,7 @@ func findBins(cfg *config.Struct, buildEnv *packer.BuildEnv, bindir string) (*Fi
 
 	gokrazyMainPkgs, err := buildEnv.MainPackages(cfg.GokrazyPackagesOrDefault())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	gokrazy := FileInfo{Filename: "gokrazy"}
 	for _, pkg := range gokrazyMainPkgs {
@@ -469,12 +475,16 @@ func findBins(cfg *config.Struct, buildEnv *packer.BuildEnv, bindir string) (*Fi
 			Filename: pkg.Basename(),
 			FromHost: binPath,
 		})
+		found = append(found, foundBin{
+			gokrazyPath: "/gokrazy/" + pkg.Basename(),
+			hostPath:    binPath,
+		})
 	}
 
 	if cfg.InternalCompatibilityFlags.InitPkg != "" {
 		initMainPkgs, err := buildEnv.MainPackages([]string{cfg.InternalCompatibilityFlags.InitPkg})
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		for _, pkg := range initMainPkgs {
 			if got, want := pkg.Basename(), "init"; got != want {
@@ -487,13 +497,17 @@ func findBins(cfg *config.Struct, buildEnv *packer.BuildEnv, bindir string) (*Fi
 				Filename: pkg.Basename(),
 				FromHost: binPath,
 			})
+			found = append(found, foundBin{
+				gokrazyPath: "/gokrazy/init",
+				hostPath:    binPath,
+			})
 		}
 	}
 	result.Dirents = append(result.Dirents, &gokrazy)
 
 	mainPkgs, err := buildEnv.MainPackages(cfg.Packages)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	user := FileInfo{Filename: "user"}
 	for _, pkg := range mainPkgs {
@@ -503,9 +517,13 @@ func findBins(cfg *config.Struct, buildEnv *packer.BuildEnv, bindir string) (*Fi
 			Filename: pkg.Basename(),
 			FromHost: binPath,
 		})
+		found = append(found, foundBin{
+			gokrazyPath: "/user/" + pkg.Basename(),
+			hostPath:    binPath,
+		})
 	}
 	result.Dirents = append(result.Dirents, &user)
-	return &result, nil
+	return &result, found, nil
 }
 
 func writeFileInfo(dir *squashfs.Directory, fi *FileInfo) error {

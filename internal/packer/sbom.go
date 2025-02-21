@@ -2,17 +2,19 @@ package packer
 
 import (
 	"crypto/sha256"
+	"debug/buildinfo"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/gokrazy/internal/config"
-	"github.com/gokrazy/internal/instanceflag"
+	"github.com/gokrazy/tools/internal/buildid"
 	"github.com/gokrazy/tools/packer"
-	"golang.org/x/mod/modfile"
+	"golang.org/x/sync/errgroup"
 )
 
 type FileHash struct {
@@ -23,22 +25,36 @@ type FileHash struct {
 	Hash string `json:"hash"`
 }
 
+// GoPackage identifies a built Go binary via its BuildInfo (human readable) and
+// BuildID. When installing a non-local package, the BuildInfo will be
+// sufficient to reproduce exactly this binary. For local packages, any change
+// to the source will just show up as (dirty) in BuildInfo, so we record the
+// BuildID in addition, which will change whenever the source changes.
+type GoPackage struct {
+	// Path is an absolute path on the gokrazy instance, e.g. /gokrazy/init
+	Path string `json:"path"`
+
+	// BuildID contains the Go (or GNU) build ID.
+	BuildID string
+
+	// BuildInfo contains the String representation of debug.BuildInfo
+	BuildInfo string
+}
+
 type SBOM struct {
 	// ConfigHash is the SHA256 sum of the gokrazy instance config (loaded
 	// from config.json).
 	ConfigHash FileHash `json:"config_hash"`
-
-	// GoModHashes is list of FileHashes, sorted by path.
-	//
-	// It contains one entry for each go.mod file that was used to build a
-	// gokrazy instance.
-	GoModHashes []FileHash `json:"go_mod_hashes"`
 
 	// ExtraFileHashes is list of FileHashes, sorted by path.
 	//
 	// It contains one entry for each file referenced via ExtraFilePaths:
 	// https://gokrazy.org/userguide/instance-config/#packageextrafilepaths
 	ExtraFileHashes []FileHash `json:"extra_file_hashes"`
+
+	// GoPackages contains one entry per installed package of the gokrazy
+	// instance.
+	GoPackages []GoPackage `json:"go_packages"`
 }
 
 type SBOMWithHash struct {
@@ -46,13 +62,29 @@ type SBOMWithHash struct {
 	SBOM     SBOM   `json:"sbom"`
 }
 
-// GenerateSBOM generates a Software Bills Of Material (SBOM) for the
+func readBuildID(f *os.File) (string, error) {
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return "", err
+	}
+	const readSize = 32 * 1024
+	data := make([]byte, readSize)
+	_, err := io.ReadFull(f, data)
+	if err == io.ErrUnexpectedEOF {
+		err = nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return buildid.ReadELF(f.Name(), f, data)
+}
+
+// generateSBOM generates a Software Bills Of Material (SBOM) for the
 // local gokrazy instance.
 // It must be provided with a cfg that hasn't been modified by gok at runtime,
 // as the SBOM should reflect what’s going into gokrazy,
 // not its internal implementation details
 // (i.e.  cfg.InternalCompatibilityFlags untouched).
-func GenerateSBOM(cfg *config.Struct) ([]byte, SBOMWithHash, error) {
+func generateSBOM(cfg *config.Struct, foundBins []foundBin) ([]byte, SBOMWithHash, error) {
 	instancePath, err := os.Getwd()
 	if err != nil {
 		return nil, SBOMWithHash{}, err
@@ -71,6 +103,39 @@ func GenerateSBOM(cfg *config.Struct) ([]byte, SBOMWithHash, error) {
 		},
 	}
 
+	var (
+		eg           errgroup.Group
+		goPackagesMu sync.Mutex
+	)
+	for _, bin := range foundBins {
+		eg.Go(func() error {
+			f, err := os.Open(bin.hostPath)
+			if err != nil {
+				return err
+			}
+			info, err := buildinfo.Read(f)
+			if err != nil {
+				return err
+			}
+			id, err := readBuildID(f)
+			if err != nil {
+				return err
+			}
+
+			goPackagesMu.Lock()
+			defer goPackagesMu.Unlock()
+			result.GoPackages = append(result.GoPackages, GoPackage{
+				Path:      bin.gokrazyPath,
+				BuildID:   id,
+				BuildInfo: info.String(),
+			})
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, SBOMWithHash{}, err
+	}
+
 	extraFiles, err := FindExtraFiles(cfg)
 	if err != nil {
 		return nil, SBOMWithHash{}, err
@@ -78,78 +143,10 @@ func GenerateSBOM(cfg *config.Struct) ([]byte, SBOMWithHash, error) {
 
 	packages := append(getGokrazySystemPackages(cfg), cfg.Packages...)
 
-	dirSeen := make(map[string]bool)
-
 	for _, pkgAndVersion := range packages {
 		pkg := pkgAndVersion
 		if idx := strings.IndexByte(pkg, '@'); idx > -1 {
 			pkg = pkg[:idx]
-		}
-		buildDir := packer.BuildDir(pkg)
-		buildDir = filepath.Join(instancePath, buildDir)
-
-		if err := os.Chdir(buildDir); err != nil {
-			if os.IsNotExist(err) {
-				wd, _ := os.Getwd()
-				errStr := fmt.Sprintf("Error: build directory %q does not exist in %q\n", buildDir, wd)
-				errStr += fmt.Sprintf("Try 'gok -i %s add %s' followed by an update.\n", instanceflag.Instance(), pkg)
-				errStr += "Afterwards, your 'gok sbom' command should work"
-				return nil, SBOMWithHash{}, fmt.Errorf("%s: %w", errStr, err)
-			} else {
-				return nil, SBOMWithHash{}, err
-			}
-		}
-
-		path, err := filepath.Abs("go.mod")
-		if err != nil {
-			return nil, SBOMWithHash{}, err
-		}
-		b, err := os.ReadFile(path)
-		if err != nil {
-			return nil, SBOMWithHash{}, err
-		}
-		result.GoModHashes = append(result.GoModHashes, FileHash{
-			Path: path,
-			Hash: fmt.Sprintf("%x", sha256.Sum256(b)),
-		})
-
-		modf, err := modfile.Parse("go.mod", b, nil)
-		if err != nil {
-			return nil, SBOMWithHash{}, err
-		}
-		for _, r := range modf.Replace {
-			if r.New.Version != "" {
-				// replace directive that references a ModulePath
-				continue
-			}
-			// replace directive that references a FilePath
-			dir, err := filepath.Abs(r.New.Path)
-			if err != nil {
-				return nil, SBOMWithHash{}, err
-			}
-			// Especially when a go.mod template was used, the same replace
-			// directive can be repeated many times across different packages,
-			// hence we maintain a cache from dir to hash.
-			if _, ok := dirSeen[dir]; !ok {
-				h, err := hashDir(dir)
-				if err != nil {
-					return nil, SBOMWithHash{}, err
-				}
-				dirSeen[dir] = true
-				result.GoModHashes = append(result.GoModHashes, FileHash{
-					Path: dir,
-					Hash: h,
-				})
-			}
-		}
-
-		// Restore the working directory before possibly 'continue'ing.
-		if err := os.Chdir(instancePath); err != nil {
-			if os.IsNotExist(err) {
-				// best-effort compatibility for old setups
-			} else {
-				return nil, SBOMWithHash{}, err
-			}
 		}
 
 		files := append([]*FileInfo{}, extraFiles[pkg]...)
@@ -178,10 +175,10 @@ func GenerateSBOM(cfg *config.Struct) ([]byte, SBOMWithHash, error) {
 		}
 	}
 
-	sort.Slice(result.GoModHashes, func(i, j int) bool {
-		a := result.GoModHashes[i]
-		b := result.GoModHashes[j]
-		return a.Path < b.Path
+	sort.Slice(result.GoPackages, func(i, j int) bool {
+		pi := result.GoPackages[i]
+		pj := result.GoPackages[j]
+		return pi.Path < pj.Path
 	})
 
 	sort.Slice(result.ExtraFileHashes, func(i, j int) bool {

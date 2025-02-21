@@ -46,14 +46,19 @@ func init() {
 }
 
 func (r *sbomConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	cfg, err := config.ApplyInstanceFlag()
+	fileCfg, err := config.ApplyInstanceFlag()
 	if err != nil {
 		if os.IsNotExist(err) {
 			// best-effort compatibility for old setups
-			cfg = config.NewStruct(instanceflag.Instance())
+			fileCfg = config.NewStruct(instanceflag.Instance())
 		} else {
 			return err
 		}
+	}
+
+	cfg, err := config.ReadFromFile(fileCfg.Meta.Path)
+	if err != nil {
+		return err
 	}
 
 	if err := os.Chdir(config.InstancePath()); err != nil {
@@ -62,12 +67,12 @@ func (r *sbomConfig) run(ctx context.Context, args []string, stdout, stderr io.W
 
 	updateflag.SetUpdate("yes")
 
-	// GenerateSBOM() must be provided with a cfg
-	// that hasn't been modified by gok at runtime,
-	// as the SBOM should reflect what’s going into gokrazy,
-	// not its internal implementation details
-	// (i.e.  cfg.InternalCompatibilityFlags untouched).
-	sbomMarshaled, sbomWithHash, err := packer.GenerateSBOM(cfg)
+	pack := &packer.Pack{
+		FileCfg: fileCfg,
+		Cfg:     cfg,
+	}
+
+	sbomMarshaled, sbomWithHash, err := pack.GenerateSBOM()
 	if os.IsNotExist(err) {
 		// Common case, handle with a good error message
 		os.Stderr.WriteString("\n")

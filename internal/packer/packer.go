@@ -1006,7 +1006,7 @@ func filterGoEnv(env []string) []string {
 	return relevant
 }
 
-func (pack *Pack) logic(programName string) error {
+func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, withHash SBOMWithHash)) error {
 	cfg := pack.Cfg
 	updateflag.SetUpdate(cfg.InternalCompatibilityFlags.Update)
 	tlsflag.SetInsecure(cfg.InternalCompatibilityFlags.Insecure)
@@ -1170,9 +1170,12 @@ func (pack *Pack) logic(programName string) error {
 		return err
 	}
 
-	var root *FileInfo
+	var (
+		root      *FileInfo
+		foundBins []foundBin
+	)
 	trace.WithRegion(context.Background(), "findbins", func() {
-		root, err = findBins(cfg, buildEnv, bindir)
+		root, foundBins, err = findBins(cfg, buildEnv, bindir)
 	})
 	if err != nil {
 		return err
@@ -1427,11 +1430,20 @@ func (pack *Pack) logic(programName string) error {
 	// not its internal implementation details
 	// (i.e.  cfg.InternalCompatibilityFlags untouched).
 	var sbom []byte
+	var sbomWithHash SBOMWithHash
 	trace.WithRegion(context.Background(), "sbom", func() {
-		sbom, _, err = GenerateSBOM(pack.FileCfg)
+		sbom, sbomWithHash, err = generateSBOM(pack.FileCfg, foundBins)
 	})
 	if err != nil {
 		return err
+	}
+
+	// TODO: This is a terrible hack. After removing gokr-packer
+	// (https://github.com/gokrazy/gokrazy/issues/301), we should refactor this
+	// overly long method into more manageable chunks.
+	if sbomHook != nil {
+		sbomHook(sbom, sbomWithHash)
+		return nil
 	}
 
 	etcGokrazy := &FileInfo{Filename: "gokrazy"}
@@ -1982,9 +1994,21 @@ func updateWithProgress(prog *progress.Reporter, reader io.Reader, target *updat
 }
 
 func (pack *Pack) Main(programName string) {
-	if err := pack.logic(programName); err != nil {
+	if err := pack.logic(programName, nil); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func (pack *Pack) GenerateSBOM() ([]byte, SBOMWithHash, error) {
+	var sbom []byte
+	var sbomWithHash SBOMWithHash
+	if err := pack.logic("gokrazy gok", func(b []byte, wh SBOMWithHash) {
+		sbom = b
+		sbomWithHash = wh
+	}); err != nil {
+		return nil, SBOMWithHash{}, err
+	}
+	return sbom, sbomWithHash, nil
 }
 
 func PerPackageConfigForMigration(cfg *config.Struct) (map[string]config.PackageConfig, error) {
