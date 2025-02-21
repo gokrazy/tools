@@ -172,7 +172,7 @@ func GenerateSBOM(cfg *config.Struct) ([]byte, SBOMWithHash, error) {
 				return nil, SBOMWithHash{}, err
 			}
 			result.ExtraFileHashes = append(result.ExtraFileHashes, FileHash{
-				Path: path,
+				Path: fi.FromHost,
 				Hash: fmt.Sprintf("%x", sha256.Sum256(b)),
 			})
 		}
