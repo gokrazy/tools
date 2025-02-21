@@ -61,7 +61,8 @@ var vmRunImpl vmRunConfig
 
 func init() {
 	vmRunCmd.Flags().StringVarP(&vmRunImpl.sudo, "sudo", "", "", "Whether to elevate privileges using sudo when required (one of auto, always, never, default auto)")
-	vmRunCmd.Flags().IntVarP(&vmRunImpl.targetStorageBytes, "target_storage_bytes", "", 1258299392, "Size of the disk image in bytes")
+	const permSize = 512 * 1024 * 1024
+	vmRunCmd.Flags().IntVarP(&vmRunImpl.targetStorageBytes, "target_storage_bytes", "", 1258299392+permSize, "Size of the disk image in bytes")
 	vmRunCmd.Flags().StringVarP(&vmRunImpl.arch, "arch", "", "", "architecture for which to build and run QEMU. One of 'amd64' or 'arm64'")
 	vmRunCmd.Flags().StringVarP(&vmRunImpl.netdev, "netdev", "", "user,id=net0,hostfwd=tcp::8080-:80,hostfwd=tcp::8022-:22", "QEMU -netdev argument")
 	vmRunCmd.Flags().BoolVarP(&vmRunImpl.keep, "keep", "", false, "keep ephemeral disk images around instead of deleting them when QEMU exits")
