@@ -76,4 +76,5 @@ func init() {
 	RootCmd.AddCommand(sbomCmd)
 	RootCmd.AddCommand(pushCmd)
 	RootCmd.AddCommand(vmCmd)
+	RootCmd.AddCommand(psCmd)
 }
