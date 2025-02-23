@@ -109,7 +109,7 @@ func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 		// per-package directory.
 		BuildDir: func(string) (string, error) { return "", nil },
 	}
-	if err := buildEnv.Build(tmp, pkgs, packageBuildFlags, packageBuildTags, noBuildPkgs); err != nil {
+	if err := buildEnv.Build(tmp, pkgs, packageBuildFlags, packageBuildTags, noBuildPkgs, map[string]string{}); err != nil {
 		return err
 	}
 

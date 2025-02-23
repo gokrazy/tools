@@ -21,3 +21,6 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	golang.org/x/oauth2 v0.23.0 // indirect
 )
+
+// TODO: remove after PR is merged
+replace github.com/gokrazy/internal => github.com/thielepaul/gokrazy-internal v0.0.0-20250223105730-3d0b9883781f
