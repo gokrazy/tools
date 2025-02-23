@@ -115,13 +115,18 @@ type gokrazyInit struct {
 	envFileContents  map[string][]string
 	dontStart        map[string]bool
 	waitForClock     map[string]bool
+	basenames        map[string]string
 	buildTimestamp   string
 }
 
-func mapKeyBasename[M ~map[string]V, V any](m M) M {
+func mapKeyBasename[M ~map[string]V, V any](basenames map[string]string, m M) M {
 	r := make(M, len(m))
 	for k, v := range m {
-		r[filepath.Base(k)] = v
+		if basename, ok := basenames[k]; ok {
+			r[basename] = v
+		} else {
+			r[filepath.Base(k)] = v
+		}
 	}
 	return r
 }
@@ -139,10 +144,10 @@ func (g *gokrazyInit) generate() ([]byte, error) {
 	}{
 		Binaries:       flattenFiles("/", g.root),
 		BuildTimestamp: g.buildTimestamp,
-		Flags:          mapKeyBasename(g.flagFileContents),
-		Env:            mapKeyBasename(g.envFileContents),
-		DontStart:      mapKeyBasename(g.dontStart),
-		WaitForClock:   mapKeyBasename(g.waitForClock),
+		Flags:          mapKeyBasename(g.basenames, g.flagFileContents),
+		Env:            mapKeyBasename(g.basenames, g.envFileContents),
+		DontStart:      mapKeyBasename(g.basenames, g.dontStart),
+		WaitForClock:   mapKeyBasename(g.basenames, g.waitForClock),
 	}); err != nil {
 		return nil, err
 	}

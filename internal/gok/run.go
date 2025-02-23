@@ -95,6 +95,9 @@ func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 
 	// basename of the current directory
 	basename := filepath.Base(importPath)
+	if cfg.PackageConfig[importPath].Basename != "" {
+		basename = cfg.PackageConfig[importPath].Basename
+	}
 
 	pkgs := []string{importPath}
 	var noBuildPkgs []string
@@ -104,12 +107,15 @@ func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 	packageBuildTags := map[string][]string{
 		importPath: cfg.PackageConfig[importPath].GoBuildTags,
 	}
+	basenames := map[string]string{
+		importPath: basename,
+	}
 	buildEnv := packer.BuildEnv{
 		// Remain in the current directory instead of building in a separate,
 		// per-package directory.
 		BuildDir: func(string) (string, error) { return "", nil },
 	}
-	if err := buildEnv.Build(tmp, pkgs, packageBuildFlags, packageBuildTags, noBuildPkgs); err != nil {
+	if err := buildEnv.Build(tmp, pkgs, packageBuildFlags, packageBuildTags, noBuildPkgs, basenames); err != nil {
 		return err
 	}
 
