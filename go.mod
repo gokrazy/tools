@@ -3,7 +3,7 @@ module github.com/gokrazy/tools
 go 1.24
 
 require (
-	github.com/breml/rootcerts v0.2.10
+	github.com/breml/rootcerts v0.2.20
 	github.com/donovanhide/eventsource v0.0.0-20210830082556-c59027999da0
 	github.com/gokrazy/gokapi v0.0.0-20250222080418-e140e9c461d8
 	github.com/gokrazy/internal v0.0.0-20250214203001-b1610a6e7271
