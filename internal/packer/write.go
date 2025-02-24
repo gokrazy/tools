@@ -456,7 +456,7 @@ type foundBin struct {
 	hostPath    string
 }
 
-func findBins(cfg *config.Struct, buildEnv *packer.BuildEnv, bindir string) (*FileInfo, []foundBin, error) {
+func findBins(cfg *config.Struct, buildEnv *packer.BuildEnv, bindir string, basenames map[string]string) (*FileInfo, []foundBin, error) {
 	var found []foundBin
 	result := FileInfo{Filename: ""}
 
@@ -511,14 +511,18 @@ func findBins(cfg *config.Struct, buildEnv *packer.BuildEnv, bindir string) (*Fi
 	}
 	user := FileInfo{Filename: "user"}
 	for _, pkg := range mainPkgs {
-		binPath := filepath.Join(bindir, pkg.Basename())
+		basename := pkg.Basename()
+		if basenameOverride, ok := basenames[pkg.ImportPath]; ok {
+			basename = basenameOverride
+		}
+		binPath := filepath.Join(bindir, basename)
 		fileIsELFOrFatal(binPath)
 		user.Dirents = append(user.Dirents, &FileInfo{
-			Filename: pkg.Basename(),
+			Filename: basename,
 			FromHost: binPath,
 		})
 		found = append(found, foundBin{
-			gokrazyPath: "/user/" + pkg.Basename(),
+			gokrazyPath: "/user/" + basename,
 			hostPath:    binPath,
 		})
 	}
