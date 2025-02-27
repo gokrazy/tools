@@ -762,6 +762,20 @@ func findWaitForClock(cfg *config.Struct) (map[string]bool, error) {
 	return contents, nil
 }
 
+func findBasenames(cfg *config.Struct) (map[string]string, error) {
+	contents := make(map[string]string)
+	for pkg, packageConfig := range cfg.PackageConfig {
+		if packageConfig.Basename == "" {
+			continue
+		}
+		contents[pkg] = packageConfig.Basename
+		packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
+			kind: "be installed with the basename set to " + packageConfig.Basename,
+		})
+	}
+	return contents, nil
+}
+
 type countingWriter int64
 
 func (cw *countingWriter) Write(p []byte) (n int, err error) {
@@ -1119,6 +1133,11 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 		return err
 	}
 
+	basenames, err := findBasenames(cfg)
+	if err != nil {
+		return err
+	}
+
 	args := cfg.Packages
 	fmt.Printf("Building %d Go packages:\n\n", len(args))
 	for _, pkg := range args {
@@ -1126,11 +1145,15 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 		for _, configFile := range packageConfigFiles[pkg] {
 			fmt.Printf("    will %s\n",
 				configFile.kind)
-			fmt.Printf("      from %s\n",
-				configFile.path)
-			fmt.Printf("      last modified: %s (%s ago)\n",
-				configFile.lastModified.Format(time.RFC3339),
-				time.Since(configFile.lastModified).Round(1*time.Second))
+			if configFile.path != "" {
+				fmt.Printf("      from %s\n",
+					configFile.path)
+			}
+			if !configFile.lastModified.IsZero() {
+				fmt.Printf("      last modified: %s (%s ago)\n",
+					configFile.lastModified.Format(time.RFC3339),
+					time.Since(configFile.lastModified).Round(1*time.Second))
+			}
 		}
 		fmt.Printf("\n")
 	}
@@ -1155,7 +1178,7 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 	}
 	var buildErr error
 	trace.WithRegion(context.Background(), "build", func() {
-		buildErr = buildEnv.Build(bindir, pkgs, packageBuildFlags, packageBuildTags, noBuildPkgs)
+		buildErr = buildEnv.Build(bindir, pkgs, packageBuildFlags, packageBuildTags, noBuildPkgs, basenames)
 	})
 	if buildErr != nil {
 		return buildErr
@@ -1175,7 +1198,7 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 		foundBins []foundBin
 	)
 	trace.WithRegion(context.Background(), "findbins", func() {
-		root, foundBins, err = findBins(cfg, buildEnv, bindir)
+		root, foundBins, err = findBins(cfg, buildEnv, bindir, basenames)
 	})
 	if err != nil {
 		return err
@@ -1229,6 +1252,7 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 			buildTimestamp:   buildTimestamp,
 			dontStart:        dontStart,
 			waitForClock:     waitForClock,
+			basenames:        basenames,
 		}
 		if cfg.InternalCompatibilityFlags.OverwriteInit != "" {
 			return gokrazyInit.dump(cfg.InternalCompatibilityFlags.OverwriteInit)
