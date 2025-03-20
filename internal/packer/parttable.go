@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"runtime"
 	"strconv"
 	"syscall"
 )
@@ -125,7 +126,9 @@ func (p *Pack) partition(path string) (*os.File, error) {
 		if ok && pe.Err == syscall.EACCES && p.Cfg.InternalCompatibilityFlags.SudoOrDefault() == "auto" {
 			// permission denied
 			log.Printf("Using sudo to gain permission to format %s", path)
-			log.Printf("If you prefer, cancel and use: sudo setfacl -m u:${USER}:rw %s", path)
+			if runtime.GOOS == "linux" {
+				log.Printf("If you prefer, cancel and use: sudo setfacl -m u:${USER}:rw %s", path)
+			}
 			return p.SudoPartition(path)
 		}
 		if ok && pe.Err == syscall.EROFS {
