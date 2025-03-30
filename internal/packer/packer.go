@@ -217,6 +217,22 @@ func findBuildFlagsFiles(cfg *config.Struct) (map[string][]string, error) {
 	return contents, nil
 }
 
+func findBuildEnv(cfg *config.Struct) (map[string][]string, error) {
+	contents := make(map[string][]string)
+	for pkg, packageConfig := range cfg.PackageConfig {
+		if len(packageConfig.GoBuildEnvironment) == 0 {
+			continue
+		}
+		contents[pkg] = packageConfig.GoBuildEnvironment
+		packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
+			kind:         "be compiled with build environment variables",
+			path:         cfg.Meta.Path,
+			lastModified: cfg.Meta.LastModified,
+		})
+	}
+	return contents, nil
+}
+
 func findBuildTagsFiles(cfg *config.Struct) (map[string][]string, error) {
 	if len(cfg.PackageConfig) > 0 {
 		contents := make(map[string][]string)
@@ -1113,6 +1129,11 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 		return err
 	}
 
+	packageBuildEnv, err := findBuildEnv(cfg)
+	if err != nil {
+		return err
+	}
+
 	flagFileContents, err := findFlagFiles(cfg)
 	if err != nil {
 		return err
@@ -1178,7 +1199,7 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 	}
 	var buildErr error
 	trace.WithRegion(context.Background(), "build", func() {
-		buildErr = buildEnv.Build(bindir, pkgs, packageBuildFlags, packageBuildTags, noBuildPkgs, basenames)
+		buildErr = buildEnv.Build(bindir, pkgs, packageBuildFlags, packageBuildTags, packageBuildEnv, noBuildPkgs, basenames)
 	})
 	if buildErr != nil {
 		return buildErr

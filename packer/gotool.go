@@ -282,7 +282,7 @@ type BuildEnv struct {
 	BuildDir func(string) (string, error)
 }
 
-func (be *BuildEnv) Build(bindir string, packages []string, packageBuildFlags, packageBuildTags map[string][]string, noBuildPackages []string, basenames map[string]string) error {
+func (be *BuildEnv) Build(bindir string, packages []string, packageBuildFlags, packageBuildTags, packageBuildEnv map[string][]string, noBuildPackages []string, basenames map[string]string) error {
 	done := measure.Interactively("building (go compiler)")
 	defer done("")
 
@@ -330,7 +330,7 @@ func (be *BuildEnv) Build(bindir string, packages []string, packageBuildFlags, p
 				}
 				args = append(args, pkg.ImportPath)
 				cmd := exec.Command("go", args...)
-				cmd.Env = Env()
+				cmd.Env = append(Env(), packageBuildEnv[pkg.ImportPath]...)
 				cmd.Dir = buildDir
 				cmd.Stderr = os.Stderr
 				if logExec {

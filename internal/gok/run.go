@@ -101,6 +101,9 @@ func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 
 	pkgs := []string{importPath}
 	var noBuildPkgs []string
+	packageBuildEnv := map[string][]string{
+		importPath: cfg.PackageConfig[importPath].GoBuildEnvironment,
+	}
 	packageBuildFlags := map[string][]string{
 		importPath: cfg.PackageConfig[importPath].GoBuildFlags,
 	}
@@ -115,7 +118,7 @@ func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 		// per-package directory.
 		BuildDir: func(string) (string, error) { return "", nil },
 	}
-	if err := buildEnv.Build(tmp, pkgs, packageBuildFlags, packageBuildTags, noBuildPkgs, basenames); err != nil {
+	if err := buildEnv.Build(tmp, pkgs, packageBuildFlags, packageBuildTags, packageBuildEnv, noBuildPkgs, basenames); err != nil {
 		return err
 	}
 
