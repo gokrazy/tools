@@ -1687,7 +1687,7 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 		if cfg.InternalCompatibilityFlags.OverwriteRoot != "" {
 			var rootErr error
 			trace.WithRegion(context.Background(), "writeroot", func() {
-				writeRootFile(cfg.InternalCompatibilityFlags.OverwriteRoot, root)
+				rootErr = writeRootFile(cfg.InternalCompatibilityFlags.OverwriteRoot, root)
 			})
 			if rootErr != nil {
 				return rootErr
