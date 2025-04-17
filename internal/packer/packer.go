@@ -2040,7 +2040,8 @@ func updateWithProgress(prog *progress.Reporter, reader io.Reader, target *updat
 
 func (pack *Pack) Main(programName string) {
 	if err := pack.logic(programName, nil); err != nil {
-		log.Fatal(err)
+		fmt.Fprintf(os.Stderr, "ERROR:\n  %s\n", err)
+		os.Exit(1)
 	}
 }
 
