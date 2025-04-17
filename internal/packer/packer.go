@@ -1035,6 +1035,12 @@ type Pack struct {
 	dontStart                   map[string]bool
 	waitForClock                map[string]bool
 	basenames                   map[string]string
+	schema                      string
+	update                      *config.UpdateStruct
+	root                        *FileInfo
+	sbom                        []byte
+	initTmp                     string
+	kernelDir                   string
 }
 
 func filterGoEnv(env []string) []string {
@@ -1184,26 +1190,7 @@ func (pack *Pack) logicPrepare(programName string, sbomHook func(marshaled []byt
 	return nil
 }
 
-func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, withHash SBOMWithHash)) error {
-	dnsCheck := make(chan error)
-	go func() {
-		defer close(dnsCheck)
-		host, err := os.Hostname()
-		if err != nil {
-			dnsCheck <- fmt.Errorf("finding hostname: %v", err)
-			return
-		}
-		if _, err := net.LookupHost(host); err != nil {
-			dnsCheck <- err
-			return
-		}
-		dnsCheck <- nil
-	}()
-
-	if err := pack.logicPrepare(programName, sbomHook); err != nil {
-		return err
-	}
-
+func (pack *Pack) logicBuild(programName string, sbomHook func(marshaled []byte, withHash SBOMWithHash), bindir string) error {
 	cfg := pack.Cfg // for convenience
 	args := cfg.Packages
 	fmt.Printf("Building %d Go packages:\n\n", len(args))
@@ -1243,11 +1230,6 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 	buildEnv := &packer.BuildEnv{
 		BuildDir: packer.BuildDirOrMigrate,
 	}
-	bindir, err := os.MkdirTemp("", "gokrazy-bins-")
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(bindir)
 	var buildErr error
 	trace.WithRegion(context.Background(), "build", func() {
 		buildErr = buildEnv.Build(bindir, pkgs, pack.packageBuildFlags, pack.packageBuildTags, pack.packageBuildEnv, noBuildPkgs, pack.basenames)
@@ -1258,6 +1240,7 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 
 	fmt.Println()
 
+	var err error
 	trace.WithRegion(context.Background(), "validate", func() {
 		err = pack.validateTargetArchMatchesKernel()
 	})
@@ -1275,6 +1258,7 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 	if err != nil {
 		return err
 	}
+	pack.root = root
 
 	packageConfigFiles = make(map[string][]packageConfigFile)
 
@@ -1337,7 +1321,7 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 		if err != nil {
 			return err
 		}
-		defer os.RemoveAll(tmpdir)
+		pack.initTmp = tmpdir
 
 		initPath := filepath.Join(tmpdir, "init")
 
@@ -1376,6 +1360,8 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 		update.HTTPPassword = pw
 	}
 
+	pack.update = update
+
 	for _, dir := range []string{"bin", "dev", "etc", "proc", "sys", "tmp", "perm", "lib", "run", "mnt"} {
 		root.Dirents = append(root.Dirents, &FileInfo{
 			Filename: dir,
@@ -1407,6 +1393,7 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 	if err != nil {
 		return err
 	}
+	pack.kernelDir = kernelDir
 	modulesDir := filepath.Join(kernelDir, "lib", "modules")
 	if _, err := os.Stat(modulesDir); err == nil {
 		fmt.Printf("Including loadable kernel modules from:\n%s\n", modulesDir)
@@ -1460,7 +1447,7 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 		FromLiteral: pack.systemCertsPEM,
 	})
 
-	schema := "http"
+	pack.schema = "http"
 	if update.CertPEM == "" || update.KeyPEM == "" {
 		deployCertFile, deployKeyFile, err := getCertificate(cfg)
 		if err != nil {
@@ -1487,7 +1474,7 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 			// If -insecure is specified, use http instead of https to make the
 			// process of updating to non-empty -tls= a bit smoother.
 		} else {
-			schema = "https"
+			pack.schema = "https"
 		}
 
 		ssl.Dirents = append(ssl.Dirents, &FileInfo{
@@ -1533,6 +1520,7 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 	if err != nil {
 		return err
 	}
+	pack.sbom = sbom
 
 	// TODO: This is a terrible hack. After removing gokr-packer
 	// (https://github.com/gokrazy/gokrazy/issues/301), we should refactor this
@@ -1589,6 +1577,40 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 		}
 	}
 
+	return nil
+}
+
+func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, withHash SBOMWithHash)) error {
+	dnsCheck := make(chan error)
+	go func() {
+		defer close(dnsCheck)
+		host, err := os.Hostname()
+		if err != nil {
+			dnsCheck <- fmt.Errorf("finding hostname: %v", err)
+			return
+		}
+		if _, err := net.LookupHost(host); err != nil {
+			dnsCheck <- err
+			return
+		}
+		dnsCheck <- nil
+	}()
+
+	if err := pack.logicPrepare(programName, sbomHook); err != nil {
+		return err
+	}
+
+	bindir, err := os.MkdirTemp("", "gokrazy-bins-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(bindir)
+
+	if err := pack.logicBuild(programName, sbomHook, bindir); err != nil {
+		return err
+	}
+	defer os.RemoveAll(pack.initTmp)
+
 	var (
 		updateHttpClient         *http.Client
 		foundMatchingCertificate bool
@@ -1597,7 +1619,9 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 	)
 
 	if !updateflag.NewInstallation() {
-		updateBaseUrl, err = updateflag.BaseURL(update.HTTPPort, update.HTTPSPort, schema, update.Hostname, update.HTTPPassword)
+		update := pack.update // for convenience
+		var err error
+		updateBaseUrl, err = updateflag.BaseURL(update.HTTPPort, update.HTTPSPort, pack.schema, update.Hostname, update.HTTPPassword)
 		if err != nil {
 			return err
 		}
@@ -1648,6 +1672,8 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 	fmt.Printf("  use PARTUUID: %v\n", pack.UsePartuuid)
 	fmt.Printf("  use GPT PARTUUID: %v\n", pack.UseGPTPartuuid)
 
+	cfg := pack.Cfg   // for convenience
+	root := pack.root // for convenience
 	// Determine where to write the boot and root images to.
 	var (
 		isDev                    bool
@@ -1694,7 +1720,7 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 		}
 
 	case pack.Output != nil && pack.Output.Type == OutputTypeGaf && pack.Output.Path != "":
-		if err := pack.overwriteGaf(root, sbom); err != nil {
+		if err := pack.overwriteGaf(root, pack.sbom); err != nil {
 			return err
 		}
 
@@ -1702,6 +1728,7 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 		if cfg.InternalCompatibilityFlags.OverwriteBoot != "" {
 			mbrfn := cfg.InternalCompatibilityFlags.OverwriteMBR
 			if cfg.InternalCompatibilityFlags.OverwriteMBR == "" {
+				var err error
 				tmpMBR, err = os.CreateTemp("", "gokrazy")
 				if err != nil {
 					return err
@@ -1725,6 +1752,7 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 		}
 
 		if cfg.InternalCompatibilityFlags.OverwriteBoot == "" && cfg.InternalCompatibilityFlags.OverwriteRoot == "" {
+			var err error
 			tmpMBR, err = os.CreateTemp("", "gokrazy")
 			if err != nil {
 				return err
@@ -1755,20 +1783,21 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 
 	fmt.Printf("\nBuild complete!\n")
 
+	update := pack.update // for convenience
 	hostPort := update.Hostname
 	if hostPort == "" {
 		hostPort = cfg.Hostname
 	}
-	if schema == "http" && update.HTTPPort != "80" {
+	if pack.schema == "http" && update.HTTPPort != "80" {
 		hostPort = fmt.Sprintf("%s:%s", hostPort, update.HTTPPort)
 	}
-	if schema == "https" && update.HTTPSPort != "443" {
+	if pack.schema == "https" && update.HTTPSPort != "443" {
 		hostPort = fmt.Sprintf("%s:%s", hostPort, update.HTTPSPort)
 	}
 
 	fmt.Printf("\nTo interact with the device, gokrazy provides a web interface reachable at:\n")
 	fmt.Printf("\n")
-	fmt.Printf("\t%s://gokrazy:%s@%s/\n", schema, update.HTTPPassword, hostPort)
+	fmt.Printf("\t%s://gokrazy:%s@%s/\n", pack.schema, update.HTTPPassword, hostPort)
 	fmt.Printf("\n")
 	fmt.Printf("In addition, the following Linux consoles are set up:\n")
 	fmt.Printf("\n")
@@ -1784,7 +1813,7 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 		fmt.Printf("Use -serial_console=disabled to make gokrazy not touch the serial port,\nand instead make the framebuffer console on HDMI the foreground console\n")
 	}
 	fmt.Printf("\n")
-	if schema == "https" {
+	if pack.schema == "https" {
 		certObj, err := getCertificateFromString(update.CertPEM)
 		if err != nil {
 			return fmt.Errorf("error loading certificate: %v", err)
@@ -1921,7 +1950,7 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 	}
 
 	for _, rootDeviceFile := range pack.rootDeviceFiles {
-		f, err := os.Open(filepath.Join(kernelDir, rootDeviceFile.Name))
+		f, err := os.Open(filepath.Join(pack.kernelDir, rootDeviceFile.Name))
 		if err != nil {
 			return err
 		}
