@@ -23,12 +23,17 @@ var vmRunCmd = &cobra.Command{
 	Short: "run a virtual machine (using QEMU)",
 	Long: `gok run builds a gokrazy instance and runs it using QEMU.
 
+Extra arguments are passed to QEMU as-is.
+
 Examples:
   % gok vm run
 
   # Boot directly into a serial console in your terminal
   # (Use C-a x to exit.)
   % gok vm run --graphic=false
+
+  # Directly specify QEMU USB flags
+  % gok vm run -- -usb -device usb-mouse
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return vmRunImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
@@ -133,7 +138,7 @@ func (r *vmRunConfig) buildFullDiskImage(ctx context.Context, dest string) error
 	return nil
 }
 
-func (r *vmRunConfig) runQEMU(ctx context.Context, fullDiskImage string) error {
+func (r *vmRunConfig) runQEMU(ctx context.Context, fullDiskImage string, extraArgs []string) error {
 	tmp, err := os.MkdirTemp("", "gokrazy-vm")
 	if err != nil {
 		return err
@@ -162,15 +167,17 @@ func (r *vmRunConfig) runQEMU(ctx context.Context, fullDiskImage string) error {
 	}
 
 	qemu := exec.CommandContext(ctx, qemuBin,
-		"-name", instanceflag.Instance(),
-		"-boot", "order=d",
-		"-drive", "file="+fullDiskImage+",format=raw",
-		"-device", "i6300esb,id=watchdog0",
-		"-watchdog-action", "reset",
-		"-smp", strconv.Itoa(max(runtime.NumCPU(), 2)),
-		"-device", "e1000,netdev=net0",
-		"-netdev", r.netdev,
-		"-m", "1024")
+		append([]string{
+			"-name", instanceflag.Instance(),
+			"-boot", "order=d",
+			"-drive", "file=" + fullDiskImage + ",format=raw",
+			"-device", "i6300esb,id=watchdog0",
+			"-watchdog-action", "reset",
+			"-smp", strconv.Itoa(max(runtime.NumCPU(), 2)),
+			"-device", "e1000,netdev=net0",
+			"-netdev", r.netdev,
+			"-m", "1024",
+		}, extraArgs...)...)
 
 	// Start in EFI mode (not legacy BIOS) so that we get a frame buffer (for
 	// gokrazy’s fbstatus program) and serial console.
@@ -236,7 +243,7 @@ func (r *vmRunConfig) run(ctx context.Context, args []string, stdout, stderr io.
 	}
 
 	log.Printf("running QEMU")
-	if err := r.runQEMU(ctx, fdi); err != nil {
+	if err := r.runQEMU(ctx, fdi, args); err != nil {
 		return err
 	}
 
