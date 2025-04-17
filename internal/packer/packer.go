@@ -848,7 +848,7 @@ func verifyNotMounted(dev string) error {
 			continue
 		}
 		if strings.HasPrefix(parts[9], dev) {
-			return fmt.Errorf("partition %s of device %s is mounted", parts[9], dev)
+			return fmt.Errorf("partition %s is mounted on %s", parts[9], parts[4])
 		}
 	}
 	return nil
@@ -1044,6 +1044,27 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 
 	if !updateflag.NewInstallation() && cfg.InternalCompatibilityFlags.Overwrite != "" {
 		return fmt.Errorf("both -update and -overwrite are specified; use either one, not both")
+	}
+
+	// Check early on if the destination is a device that is mounted
+	// so that the user does not get the impression that everything
+	// is fine and about to complete after a lengthy build phase.
+	// See also https://github.com/gokrazy/gokrazy/discussions/308
+	switch {
+	case cfg.InternalCompatibilityFlags.Overwrite != "" ||
+		(pack.Output != nil && pack.Output.Type == OutputTypeFull && pack.Output.Path != ""):
+
+		target := cfg.InternalCompatibilityFlags.Overwrite
+		st, err := os.Stat(target)
+		if err != nil && !os.IsNotExist(err) {
+			return err
+		}
+
+		if err == nil && st.Mode()&os.ModeDevice == os.ModeDevice {
+			if err := verifyNotMounted(target); err != nil {
+				return fmt.Errorf("cannot overwrite %s: %v (perhaps automatically?)\n  please unmount all partitions and retry", target, err)
+			}
+		}
 	}
 
 	var mbrOnlyWithoutGpt bool
