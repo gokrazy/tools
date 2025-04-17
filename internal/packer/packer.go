@@ -1021,6 +1021,20 @@ type Pack struct {
 	FileCfg *config.Struct
 	Cfg     *config.Struct
 	Output  *OutputStruct
+
+	// state
+	buildTimestamp              string
+	rootDeviceFiles             []deviceconfig.RootFile
+	firstPartitionOffsetSectors int64
+	systemCertsPEM              string
+	packageBuildFlags           map[string][]string
+	packageBuildTags            map[string][]string
+	packageBuildEnv             map[string][]string
+	flagFileContents            map[string][]string
+	envFileContents             map[string][]string
+	dontStart                   map[string]bool
+	waitForClock                map[string]bool
+	basenames                   map[string]string
 }
 
 func filterGoEnv(env []string) []string {
@@ -1036,7 +1050,7 @@ func filterGoEnv(env []string) []string {
 	return relevant
 }
 
-func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, withHash SBOMWithHash)) error {
+func (pack *Pack) logicPrepare(programName string, sbomHook func(marshaled []byte, withHash SBOMWithHash)) error {
 	cfg := pack.Cfg
 	updateflag.SetUpdate(cfg.InternalCompatibilityFlags.Update)
 	tlsflag.SetInsecure(cfg.InternalCompatibilityFlags.Insecure)
@@ -1068,21 +1082,20 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 	}
 
 	var mbrOnlyWithoutGpt bool
-	firstPartitionOffsetSectors := deviceconfig.DefaultBootPartitionStartLBA
-	var rootDeviceFiles []deviceconfig.RootFile
+	pack.firstPartitionOffsetSectors = deviceconfig.DefaultBootPartitionStartLBA
 	if cfg.DeviceType != "" {
 		if devcfg, ok := deviceconfig.GetDeviceConfigBySlug(cfg.DeviceType); ok {
-			rootDeviceFiles = devcfg.RootDeviceFiles
+			pack.rootDeviceFiles = devcfg.RootDeviceFiles
 			mbrOnlyWithoutGpt = devcfg.MBROnlyWithoutGPT
 			if devcfg.BootPartitionStartLBA != 0 {
-				firstPartitionOffsetSectors = devcfg.BootPartitionStartLBA
+				pack.firstPartitionOffsetSectors = devcfg.BootPartitionStartLBA
 			}
 		} else {
 			return fmt.Errorf("unknown device slug %q", cfg.DeviceType)
 		}
 	}
 
-	pack.Pack = packer.NewPackForHost(firstPartitionOffsetSectors, cfg.Hostname)
+	pack.Pack = packer.NewPackForHost(pack.firstPartitionOffsetSectors, cfg.Hostname)
 
 	newInstallation := updateflag.NewInstallation()
 	useGPT := newInstallation && !mbrOnlyWithoutGpt
@@ -1111,9 +1124,67 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 
 	fmt.Printf("Build target: %s\n", strings.Join(filterGoEnv(packer.Env()), " "))
 
-	buildTimestamp := time.Now().Format(time.RFC3339)
-	fmt.Printf("Build timestamp: %s\n", buildTimestamp)
+	pack.buildTimestamp = time.Now().Format(time.RFC3339)
+	fmt.Printf("Build timestamp: %s\n", pack.buildTimestamp)
 
+	systemCertsPEM, err := systemCertsPEM()
+	if err != nil {
+		return err
+	}
+	pack.systemCertsPEM = systemCertsPEM
+
+	packageBuildFlags, err := findBuildFlagsFiles(cfg)
+	if err != nil {
+		return err
+	}
+	pack.packageBuildFlags = packageBuildFlags
+
+	packageBuildTags, err := findBuildTagsFiles(cfg)
+	if err != nil {
+		return err
+	}
+	pack.packageBuildTags = packageBuildTags
+
+	packageBuildEnv, err := findBuildEnv(cfg)
+	if err != nil {
+		return err
+	}
+	pack.packageBuildEnv = packageBuildEnv
+
+	flagFileContents, err := findFlagFiles(cfg)
+	if err != nil {
+		return err
+	}
+	pack.flagFileContents = flagFileContents
+
+	envFileContents, err := findEnvFiles(cfg)
+	if err != nil {
+		return err
+	}
+	pack.envFileContents = envFileContents
+
+	dontStart, err := findDontStart(cfg)
+	if err != nil {
+		return err
+	}
+	pack.dontStart = dontStart
+
+	waitForClock, err := findWaitForClock(cfg)
+	if err != nil {
+		return err
+	}
+	pack.waitForClock = waitForClock
+
+	basenames, err := findBasenames(cfg)
+	if err != nil {
+		return err
+	}
+	pack.basenames = basenames
+
+	return nil
+}
+
+func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, withHash SBOMWithHash)) error {
 	dnsCheck := make(chan error)
 	go func() {
 		defer close(dnsCheck)
@@ -1129,57 +1200,11 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 		dnsCheck <- nil
 	}()
 
-	systemCertsPEM, err := systemCertsPEM()
-	if err != nil {
+	if err := pack.logicPrepare(programName, sbomHook); err != nil {
 		return err
 	}
 
-	bindir, err := os.MkdirTemp("", "gokrazy-bins-")
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(bindir)
-
-	packageBuildFlags, err := findBuildFlagsFiles(cfg)
-	if err != nil {
-		return err
-	}
-
-	packageBuildTags, err := findBuildTagsFiles(cfg)
-	if err != nil {
-		return err
-	}
-
-	packageBuildEnv, err := findBuildEnv(cfg)
-	if err != nil {
-		return err
-	}
-
-	flagFileContents, err := findFlagFiles(cfg)
-	if err != nil {
-		return err
-	}
-
-	envFileContents, err := findEnvFiles(cfg)
-	if err != nil {
-		return err
-	}
-
-	dontStart, err := findDontStart(cfg)
-	if err != nil {
-		return err
-	}
-
-	waitForClock, err := findWaitForClock(cfg)
-	if err != nil {
-		return err
-	}
-
-	basenames, err := findBasenames(cfg)
-	if err != nil {
-		return err
-	}
-
+	cfg := pack.Cfg // for convenience
 	args := cfg.Packages
 	fmt.Printf("Building %d Go packages:\n\n", len(args))
 	for _, pkg := range args {
@@ -1218,9 +1243,14 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 	buildEnv := &packer.BuildEnv{
 		BuildDir: packer.BuildDirOrMigrate,
 	}
+	bindir, err := os.MkdirTemp("", "gokrazy-bins-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(bindir)
 	var buildErr error
 	trace.WithRegion(context.Background(), "build", func() {
-		buildErr = buildEnv.Build(bindir, pkgs, packageBuildFlags, packageBuildTags, packageBuildEnv, noBuildPkgs, basenames)
+		buildErr = buildEnv.Build(bindir, pkgs, pack.packageBuildFlags, pack.packageBuildTags, pack.packageBuildEnv, noBuildPkgs, pack.basenames)
 	})
 	if buildErr != nil {
 		return buildErr
@@ -1240,7 +1270,7 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 		foundBins []foundBin
 	)
 	trace.WithRegion(context.Background(), "findbins", func() {
-		root, foundBins, err = findBins(cfg, buildEnv, bindir, basenames)
+		root, foundBins, err = findBins(cfg, buildEnv, bindir, pack.basenames)
 	})
 	if err != nil {
 		return err
@@ -1289,12 +1319,12 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 	if cfg.InternalCompatibilityFlags.InitPkg == "" {
 		gokrazyInit := &gokrazyInit{
 			root:             root,
-			flagFileContents: flagFileContents,
-			envFileContents:  envFileContents,
-			buildTimestamp:   buildTimestamp,
-			dontStart:        dontStart,
-			waitForClock:     waitForClock,
-			basenames:        basenames,
+			flagFileContents: pack.flagFileContents,
+			envFileContents:  pack.envFileContents,
+			buildTimestamp:   pack.buildTimestamp,
+			dontStart:        pack.dontStart,
+			waitForClock:     pack.waitForClock,
+			basenames:        pack.basenames,
 		}
 		if cfg.InternalCompatibilityFlags.OverwriteInit != "" {
 			return gokrazyInit.dump(cfg.InternalCompatibilityFlags.OverwriteInit)
@@ -1427,7 +1457,7 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 	ssl := &FileInfo{Filename: "ssl"}
 	ssl.Dirents = append(ssl.Dirents, &FileInfo{
 		Filename:    "ca-bundle.pem",
-		FromLiteral: systemCertsPEM,
+		FromLiteral: pack.systemCertsPEM,
 	})
 
 	schema := "http"
@@ -1636,13 +1666,13 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 		isDev = err == nil && st.Mode()&os.ModeDevice == os.ModeDevice
 
 		if isDev {
-			if err := pack.overwriteDevice(cfg.InternalCompatibilityFlags.Overwrite, root, rootDeviceFiles); err != nil {
+			if err := pack.overwriteDevice(cfg.InternalCompatibilityFlags.Overwrite, root, pack.rootDeviceFiles); err != nil {
 				return err
 			}
 			fmt.Printf("To boot gokrazy, plug the SD card into a supported device (see https://gokrazy.org/platforms/)\n")
 			fmt.Printf("\n")
 		} else {
-			lower := 1200*MB + int(firstPartitionOffsetSectors)
+			lower := 1200*MB + int(pack.firstPartitionOffsetSectors)
 
 			if cfg.InternalCompatibilityFlags.TargetStorageBytes == 0 {
 				return fmt.Errorf("--target_storage_bytes is required (e.g. --target_storage_bytes=%d) when using overwrite with a file", lower)
@@ -1654,7 +1684,7 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 				return fmt.Errorf("--target_storage_bytes must be at least %d (for boot + 2 root file systems + 100 MB /perm)", lower)
 			}
 
-			bootSize, rootSize, err = pack.overwriteFile(root, rootDeviceFiles, firstPartitionOffsetSectors)
+			bootSize, rootSize, err = pack.overwriteFile(root, pack.rootDeviceFiles, pack.firstPartitionOffsetSectors)
 			if err != nil {
 				return err
 			}
@@ -1800,7 +1830,7 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 			if err != nil {
 				return err
 			}
-			if _, err := bootFile.Seek(firstPartitionOffsetSectors*512, io.SeekStart); err != nil {
+			if _, err := bootFile.Seek(pack.firstPartitionOffsetSectors*512, io.SeekStart); err != nil {
 				return err
 			}
 			bootReader = &io.LimitedReader{
@@ -1812,7 +1842,7 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 			if err != nil {
 				return err
 			}
-			if _, err := rootFile.Seek(firstPartitionOffsetSectors*512+100*MB, io.SeekStart); err != nil {
+			if _, err := rootFile.Seek(pack.firstPartitionOffsetSectors*512+100*MB, io.SeekStart); err != nil {
 				return err
 			}
 			rootReader = &io.LimitedReader{
@@ -1890,7 +1920,7 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 		return err
 	}
 
-	for _, rootDeviceFile := range rootDeviceFiles {
+	for _, rootDeviceFile := range pack.rootDeviceFiles {
 		f, err := os.Open(filepath.Join(kernelDir, rootDeviceFile.Name))
 		if err != nil {
 			return err
@@ -1951,7 +1981,7 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 		if err := pollctx.Err(); err != nil {
 			return fmt.Errorf("device did not become healthy after update (%v)", err)
 		}
-		if err := pollUpdated1(pollctx, updateHttpClient, updateBaseUrl.String(), buildTimestamp); err != nil {
+		if err := pollUpdated1(pollctx, updateHttpClient, updateBaseUrl.String(), pack.buildTimestamp); err != nil {
 			log.Printf("device not yet reachable: %v", err)
 			time.Sleep(1 * time.Second)
 			continue
