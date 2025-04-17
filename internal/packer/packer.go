@@ -1611,6 +1611,14 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 	}
 	defer os.RemoveAll(pack.initTmp)
 
+	if err := pack.logicWrite(programName, sbomHook, bindir, dnsCheck); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte, withHash SBOMWithHash), bindir string, dnsCheck chan error) error {
 	var (
 		updateHttpClient         *http.Client
 		foundMatchingCertificate bool
