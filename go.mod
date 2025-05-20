@@ -6,7 +6,7 @@ require (
 	github.com/breml/rootcerts v0.2.20
 	github.com/donovanhide/eventsource v0.0.0-20210830082556-c59027999da0
 	github.com/gokrazy/gokapi v0.0.0-20250222080418-e140e9c461d8
-	github.com/gokrazy/internal v0.0.0-20250330091325-d5a706e35015
+	github.com/gokrazy/internal v0.0.0-20250520205945-c2e4e2b4f611
 	github.com/gokrazy/updater v0.0.0-20230215172637-813ccc7f21e2
 	github.com/google/renameio/v2 v2.0.0
 	github.com/spf13/cobra v1.6.1

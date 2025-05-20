@@ -84,7 +84,11 @@ func (p *Pack) writeCmdline(fw *fat.Writer, src string) error {
 			cmdline += "console=" + serialConsole + " "
 		}
 	}
-	cmdline += string(b)
+	cmdline += strings.TrimSpace(string(b))
+
+	if args := p.Cfg.KernelExtraArgs; len(args) > 0 {
+		cmdline += " " + strings.Join(args, " ")
+	}
 
 	// TODO: change {gokrazy,rtr7}/kernel/cmdline.txt to contain a dummy PARTUUID=
 	if p.ModifyCmdlineRoot() {
