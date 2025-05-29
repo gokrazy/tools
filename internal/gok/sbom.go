@@ -1,6 +1,7 @@
 package gok
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -67,7 +68,14 @@ func (r *sbomConfig) run(ctx context.Context, args []string, stdout, stderr io.W
 
 	updateflag.SetUpdate("yes")
 
+	var buf bytes.Buffer
 	pack := &packer.Pack{
+		// Send all build output to stderr so that stdout
+		// remains fully available for printing the SBOM.
+		Env: packer.Osenv{
+			Stdout: &buf,
+			Stderr: &buf,
+		},
 		FileCfg: fileCfg,
 		Cfg:     cfg,
 	}
@@ -79,6 +87,7 @@ func (r *sbomConfig) run(ctx context.Context, args []string, stdout, stderr io.W
 		log.Print(err)
 		return nil
 	} else if err != nil {
+		stderr.Write(buf.Bytes())
 		return err
 	}
 
