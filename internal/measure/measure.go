@@ -2,11 +2,17 @@ package measure
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
+
+	"github.com/mattn/go-isatty"
 )
 
 func Interactively(status string) (done func(fragment string)) {
+	if !isatty.IsTerminal(os.Stdout.Fd()) {
+		return func(string) {}
+	}
 	status = "[" + status + "]"
 	fmt.Print(status)
 	start := time.Now()

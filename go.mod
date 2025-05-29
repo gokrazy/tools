@@ -9,6 +9,7 @@ require (
 	github.com/gokrazy/internal v0.0.0-20250520205945-c2e4e2b4f611
 	github.com/gokrazy/updater v0.0.0-20230215172637-813ccc7f21e2
 	github.com/google/renameio/v2 v2.0.0
+	github.com/mattn/go-isatty v0.0.20
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/mod v0.23.0
