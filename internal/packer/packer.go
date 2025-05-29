@@ -1274,9 +1274,7 @@ func (pack *Pack) logicBuild(programName string, sbomHook func(marshaled []byte,
 	if e := cfg.EEPROMPackageOrDefault(); e != "" {
 		noBuildPkgs = append(noBuildPkgs, e)
 	}
-	// Ensure all build processes use umask 022. Programs like ntp which do
-	// privilege separation need the o+x bit.
-	syscall.Umask(0022)
+	setUmask()
 	buildEnv := &packer.BuildEnv{
 		BuildDir: packer.BuildDirOrMigrate,
 	}
