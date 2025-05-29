@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -31,6 +30,7 @@ import (
 	"github.com/gokrazy/internal/progress"
 	"github.com/gokrazy/internal/tlsflag"
 	"github.com/gokrazy/internal/updateflag"
+	"github.com/gokrazy/tools/internal/log"
 	"github.com/gokrazy/tools/internal/measure"
 	"github.com/gokrazy/tools/internal/version"
 	"github.com/gokrazy/tools/packer"
@@ -100,7 +100,9 @@ func buildPackagesFromFlags(cfg *config.Struct) []string {
 	return buildPackages
 }
 
-func findFlagFiles(cfg *config.Struct) (map[string][]string, error) {
+func (pack *Pack) findFlagFiles(cfg *config.Struct) (map[string][]string, error) {
+	log := pack.Env.Logger()
+
 	if len(cfg.PackageConfig) > 0 {
 		contents := make(map[string][]string)
 		for pkg, packageConfig := range cfg.PackageConfig {
@@ -152,7 +154,9 @@ func findFlagFiles(cfg *config.Struct) (map[string][]string, error) {
 	return contents, nil
 }
 
-func findBuildFlagsFiles(cfg *config.Struct) (map[string][]string, error) {
+func (pack *Pack) findBuildFlagsFiles(cfg *config.Struct) (map[string][]string, error) {
+	log := pack.Env.Logger()
+
 	if len(cfg.PackageConfig) > 0 {
 		contents := make(map[string][]string)
 		for pkg, packageConfig := range cfg.PackageConfig {
@@ -233,7 +237,9 @@ func findBuildEnv(cfg *config.Struct) (map[string][]string, error) {
 	return contents, nil
 }
 
-func findBuildTagsFiles(cfg *config.Struct) (map[string][]string, error) {
+func (pack *Pack) findBuildTagsFiles(cfg *config.Struct) (map[string][]string, error) {
+	log := pack.Env.Logger()
+
 	if len(cfg.PackageConfig) > 0 {
 		contents := make(map[string][]string)
 		for pkg, packageConfig := range cfg.PackageConfig {
@@ -298,7 +304,9 @@ func findBuildTagsFiles(cfg *config.Struct) (map[string][]string, error) {
 	return contents, nil
 }
 
-func findEnvFiles(cfg *config.Struct) (map[string][]string, error) {
+func (pack *Pack) findEnvFiles(cfg *config.Struct) (map[string][]string, error) {
+	log := pack.Env.Logger()
+
 	if len(cfg.PackageConfig) > 0 {
 		contents := make(map[string][]string)
 		for pkg, packageConfig := range cfg.PackageConfig {
@@ -684,7 +692,9 @@ func FindExtraFiles(cfg *config.Struct) (map[string][]*FileInfo, error) {
 	return extraFiles, nil
 }
 
-func findDontStart(cfg *config.Struct) (map[string]bool, error) {
+func (pack *Pack) findDontStart(cfg *config.Struct) (map[string]bool, error) {
+	log := pack.Env.Logger()
+
 	if len(cfg.PackageConfig) > 0 {
 		contents := make(map[string]bool)
 		for pkg, packageConfig := range cfg.PackageConfig {
@@ -731,7 +741,9 @@ func findDontStart(cfg *config.Struct) (map[string]bool, error) {
 	return contents, nil
 }
 
-func findWaitForClock(cfg *config.Struct) (map[string]bool, error) {
+func (pack *Pack) findWaitForClock(cfg *config.Struct) (map[string]bool, error) {
+	log := pack.Env.Logger()
+
 	if len(cfg.PackageConfig) > 0 {
 		contents := make(map[string]bool)
 		for pkg, packageConfig := range cfg.PackageConfig {
@@ -811,13 +823,13 @@ func (p *Pack) writeBootFile(bootfilename, mbrfilename string) error {
 	return f.Close()
 }
 
-func writeRootFile(filename string, root *FileInfo) error {
+func (p *Pack) writeRootFile(filename string, root *FileInfo) error {
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	if err := writeRoot(f, root); err != nil {
+	if err := p.writeRoot(f, root); err != nil {
 		return err
 	}
 	return f.Close()
@@ -855,6 +867,8 @@ func verifyNotMounted(dev string) error {
 }
 
 func (p *Pack) overwriteDevice(dev string, root *FileInfo, rootDeviceFiles []deviceconfig.RootFile) error {
+	log := p.Env.Logger()
+
 	if err := verifyNotMounted(dev); err != nil {
 		return err
 	}
@@ -878,7 +892,7 @@ func (p *Pack) overwriteDevice(dev string, root *FileInfo, rootDeviceFiles []dev
 		return err
 	}
 
-	if err := writeMBR(p.FirstPartitionOffsetSectors, &offsetReadSeeker{f, p.FirstPartitionOffsetSectors * 512}, f, p.Partuuid); err != nil {
+	if err := p.writeMBR(p.FirstPartitionOffsetSectors, &offsetReadSeeker{f, p.FirstPartitionOffsetSectors * 512}, f, p.Partuuid); err != nil {
 		return err
 	}
 
@@ -893,7 +907,7 @@ func (p *Pack) overwriteDevice(dev string, root *FileInfo, rootDeviceFiles []dev
 	defer os.Remove(tmp.Name())
 	defer tmp.Close()
 
-	if err := writeRoot(tmp, root); err != nil {
+	if err := p.writeRoot(tmp, root); err != nil {
 		return err
 	}
 	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
@@ -912,8 +926,8 @@ func (p *Pack) overwriteDevice(dev string, root *FileInfo, rootDeviceFiles []dev
 		return err
 	}
 
-	fmt.Printf("If your applications need to store persistent data, unplug and re-plug the SD card, then create a file system using e.g.:\n")
-	fmt.Printf("\n")
+	log.Printf("If your applications need to store persistent data, unplug and re-plug the SD card, then create a file system using e.g.:")
+	log.Printf("")
 	partition := partitionPath(dev, "4")
 	if p.ModifyCmdlineRoot() {
 		partition = fmt.Sprintf("/dev/disk/by-partuuid/%s", p.PermUUID())
@@ -922,8 +936,8 @@ func (p *Pack) overwriteDevice(dev string, root *FileInfo, rootDeviceFiles []dev
 			partition = partitionPath(target, "4")
 		}
 	}
-	fmt.Printf("\tmkfs.ext4 %s\n", partition)
-	fmt.Printf("\n")
+	log.Printf("\tmkfs.ext4 %s", partition)
+	log.Printf("")
 
 	return nil
 }
@@ -942,6 +956,8 @@ func (ors *offsetReadSeeker) Seek(offset int64, whence int) (int64, error) {
 }
 
 func (p *Pack) overwriteFile(root *FileInfo, rootDeviceFiles []deviceconfig.RootFile, firstPartitionOffsetSectors int64) (bootSize int64, rootSize int64, err error) {
+	log := p.Env.Logger()
+
 	f, err := os.Create(p.Cfg.InternalCompatibilityFlags.Overwrite)
 	if err != nil {
 		return 0, 0, err
@@ -963,7 +979,7 @@ func (p *Pack) overwriteFile(root *FileInfo, rootDeviceFiles []deviceconfig.Root
 		return 0, 0, err
 	}
 
-	if err := writeMBR(p.FirstPartitionOffsetSectors, &offsetReadSeeker{f, p.FirstPartitionOffsetSectors * 512}, f, p.Partuuid); err != nil {
+	if err := p.writeMBR(p.FirstPartitionOffsetSectors, &offsetReadSeeker{f, p.FirstPartitionOffsetSectors * 512}, f, p.Partuuid); err != nil {
 		return 0, 0, err
 	}
 
@@ -978,7 +994,7 @@ func (p *Pack) overwriteFile(root *FileInfo, rootDeviceFiles []deviceconfig.Root
 	defer os.Remove(tmp.Name())
 	defer tmp.Close()
 
-	if err := writeRoot(tmp, root); err != nil {
+	if err := p.writeRoot(tmp, root); err != nil {
 		return 0, 0, err
 	}
 	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
@@ -994,9 +1010,9 @@ func (p *Pack) overwriteFile(root *FileInfo, rootDeviceFiles []deviceconfig.Root
 		return 0, 0, err
 	}
 
-	fmt.Printf("If your applications need to store persistent data, create a file system using e.g.:\n")
-	fmt.Printf("\t/sbin/mkfs.ext4 -F -E offset=%v %s %v\n", p.FirstPartitionOffsetSectors*512+1100*MB, p.Cfg.InternalCompatibilityFlags.Overwrite, packer.PermSizeInKB(firstPartitionOffsetSectors, uint64(p.Cfg.InternalCompatibilityFlags.TargetStorageBytes)))
-	fmt.Printf("\n")
+	log.Printf("If your applications need to store persistent data, create a file system using e.g.:")
+	log.Printf("\t/sbin/mkfs.ext4 -F -E offset=%v %s %v", p.FirstPartitionOffsetSectors*512+1100*MB, p.Cfg.InternalCompatibilityFlags.Overwrite, packer.PermSizeInKB(firstPartitionOffsetSectors, uint64(p.Cfg.InternalCompatibilityFlags.TargetStorageBytes)))
+	log.Printf("")
 
 	return int64(bs), int64(rs), f.Close()
 }
@@ -1013,8 +1029,35 @@ type OutputStruct struct {
 	Type OutputType `json:",omitempty"`
 }
 
+type Osenv struct {
+	Stdin  io.Reader
+	Stdout io.Writer
+	Stderr io.Writer
+	logger log.Logger
+}
+
+func (s *Osenv) initLogger() {
+	if s.logger == nil {
+		s.logger = log.New(s.Stderr)
+	}
+}
+
+func (s *Osenv) Logger() log.Logger {
+	s.initLogger()
+	return s.logger
+}
+
+func (s *Osenv) Logf(format string, v ...any) {
+	s.initLogger()
+	s.logger.Printf(format, v...)
+}
+
 type Pack struct {
 	packer.Pack
+
+	// Everything Operating System environment related
+	// like input/output channels to use (for logging).
+	Env Osenv
 
 	// FileCfg holds an untouched copy
 	// of the config file, as it was read from disk.
@@ -1057,6 +1100,7 @@ func filterGoEnv(env []string) []string {
 }
 
 func (pack *Pack) logicPrepare(programName string, sbomHook func(marshaled []byte, withHash SBOMWithHash)) error {
+	log := pack.Env.Logger()
 	cfg := pack.Cfg
 	updateflag.SetUpdate(cfg.InternalCompatibilityFlags.Update)
 	tlsflag.SetInsecure(cfg.InternalCompatibilityFlags.Insecure)
@@ -1112,40 +1156,43 @@ func (pack *Pack) logicPrepare(programName string, sbomHook func(marshaled []byt
 
 	if os.Getenv("GOKR_PACKER_FD") != "" { // partitioning child process
 		if _, err := pack.SudoPartition(cfg.InternalCompatibilityFlags.Overwrite); err != nil {
-			log.Fatal(err)
+			log.Printf("%s", err)
+			os.Exit(1)
 		}
 		os.Exit(0)
 	}
 
-	fmt.Printf("%s %s on GOARCH=%s GOOS=%s\n\n",
+	log.Printf("%s %s on GOARCH=%s GOOS=%s",
 		programName,
 		version.ReadBrief(),
 		runtime.GOARCH,
 		runtime.GOOS)
+	log.Printf("")
 
 	if cfg.InternalCompatibilityFlags.Update != "" {
 		// TODO: fix update URL:
-		fmt.Printf("Updating gokrazy installation on http://%s\n\n", cfg.Hostname)
+		log.Printf("Updating gokrazy installation on http://%s", cfg.Hostname)
+		log.Printf("")
 	}
 
-	fmt.Printf("Build target: %s\n", strings.Join(filterGoEnv(packer.Env()), " "))
+	log.Printf("Build target: %s", strings.Join(filterGoEnv(packer.Env()), " "))
 
 	pack.buildTimestamp = time.Now().Format(time.RFC3339)
-	fmt.Printf("Build timestamp: %s\n", pack.buildTimestamp)
+	log.Printf("Build timestamp: %s", pack.buildTimestamp)
 
-	systemCertsPEM, err := systemCertsPEM()
+	systemCertsPEM, err := pack.findSystemCertsPEM()
 	if err != nil {
 		return err
 	}
 	pack.systemCertsPEM = systemCertsPEM
 
-	packageBuildFlags, err := findBuildFlagsFiles(cfg)
+	packageBuildFlags, err := pack.findBuildFlagsFiles(cfg)
 	if err != nil {
 		return err
 	}
 	pack.packageBuildFlags = packageBuildFlags
 
-	packageBuildTags, err := findBuildTagsFiles(cfg)
+	packageBuildTags, err := pack.findBuildTagsFiles(cfg)
 	if err != nil {
 		return err
 	}
@@ -1157,25 +1204,25 @@ func (pack *Pack) logicPrepare(programName string, sbomHook func(marshaled []byt
 	}
 	pack.packageBuildEnv = packageBuildEnv
 
-	flagFileContents, err := findFlagFiles(cfg)
+	flagFileContents, err := pack.findFlagFiles(cfg)
 	if err != nil {
 		return err
 	}
 	pack.flagFileContents = flagFileContents
 
-	envFileContents, err := findEnvFiles(cfg)
+	envFileContents, err := pack.findEnvFiles(cfg)
 	if err != nil {
 		return err
 	}
 	pack.envFileContents = envFileContents
 
-	dontStart, err := findDontStart(cfg)
+	dontStart, err := pack.findDontStart(cfg)
 	if err != nil {
 		return err
 	}
 	pack.dontStart = dontStart
 
-	waitForClock, err := findWaitForClock(cfg)
+	waitForClock, err := pack.findWaitForClock(cfg)
 	if err != nil {
 		return err
 	}
@@ -1191,25 +1238,28 @@ func (pack *Pack) logicPrepare(programName string, sbomHook func(marshaled []byt
 }
 
 func (pack *Pack) logicBuild(programName string, sbomHook func(marshaled []byte, withHash SBOMWithHash), bindir string) error {
+	log := pack.Env.Logger()
+
 	cfg := pack.Cfg // for convenience
 	args := cfg.Packages
-	fmt.Printf("Building %d Go packages:\n\n", len(args))
+	log.Printf("Building %d Go packages:", len(args))
+	log.Printf("")
 	for _, pkg := range args {
-		fmt.Printf("  %s\n", pkg)
+		log.Printf("  %s", pkg)
 		for _, configFile := range packageConfigFiles[pkg] {
-			fmt.Printf("    will %s\n",
+			log.Printf("    will %s",
 				configFile.kind)
 			if configFile.path != "" {
-				fmt.Printf("      from %s\n",
+				log.Printf("      from %s",
 					configFile.path)
 			}
 			if !configFile.lastModified.IsZero() {
-				fmt.Printf("      last modified: %s (%s ago)\n",
+				log.Printf("      last modified: %s (%s ago)",
 					configFile.lastModified.Format(time.RFC3339),
 					time.Since(configFile.lastModified).Round(1*time.Second))
 			}
 		}
-		fmt.Printf("\n")
+		log.Printf("")
 	}
 
 	pkgs := append([]string{}, cfg.GokrazyPackagesOrDefault()...)
@@ -1238,7 +1288,7 @@ func (pack *Pack) logicBuild(programName string, sbomHook func(marshaled []byte,
 		return buildErr
 	}
 
-	fmt.Println()
+	log.Printf("")
 
 	var err error
 	trace.WithRegion(context.Background(), "validate", func() {
@@ -1281,22 +1331,23 @@ func (pack *Pack) logicBuild(programName string, sbomHook func(marshaled []byte,
 	}
 
 	if len(packageConfigFiles) > 0 {
-		fmt.Printf("Including extra files for Go packages:\n\n")
+		log.Printf("Including extra files for Go packages:")
+		log.Printf("")
 		for _, pkg := range args {
 			if len(packageConfigFiles[pkg]) == 0 {
 				continue
 			}
-			fmt.Printf("  %s\n", pkg)
+			log.Printf("  %s", pkg)
 			for _, configFile := range packageConfigFiles[pkg] {
-				fmt.Printf("    will %s\n",
+				log.Printf("    will %s",
 					configFile.kind)
-				fmt.Printf("      from %s\n",
+				log.Printf("      from %s",
 					configFile.path)
-				fmt.Printf("      last modified: %s (%s ago)\n",
+				log.Printf("      last modified: %s (%s ago)",
 					configFile.lastModified.Format(time.RFC3339),
 					time.Since(configFile.lastModified).Round(1*time.Second))
 			}
-			fmt.Printf("\n")
+			log.Printf("")
 		}
 	}
 
@@ -1396,7 +1447,8 @@ func (pack *Pack) logicBuild(programName string, sbomHook func(marshaled []byte,
 	pack.kernelDir = kernelDir
 	modulesDir := filepath.Join(kernelDir, "lib", "modules")
 	if _, err := os.Stat(modulesDir); err == nil {
-		fmt.Printf("Including loadable kernel modules from:\n%s\n", modulesDir)
+		log.Printf("Including loadable kernel modules from:")
+		log.Printf("  %s", modulesDir)
 		modules := &FileInfo{
 			Filename: "modules",
 		}
@@ -1619,6 +1671,8 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 }
 
 func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte, withHash SBOMWithHash), bindir string, dnsCheck chan error) error {
+	log := pack.Env.Logger()
+
 	var (
 		updateHttpClient         *http.Client
 		foundMatchingCertificate bool
@@ -1647,14 +1701,15 @@ func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte,
 		}
 
 		if updateBaseUrl.Scheme != "https" && foundMatchingCertificate {
-			fmt.Printf("\n")
-			fmt.Printf("!!!WARNING!!! Possible SSL-Stripping detected!\n")
-			fmt.Printf("Found certificate for hostname in your client configuration but the host does not offer https!\n")
-			fmt.Printf("\n")
+			log.Printf("")
+			log.Printf("!!!WARNING!!! Possible SSL-Stripping detected!")
+			log.Printf("Found certificate for hostname in your client configuration but the host does not offer https!")
+			log.Printf("")
 			if !tlsflag.Insecure() {
-				log.Fatalf("update canceled: TLS certificate found, but negotiating a TLS connection with the target failed")
+				log.Printf("update canceled: TLS certificate found, but negotiating a TLS connection with the target failed")
+				os.Exit(1)
 			}
-			fmt.Printf("Proceeding anyway as requested (--insecure).\n")
+			log.Printf("Proceeding anyway as requested (--insecure).")
 		}
 
 		// Opt out of PARTUUID= for updating until we can check the remote
@@ -1674,11 +1729,11 @@ func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte,
 		pack.UseGPT = target.Supports("gpt")
 		pack.ExistingEEPROM = target.InstalledEEPROM()
 	}
-	fmt.Printf("\n")
-	fmt.Printf("Feature summary:\n")
-	fmt.Printf("  use GPT: %v\n", pack.UseGPT)
-	fmt.Printf("  use PARTUUID: %v\n", pack.UsePartuuid)
-	fmt.Printf("  use GPT PARTUUID: %v\n", pack.UseGPTPartuuid)
+	log.Printf("")
+	log.Printf("Feature summary:")
+	log.Printf("  use GPT: %v", pack.UseGPT)
+	log.Printf("  use PARTUUID: %v", pack.UsePartuuid)
+	log.Printf("  use GPT PARTUUID: %v", pack.UseGPTPartuuid)
 
 	cfg := pack.Cfg   // for convenience
 	root := pack.root // for convenience
@@ -1703,8 +1758,8 @@ func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte,
 			if err := pack.overwriteDevice(cfg.InternalCompatibilityFlags.Overwrite, root, pack.rootDeviceFiles); err != nil {
 				return err
 			}
-			fmt.Printf("To boot gokrazy, plug the SD card into a supported device (see https://gokrazy.org/platforms/)\n")
-			fmt.Printf("\n")
+			log.Printf("To boot gokrazy, plug the SD card into a supported device (see https://gokrazy.org/platforms/)")
+			log.Printf("")
 		} else {
 			lower := 1200*MB + int(pack.firstPartitionOffsetSectors)
 
@@ -1723,8 +1778,8 @@ func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte,
 				return err
 			}
 
-			fmt.Printf("To boot gokrazy, copy %s to an SD card and plug it into a supported device (see https://gokrazy.org/platforms/)\n", cfg.InternalCompatibilityFlags.Overwrite)
-			fmt.Printf("\n")
+			log.Printf("To boot gokrazy, copy %s to an SD card and plug it into a supported device (see https://gokrazy.org/platforms/)", cfg.InternalCompatibilityFlags.Overwrite)
+			log.Printf("")
 		}
 
 	case pack.Output != nil && pack.Output.Type == OutputTypeGaf && pack.Output.Path != "":
@@ -1752,7 +1807,7 @@ func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte,
 		if cfg.InternalCompatibilityFlags.OverwriteRoot != "" {
 			var rootErr error
 			trace.WithRegion(context.Background(), "writeroot", func() {
-				rootErr = writeRootFile(cfg.InternalCompatibilityFlags.OverwriteRoot, root)
+				rootErr = pack.writeRootFile(cfg.InternalCompatibilityFlags.OverwriteRoot, root)
 			})
 			if rootErr != nil {
 				return rootErr
@@ -1783,13 +1838,14 @@ func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte,
 			}
 			defer os.Remove(tmpRoot.Name())
 
-			if err := writeRoot(tmpRoot, root); err != nil {
+			if err := pack.writeRoot(tmpRoot, root); err != nil {
 				return err
 			}
 		}
 	}
 
-	fmt.Printf("\nBuild complete!\n")
+	log.Printf("")
+	log.Printf("Build complete!")
 
 	update := pack.update // for convenience
 	hostPort := update.Hostname
@@ -1803,44 +1859,46 @@ func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte,
 		hostPort = fmt.Sprintf("%s:%s", hostPort, update.HTTPSPort)
 	}
 
-	fmt.Printf("\nTo interact with the device, gokrazy provides a web interface reachable at:\n")
-	fmt.Printf("\n")
-	fmt.Printf("\t%s://gokrazy:%s@%s/\n", pack.schema, update.HTTPPassword, hostPort)
-	fmt.Printf("\n")
-	fmt.Printf("In addition, the following Linux consoles are set up:\n")
-	fmt.Printf("\n")
+	log.Printf("")
+	log.Printf("To interact with the device, gokrazy provides a web interface reachable at:")
+	log.Printf("")
+	log.Printf("\t%s://gokrazy:%s@%s/", pack.schema, update.HTTPPassword, hostPort)
+	log.Printf("")
+	log.Printf("In addition, the following Linux consoles are set up:")
+	log.Printf("")
 	if cfg.SerialConsoleOrDefault() != "disabled" {
-		fmt.Printf("\t1. foreground Linux console on the serial port (115200n8, pin 6, 8, 10 for GND, TX, RX), accepting input\n")
-		fmt.Printf("\t2. secondary Linux framebuffer console on HDMI; shows Linux kernel message but no init system messages\n")
+		log.Printf("\t1. foreground Linux console on the serial port (115200n8, pin 6, 8, 10 for GND, TX, RX), accepting input")
+		log.Printf("\t2. secondary Linux framebuffer console on HDMI; shows Linux kernel message but no init system messages")
 	} else {
-		fmt.Printf("\t1. foreground Linux framebuffer console on HDMI\n")
+		log.Printf("\t1. foreground Linux framebuffer console on HDMI")
 	}
 
 	if cfg.SerialConsoleOrDefault() != "disabled" {
-		fmt.Printf("\n")
-		fmt.Printf("Use -serial_console=disabled to make gokrazy not touch the serial port,\nand instead make the framebuffer console on HDMI the foreground console\n")
+		log.Printf("")
+		log.Printf("Use -serial_console=disabled to make gokrazy not touch the serial port, and instead make the framebuffer console on HDMI the foreground console")
 	}
-	fmt.Printf("\n")
+	log.Printf("")
 	if pack.schema == "https" {
 		certObj, err := getCertificateFromString(update.CertPEM)
 		if err != nil {
 			return fmt.Errorf("error loading certificate: %v", err)
 		} else {
-			fmt.Printf("\n")
-			fmt.Printf("The TLS Certificate of the gokrazy web interface is located under\n")
-			fmt.Printf("\t%s\n", cfg.Meta.Path)
-			fmt.Printf("The fingerprint of the Certificate is\n")
-			fmt.Printf("\t%x\n", getCertificateFingerprintSHA1(certObj))
-			fmt.Printf("The certificate is valid until\n")
-			fmt.Printf("\t%s\n", certObj.NotAfter.String())
-			fmt.Printf("Please verify the certificate, before adding an exception to your browser!\n")
+			log.Printf("")
+			log.Printf("The TLS Certificate of the gokrazy web interface is located under")
+			log.Printf("\t%s", cfg.Meta.Path)
+			log.Printf("The fingerprint of the Certificate is")
+			log.Printf("\t%x", getCertificateFingerprintSHA1(certObj))
+			log.Printf("The certificate is valid until")
+			log.Printf("\t%s", certObj.NotAfter.String())
+			log.Printf("Please verify the certificate, before adding an exception to your browser!")
 		}
 	}
 
 	if err := <-dnsCheck; err != nil {
-		fmt.Printf("\nWARNING: if the above URL does not work, perhaps name resolution (DNS) is broken\n")
-		fmt.Printf("in your local network? Resolving your hostname failed: %v\n", err)
-		fmt.Printf("Did you maybe configure a DNS server other than your router?\n\n")
+		log.Printf("WARNING: if the above URL does not work, perhaps name resolution (DNS) is broken")
+		log.Printf("in your local network? Resolving your hostname failed: %v", err)
+		log.Printf("Did you maybe configure a DNS server other than your router?")
+		log.Printf("")
 	}
 
 	if updateflag.NewInstallation() {
@@ -1944,7 +2002,7 @@ func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte,
 	}
 
 	updateBaseUrl.Path = "/"
-	fmt.Printf("Updating %s\n", updateBaseUrl.String())
+	log.Printf("Updating %s", updateBaseUrl.String())
 
 	progctx, canc := context.WithCancel(context.Background())
 	defer canc()
@@ -1953,7 +2011,7 @@ func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte,
 
 	// Start with the root file system because writing to the non-active
 	// partition cannot break the currently running system.
-	if err := updateWithProgress(prog, rootReader, target, "root file system", "root"); err != nil {
+	if err := pack.updateWithProgress(prog, rootReader, target, "root file system", "root"); err != nil {
 		return err
 	}
 
@@ -1963,7 +2021,7 @@ func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte,
 			return err
 		}
 
-		if err := updateWithProgress(
+		if err := pack.updateWithProgress(
 			prog, f, target, fmt.Sprintf("root device file %s", rootDeviceFile.Name),
 			filepath.Join("device-specific", rootDeviceFile.Name),
 		); err != nil {
@@ -1975,7 +2033,7 @@ func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte,
 		}
 	}
 
-	if err := updateWithProgress(prog, bootReader, target, "boot file system", "boot"); err != nil {
+	if err := pack.updateWithProgress(prog, bootReader, target, "boot file system", "boot"); err != nil {
 		return err
 	}
 
@@ -2000,17 +2058,17 @@ func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte,
 	// Stop progress reporting to not mess up the following logs output.
 	canc()
 
-	fmt.Printf("Triggering reboot\n")
+	log.Printf("Triggering reboot")
 	if err := target.Reboot(); err != nil {
 		if errors.Is(err, syscall.ECONNRESET) {
-			fmt.Printf("ignoring reboot error: %v\n", err)
+			log.Printf("ignoring reboot error: %v", err)
 		} else {
 			return fmt.Errorf("reboot: %v", err)
 		}
 	}
 
 	const polltimeout = 5 * time.Minute
-	fmt.Printf("Updated, waiting %v for the device to become reachable (cancel with Ctrl-C any time)\n", polltimeout)
+	log.Printf("Updated, waiting %v for the device to become reachable (cancel with Ctrl-C any time)", polltimeout)
 
 	pollctx, canc := context.WithTimeout(context.Background(), polltimeout)
 	defer canc()
@@ -2024,7 +2082,7 @@ func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte,
 			continue
 		}
 
-		fmt.Printf("Device ready to use!\n")
+		log.Printf("Device ready to use!")
 		break
 	}
 
@@ -2102,7 +2160,9 @@ func (pack *Pack) validateTargetArchMatchesKernel() error {
 	return nil
 }
 
-func updateWithProgress(prog *progress.Reporter, reader io.Reader, target *updater.Target, logStr string, stream string) error {
+func (pack *Pack) updateWithProgress(prog *progress.Reporter, reader io.Reader, target *updater.Target, logStr string, stream string) error {
+	log := pack.Env.Logger()
+
 	start := time.Now()
 	prog.SetStatus(fmt.Sprintf("update %s", logStr))
 	prog.SetTotal(0)
@@ -2117,7 +2177,7 @@ func updateWithProgress(prog *progress.Reporter, reader io.Reader, target *updat
 	}
 	duration := time.Since(start)
 	transferred := progress.Reset()
-	fmt.Printf("\rTransferred %s (%s) at %.2f MiB/s (total: %v)\n",
+	log.Printf("\rTransferred %s (%s) at %.2f MiB/s (total: %v)",
 		logStr,
 		humanize.Bytes(transferred),
 		float64(transferred)/duration.Seconds()/1024/1024,

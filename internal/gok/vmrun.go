@@ -128,6 +128,10 @@ func (r *vmRunConfig) buildFullDiskImage(ctx context.Context, dest string) error
 	}
 
 	pack := &packer.Pack{
+		Env: packer.Osenv{
+			Stdout: os.Stdout,
+			Stderr: os.Stderr,
+		},
 		FileCfg: fileCfg,
 		Cfg:     cfg,
 		Output:  &output,

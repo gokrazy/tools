@@ -142,6 +142,10 @@ func (r *overwriteImplConfig) run(ctx context.Context, args []string, stdout, st
 	}
 
 	pack := &packer.Pack{
+		Env: packer.Osenv{
+			Stdout: os.Stdout,
+			Stderr: os.Stderr,
+		},
 		FileCfg: fileCfg,
 		Cfg:     cfg,
 		Output:  &output,

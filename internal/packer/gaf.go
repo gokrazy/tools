@@ -45,7 +45,7 @@ func (p *Pack) overwriteGaf(root *FileInfo, sbomMarshaled []byte) error {
 		return err
 	}
 
-	if err := writeRoot(tmpRoot, root); err != nil {
+	if err := p.writeRoot(tmpRoot, root); err != nil {
 		return err
 	}
 

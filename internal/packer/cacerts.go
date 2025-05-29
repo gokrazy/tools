@@ -1,17 +1,18 @@
 package packer
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/breml/rootcerts/embedded"
 )
 
-func systemCertsPEM() (string, error) {
+func (pack *Pack) findSystemCertsPEM() (string, error) {
+	log := pack.Env.Logger()
+
 	var source string
 	defer func() {
-		fmt.Printf("Loading system CA certificates from %s\n", source)
+		log.Printf("Loading system CA certificates from %s", source)
 	}()
 	// On Linux, we can copy the operating system’s certificate store.
 	// certFiles is defined in cacerts_linux.go (or defined as empty in

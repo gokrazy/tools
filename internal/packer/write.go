@@ -69,6 +69,8 @@ func copyFileSquash(d *squashfs.Directory, dest, src string) error {
 }
 
 func (p *Pack) writeCmdline(fw *fat.Writer, src string) error {
+	log := p.Env.Logger()
+
 	b, err := os.ReadFile(src)
 	if err != nil {
 		return err
@@ -201,8 +203,9 @@ func (p *Pack) copyGlobsToBoot(fw *fat.Writer, srcDir string, globs []string) er
 }
 
 func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
-	fmt.Printf("\n")
-	fmt.Printf("Creating boot file system\n")
+	log := p.Env.Logger()
+	log.Printf("")
+	log.Printf("Creating boot file system")
 	done := measure.Interactively("creating boot file system")
 	fragment := ""
 	defer func() {
@@ -230,7 +233,8 @@ func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 		return err
 	}
 
-	fmt.Printf("\nKernel directory: %s\n", kernelDir)
+	log.Printf("")
+	log.Printf("Kernel directory: %s", kernelDir)
 
 	bufw := bufio.NewWriter(f)
 	fw, err := fat.NewWriter(bufw)
@@ -287,11 +291,11 @@ func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 		}
 
 		if base := filepath.Base(target); base == "recovery.bin" || base == "RECOVERY.000" {
-			fmt.Printf("  %s\n", base)
+			log.Printf("  %s", base)
 			// No signature required for recovery.bin itself.
 			return "", nil
 		}
-		fmt.Printf("  %s (sig %s)\n", filepath.Base(target), shortenSHA256(h.Sum(nil)))
+		log.Printf("  %s (sig %s)", filepath.Base(target), shortenSHA256(h.Sum(nil)))
 
 		// Include the SHA256 hash in the image in an accompanying .sig file:
 		sigFn := target
@@ -308,7 +312,7 @@ func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 		return fmt.Sprintf("%x", h.Sum(nil)), err
 	}
 	if eepromDir != "" {
-		fmt.Printf("EEPROM update summary:\n")
+		log.Printf("EEPROM update summary:")
 		pieSig, err := writeEepromUpdateFile(filepath.Join(eepromDir, "pieeprom-*.bin"), "/pieeprom.upd")
 		if err != nil {
 			return err
@@ -320,7 +324,7 @@ func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 		targetFilename := "/recovery.bin"
 		if pieSig == p.ExistingEEPROM.PieepromSHA256 &&
 			vlSig == p.ExistingEEPROM.VL805SHA256 {
-			fmt.Printf("  installing recovery.bin as RECOVERY.000 (EEPROM already up-to-date)\n")
+			log.Printf("  installing recovery.bin as RECOVERY.000 (EEPROM already up-to-date)")
 			targetFilename = "/RECOVERY.000"
 		}
 		if _, err := writeEepromUpdateFile(filepath.Join(eepromDir, "recovery.bin"), targetFilename); err != nil {
@@ -376,7 +380,7 @@ func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 			return err
 		}
 		defer fmbr.Close()
-		if err := writeMBR(p.FirstPartitionOffsetSectors, f.(io.ReadSeeker), fmbr, p.Partuuid); err != nil {
+		if err := p.writeMBR(p.FirstPartitionOffsetSectors, f.(io.ReadSeeker), fmbr, p.Partuuid); err != nil {
 			return err
 		}
 		if err := fmbr.Close(); err != nil {
@@ -574,9 +578,11 @@ func writeFileInfo(dir *squashfs.Directory, fi *FileInfo) error {
 	return d.Flush()
 }
 
-func writeRoot(f io.WriteSeeker, root *FileInfo) error {
-	fmt.Printf("\n")
-	fmt.Printf("Creating root file system\n")
+func (p *Pack) writeRoot(f io.WriteSeeker, root *FileInfo) error {
+	log := p.Env.Logger()
+
+	log.Printf("")
+	log.Printf("Creating root file system")
 	done := measure.Interactively("creating root file system")
 	defer func() {
 		done("")
@@ -620,7 +626,9 @@ func (p *Pack) writeRootDeviceFiles(f io.WriteSeeker, rootDeviceFiles []deviceco
 	return nil
 }
 
-func writeMBR(firstPartitionOffsetSectors int64, f io.ReadSeeker, fw io.WriteSeeker, partuuid uint32) error {
+func (p *Pack) writeMBR(firstPartitionOffsetSectors int64, f io.ReadSeeker, fw io.WriteSeeker, partuuid uint32) error {
+	log := p.Env.Logger()
+
 	rd, err := fat.NewReader(f)
 	if err != nil {
 		return err
@@ -640,9 +648,9 @@ func writeMBR(firstPartitionOffsetSectors int64, f io.ReadSeeker, fw io.WriteSee
 	vmlinuzLba := uint32((vmlinuzOffset / 512) + firstPartitionOffsetSectors)
 	cmdlineTxtLba := uint32((cmdlineOffset / 512) + firstPartitionOffsetSectors)
 
-	fmt.Printf("MBR summary:\n")
-	fmt.Printf("  LBAs: vmlinuz=%d cmdline.txt=%d\n", vmlinuzLba, cmdlineTxtLba)
-	fmt.Printf("  PARTUUID: %08x\n", partuuid)
+	log.Printf("MBR summary:")
+	log.Printf("  LBAs: vmlinuz=%d cmdline.txt=%d", vmlinuzLba, cmdlineTxtLba)
+	log.Printf("  PARTUUID: %08x", partuuid)
 	mbr := mbr.Configure(vmlinuzLba, cmdlineTxtLba, partuuid)
 	if _, err := fw.Write(mbr[:]); err != nil {
 		return err
