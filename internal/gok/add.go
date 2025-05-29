@@ -13,7 +13,6 @@ import (
 
 	"github.com/gokrazy/internal/config"
 	"github.com/gokrazy/internal/instanceflag"
-	"github.com/google/renameio/v2"
 	"github.com/spf13/cobra"
 	"golang.org/x/mod/modfile"
 )
@@ -140,7 +139,7 @@ func (r *addImplConfig) copyReplaceDirectives(ctx context.Context, oldDir, newDi
 		return err
 	}
 
-	if err := renameio.WriteFile(newPath, b, 0600, renameio.WithExistingPermissions()); err != nil {
+	if err := replaceFile(newPath, b, 0600); err != nil {
 		return err
 	}
 	return nil
@@ -221,7 +220,7 @@ func (r *addImplConfig) addPackageToConfig(importPath string) error {
 	if err != nil {
 		return err
 	}
-	if err := renameio.WriteFile(config.InstanceConfigPath(), b, 0600, renameio.WithExistingPermissions()); err != nil {
+	if err := replaceFile(config.InstanceConfigPath(), b, 0600); err != nil {
 		return fmt.Errorf("updating config.json: %v", err)
 	}
 	return nil
