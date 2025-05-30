@@ -76,11 +76,7 @@ func init() {
 	instanceflag.RegisterPflags(vmRunCmd.Flags())
 }
 
-func (r *vmRunConfig) buildFullDiskImage(ctx context.Context, dest string) error {
-	fileCfg, err := config.ApplyInstanceFlag()
-	if err != nil {
-		return err
-	}
+func (r *vmRunConfig) buildFullDiskImage(ctx context.Context, dest string, fileCfg *config.Struct) error {
 
 	if r.arch != "" {
 		os.Setenv("GOARCH", r.arch)
@@ -231,6 +227,22 @@ func (r *vmRunConfig) runQEMU(ctx context.Context, fullDiskImage string, extraAr
 }
 
 func (r *vmRunConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+	fileCfg, err := config.ApplyInstanceFlag()
+	if err != nil {
+		return err
+	}
+
+	if fileCfg.SerialConsole == "disabled" {
+		// The serial console is disabled by default:
+		// https://gokrazy.org/userguide/instance-config/#serialconsole
+		// 'gok vm run' currently launches QEMU such that
+		// there is a serial0 monitor available, but no HDMI.
+		// Hence, print a tip for how to get the serial console to work.
+		log.Printf("")
+		log.Printf(`  Tip: Your config.json disables the serial console. Set "SerialConsole": "ttyAMA0,115200", then select View -> serial0 in QEMU to access an interactive shell for debugging.`)
+		log.Printf("")
+	}
+
 	f, err := os.CreateTemp("", "gokrazy-vm")
 	if err != nil {
 		return err
@@ -241,7 +253,7 @@ func (r *vmRunConfig) run(ctx context.Context, args []string, stdout, stderr io.
 	fdi := f.Name()
 	log.Printf("building disk image")
 	if !r.dry {
-		if err := r.buildFullDiskImage(ctx, fdi); err != nil {
+		if err := r.buildFullDiskImage(ctx, fdi, fileCfg); err != nil {
 			return err
 		}
 	}
