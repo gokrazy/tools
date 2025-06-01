@@ -127,7 +127,7 @@ func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 		return err
 	}
 
-	target, err := updater.NewTarget(updateBaseUrl.String(), httpClient)
+	target, err := updater.NewTarget(ctx, updateBaseUrl.String(), httpClient)
 	if err != nil {
 		return fmt.Errorf("checking target partuuid support: %v", err)
 	}
@@ -153,7 +153,7 @@ func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 
 	{
 		start := time.Now()
-		err := target.Put("uploadtemp/gok-run/"+basename, io.TeeReader(f, &progress.Writer{}))
+		err := target.Put(ctx, "uploadtemp/gok-run/"+basename, io.TeeReader(f, &progress.Writer{}))
 		if err != nil {
 			return fmt.Errorf("uploading temporary binary: %v", err)
 		}
@@ -171,6 +171,7 @@ func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 	// /user/<basename>. Includes an automatic service restart.
 	{
 		err := target.Divert(
+			ctx,
 			"/user/"+basename,
 			"gok-run/"+basename,
 			cfg.PackageConfig[importPath].CommandLineFlags,

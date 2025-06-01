@@ -1669,6 +1669,7 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 }
 
 func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte, withHash SBOMWithHash), bindir string, dnsCheck chan error) error {
+	ctx := context.Background()
 	log := pack.Env.Logger()
 
 	var (
@@ -1718,7 +1719,7 @@ func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte,
 		}
 		updateBaseUrl.Path = "/"
 
-		target, err = updater.NewTarget(updateBaseUrl.String(), updateHttpClient)
+		target, err = updater.NewTarget(ctx, updateBaseUrl.String(), updateHttpClient)
 		if err != nil {
 			return fmt.Errorf("checking target partuuid support: %v", err)
 		}
@@ -2035,7 +2036,7 @@ func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte,
 		return err
 	}
 
-	if err := target.StreamTo("mbr", mbrReader); err != nil {
+	if err := target.StreamTo(ctx, "mbr", mbrReader); err != nil {
 		if err == updater.ErrUpdateHandlerNotImplemented {
 			log.Printf("target does not support updating MBR yet, ignoring")
 		} else {
@@ -2044,11 +2045,11 @@ func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte,
 	}
 
 	if cfg.InternalCompatibilityFlags.Testboot {
-		if err := target.Testboot(); err != nil {
+		if err := target.Testboot(ctx); err != nil {
 			return fmt.Errorf("enable testboot of non-active partition: %v", err)
 		}
 	} else {
-		if err := target.Switch(); err != nil {
+		if err := target.Switch(ctx); err != nil {
 			return fmt.Errorf("switching to non-active partition: %v", err)
 		}
 	}
@@ -2057,7 +2058,7 @@ func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte,
 	canc()
 
 	log.Printf("Triggering reboot")
-	if err := target.Reboot(); err != nil {
+	if err := target.Reboot(ctx); err != nil {
 		if errors.Is(err, syscall.ECONNRESET) {
 			log.Printf("ignoring reboot error: %v", err)
 		} else {
@@ -2159,6 +2160,7 @@ func (pack *Pack) validateTargetArchMatchesKernel() error {
 }
 
 func (pack *Pack) updateWithProgress(prog *progress.Reporter, reader io.Reader, target *updater.Target, logStr string, stream string) error {
+	ctx := context.Background()
 	log := pack.Env.Logger()
 
 	start := time.Now()
@@ -2170,7 +2172,7 @@ func (pack *Pack) updateWithProgress(prog *progress.Reporter, reader io.Reader, 
 			prog.SetTotal(uint64(st.Size()))
 		}
 	}
-	if err := target.StreamTo(stream, io.TeeReader(reader, &progress.Writer{})); err != nil {
+	if err := target.StreamTo(ctx, stream, io.TeeReader(reader, &progress.Writer{})); err != nil {
 		return fmt.Errorf("updating %s: %w", logStr, err)
 	}
 	duration := time.Since(start)

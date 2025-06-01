@@ -7,7 +7,7 @@ require (
 	github.com/donovanhide/eventsource v0.0.0-20210830082556-c59027999da0
 	github.com/gokrazy/gokapi v0.0.0-20250222080418-e140e9c461d8
 	github.com/gokrazy/internal v0.0.0-20250526201501-559979153369
-	github.com/gokrazy/updater v0.0.0-20250530145551-2fa4322f92cf
+	github.com/gokrazy/updater v0.0.0-20250601065453-91649328574c
 	github.com/google/renameio/v2 v2.0.0
 	github.com/mattn/go-isatty v0.0.20
 	github.com/spf13/cobra v1.9.1
