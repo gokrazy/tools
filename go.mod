@@ -20,5 +20,5 @@ require (
 require (
 	github.com/antihax/optional v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	golang.org/x/oauth2 v0.23.0 // indirect
+	golang.org/x/oauth2 v0.27.0 // indirect
 )
