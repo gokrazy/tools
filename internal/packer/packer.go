@@ -1691,32 +1691,32 @@ func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte,
 		if err != nil {
 			return fmt.Errorf("getting http client by tls flag: %v", err)
 		}
-		done := measure.Interactively("probing https")
-		remoteScheme, err := httpclient.GetRemoteScheme(updateBaseUrl)
-		done("")
-		if remoteScheme == "https" && !tlsflag.Insecure() {
-			updateBaseUrl.Scheme = "https"
-			updateflag.SetUpdate(updateBaseUrl.String())
-		}
-
-		if updateBaseUrl.Scheme != "https" && foundMatchingCertificate {
-			log.Printf("")
-			log.Printf("!!!WARNING!!! Possible SSL-Stripping detected!")
-			log.Printf("Found certificate for hostname in your client configuration but the host does not offer https!")
-			log.Printf("")
-			if !tlsflag.Insecure() {
-				log.Printf("update canceled: TLS certificate found, but negotiating a TLS connection with the target failed")
-				os.Exit(1)
+		if foundMatchingCertificate {
+			done := measure.Interactively("probing https://" + updateBaseUrl.Host)
+			_, err := updateHttpClient.Head("https://" + updateBaseUrl.Host)
+			done(" HEAD https://" + updateBaseUrl.Host)
+			if err != nil {
+				log.Printf("")
+				log.Printf("!!!WARNING!!! Possible SSL-Stripping detected!")
+				log.Printf("Found certificate for hostname in your client configuration but https connection failed: %v", err)
+				log.Printf("")
+				if !tlsflag.Insecure() {
+					log.Printf("update canceled: TLS certificate found, but negotiating a TLS connection with the target failed")
+					os.Exit(1)
+				}
+				log.Printf("Proceeding with http as requested (--insecure).")
+				updateBaseUrl.Scheme = "http"
+				updateflag.SetUpdate(updateBaseUrl.String())
+			} else if updateBaseUrl.Scheme != "https" {
+				// opportunistic upgrade to https
+				updateBaseUrl.Scheme = "https"
+				updateflag.SetUpdate(updateBaseUrl.String())
 			}
-			log.Printf("Proceeding anyway as requested (--insecure).")
 		}
 
 		// Opt out of PARTUUID= for updating until we can check the remote
 		// userland version is new enough to understand how to set the active
 		// root partition when PARTUUID= is in use.
-		if err != nil {
-			return err
-		}
 		updateBaseUrl.Path = "/"
 
 		target, err = updater.NewTarget(ctx, updateBaseUrl.String(), updateHttpClient)
