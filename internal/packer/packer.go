@@ -1701,7 +1701,7 @@ func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte,
 		done := measure.Interactively("probing https")
 		remoteScheme, err := httpclient.GetRemoteScheme(updateBaseUrl)
 		done("")
-		if remoteScheme == "https" && !tlsflag.Insecure() {
+		if remoteScheme == "https" {
 			updateBaseUrl.Scheme = "https"
 			updateflag.SetUpdate(updateBaseUrl.String())
 		}
