@@ -13,22 +13,7 @@ import (
 func TestRelativeParentDir(t *testing.T) {
 	// Run this whole test in a throw-away temporary directory to not litter the
 	// gokrazy/tools repository working copy.
-
-	// TODO(go1.24): use t.Chdir()
-	oldwd, err := os.Open(".")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chdir(t.TempDir()); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		err := oldwd.Chdir()
-		oldwd.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
-	})
+	t.Chdir(t.TempDir())
 
 	// create a new instance
 	c := gok.Context{

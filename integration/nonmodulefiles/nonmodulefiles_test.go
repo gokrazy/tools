@@ -15,9 +15,10 @@ import (
 func TestNonModuleFiles(t *testing.T) {
 	// Run this whole test in a throw-away temporary directory to not litter the
 	// gokrazy/tools repository working copy.
-	parent := t.TempDir()
+	t.Chdir(t.TempDir())
 
 	// create a new instance
+	parent := t.TempDir()
 	c := gok.Context{
 		Args: []string{
 			"--parent_dir=" + parent,
