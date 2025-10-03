@@ -19,7 +19,7 @@ func pollUpdated1(ctx context.Context, updateHttpClient *http.Client, updateBase
 		return err
 	}
 	req = req.WithContext(ctx)
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
 	resp, err := updateHttpClient.Do(req)
 	if err != nil {
 		return err
