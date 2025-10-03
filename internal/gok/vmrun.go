@@ -133,7 +133,7 @@ func (r *vmRunConfig) buildFullDiskImage(ctx context.Context, dest string, fileC
 		Output:  &output,
 	}
 
-	pack.Main("gokrazy gok")
+	pack.Main(ctx, "gokrazy gok")
 
 	return nil
 }

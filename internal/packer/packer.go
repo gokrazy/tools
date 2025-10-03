@@ -37,6 +37,10 @@ import (
 	"github.com/gokrazy/updater"
 )
 
+type contextKey int
+
+var BuildTimestampOverride contextKey
+
 const MB = 1024 * 1024
 
 type filePathAndModTime struct {
@@ -1099,7 +1103,7 @@ func filterGoEnv(env []string) []string {
 	return relevant
 }
 
-func (pack *Pack) logicPrepare(programName string, sbomHook func(marshaled []byte, withHash SBOMWithHash)) error {
+func (pack *Pack) logicPrepare(ctx context.Context, programName string, sbomHook func(marshaled []byte, withHash SBOMWithHash)) error {
 	log := pack.Env.Logger()
 	cfg := pack.Cfg
 	updateflag.SetUpdate(cfg.InternalCompatibilityFlags.Update)
@@ -1178,6 +1182,9 @@ func (pack *Pack) logicPrepare(programName string, sbomHook func(marshaled []byt
 	log.Printf("Build target: %s", strings.Join(filterGoEnv(packer.Env()), " "))
 
 	pack.buildTimestamp = time.Now().Format(time.RFC3339)
+	if ts, ok := ctx.Value(BuildTimestampOverride).(string); ok {
+		pack.buildTimestamp = ts
+	}
 	log.Printf("Build timestamp: %s", pack.buildTimestamp)
 
 	systemCertsPEM, err := pack.findSystemCertsPEM()
@@ -1630,7 +1637,7 @@ func (pack *Pack) logicBuild(programName string, sbomHook func(marshaled []byte,
 	return nil
 }
 
-func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, withHash SBOMWithHash)) error {
+func (pack *Pack) logic(ctx context.Context, programName string, sbomHook func(marshaled []byte, withHash SBOMWithHash)) error {
 	dnsCheck := make(chan error)
 	go func() {
 		defer close(dnsCheck)
@@ -1646,7 +1653,7 @@ func (pack *Pack) logic(programName string, sbomHook func(marshaled []byte, with
 		dnsCheck <- nil
 	}()
 
-	if err := pack.logicPrepare(programName, sbomHook); err != nil {
+	if err := pack.logicPrepare(ctx, programName, sbomHook); err != nil {
 		return err
 	}
 
@@ -2186,17 +2193,17 @@ func (pack *Pack) updateWithProgress(prog *progress.Reporter, reader io.Reader, 
 	return nil
 }
 
-func (pack *Pack) Main(programName string) {
-	if err := pack.logic(programName, nil); err != nil {
+func (pack *Pack) Main(ctx context.Context, programName string) {
+	if err := pack.logic(ctx, programName, nil); err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR:\n  %s\n", err)
 		os.Exit(1)
 	}
 }
 
-func (pack *Pack) GenerateSBOM() ([]byte, SBOMWithHash, error) {
+func (pack *Pack) GenerateSBOM(ctx context.Context) ([]byte, SBOMWithHash, error) {
 	var sbom []byte
 	var sbomWithHash SBOMWithHash
-	if err := pack.logic("gokrazy gok", func(b []byte, wh SBOMWithHash) {
+	if err := pack.logic(ctx, "gokrazy gok", func(b []byte, wh SBOMWithHash) {
 		sbom = b
 		sbomWithHash = wh
 	}); err != nil {

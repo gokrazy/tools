@@ -80,7 +80,7 @@ func (r *sbomConfig) run(ctx context.Context, args []string, stdout, stderr io.W
 		Cfg:     cfg,
 	}
 
-	sbomMarshaled, sbomWithHash, err := pack.GenerateSBOM()
+	sbomMarshaled, sbomWithHash, err := pack.GenerateSBOM(ctx)
 	if os.IsNotExist(err) {
 		// Common case, handle with a good error message
 		os.Stderr.WriteString("\n")
