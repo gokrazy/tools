@@ -256,15 +256,7 @@ func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 
 	// EEPROM update procedure. See also:
 	// https://news.ycombinator.com/item?id=21674550
-	writeEepromUpdateFile := func(globPattern, target string) (sig string, _ error) {
-		matches, err := filepath.Glob(globPattern)
-		if err != nil {
-			return "", err
-		}
-		if len(matches) == 0 {
-			return "", fmt.Errorf("invalid -eeprom_package: no files matching %s", filepath.Base(globPattern))
-		}
-
+	writeEepromUpdateFile := func(matches []string, target string) (sig string, _ error) {
 		// Select the EEPROM file that sorts last.
 		// This corresponds to most recent for the pieeprom-*.bin files,
 		// which contain the date in yyyy-mm-dd format.
@@ -316,14 +308,33 @@ func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 		return fmt.Sprintf("%x", h.Sum(nil)), err
 	}
 	if eepromDir != "" {
+		log.Printf("EEPROM directory: %s", eepromDir)
 		log.Printf("EEPROM update summary:")
-		pieSig, err := writeEepromUpdateFile(filepath.Join(eepromDir, "pieeprom-*.bin"), "/pieeprom.upd")
+		eepromGlob := filepath.Join(eepromDir, "pieeprom-*.bin")
+		eepromMatches, err := filepath.Glob(eepromGlob)
 		if err != nil {
 			return err
 		}
-		vlSig, err := writeEepromUpdateFile(filepath.Join(eepromDir, "vl805-*.bin"), "/vl805.bin")
+		if len(eepromMatches) == 0 {
+			return fmt.Errorf("invalid -eeprom_package: no files matching %s", filepath.Base(eepromGlob))
+		}
+
+		pieSig, err := writeEepromUpdateFile(eepromMatches, "/pieeprom.upd")
 		if err != nil {
 			return err
+		}
+
+		vl805Glob := filepath.Join(eepromDir, "vl805-*.bin")
+		vl805Matches, err := filepath.Glob(vl805Glob)
+		if err != nil {
+			return err
+		}
+		var vlSig string
+		if len(vl805Matches) > 0 {
+			vlSig, err = writeEepromUpdateFile(vl805Matches, "/vl805.bin")
+			if err != nil {
+				return err
+			}
 		}
 		targetFilename := "/recovery.bin"
 		if pieSig == p.ExistingEEPROM.PieepromSHA256 &&
@@ -331,7 +342,7 @@ func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 			log.Printf("  installing recovery.bin as RECOVERY.000 (EEPROM already up-to-date)")
 			targetFilename = "/RECOVERY.000"
 		}
-		if _, err := writeEepromUpdateFile(filepath.Join(eepromDir, "recovery.bin"), targetFilename); err != nil {
+		if _, err := writeEepromUpdateFile([]string{filepath.Join(eepromDir, "recovery.bin")}, targetFilename); err != nil {
 			return err
 		}
 	}
