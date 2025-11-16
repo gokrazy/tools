@@ -254,31 +254,25 @@ func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 		}
 	}
 
-	// EEPROM update procedure. See also:
-	// https://news.ycombinator.com/item?id=21674550
-	writeEepromUpdateFile := func(matches []string, target string) (sig string, _ error) {
+	// matches must be non-empty
+	bestMatch := func(matches []string) string {
 		// Select the EEPROM file that sorts last.
 		// This corresponds to most recent for the pieeprom-*.bin files,
 		// which contain the date in yyyy-mm-dd format.
 		sort.Sort(sort.Reverse(sort.StringSlice(matches)))
-
-		f, err := os.Open(matches[0])
-		if err != nil {
-			return "", err
-		}
-		defer f.Close()
-		st, err := f.Stat()
-		if err != nil {
-			return "", err
-		}
+		return matches[0]
+	}
+	// EEPROM update procedure. See also:
+	// https://news.ycombinator.com/item?id=21674550
+	writeEepromUpdate := func(target string, modTime time.Time, r io.Reader) (sig string, _ error) {
 		// Copy the EEPROM file into the image and calculate its SHA256 hash
 		// while doing so:
-		w, err := fw.File(target, st.ModTime())
+		w, err := fw.File(target, modTime)
 		if err != nil {
 			return "", err
 		}
 		h := sha256.New()
-		if _, err := io.Copy(w, io.TeeReader(f, h)); err != nil {
+		if _, err := io.Copy(w, io.TeeReader(r, h)); err != nil {
 			return "", err
 		}
 
@@ -293,10 +287,10 @@ func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 		sigFn := target
 		ext := filepath.Ext(sigFn)
 		if ext == "" {
-			return "", fmt.Errorf("BUG: cannot derive signature file name from matches[0]=%q", matches[0])
+			return "", fmt.Errorf("BUG: cannot derive signature file name from target=%q", target)
 		}
 		sigFn = strings.TrimSuffix(sigFn, ext) + ".sig"
-		w, err = fw.File(sigFn, st.ModTime())
+		w, err = fw.File(sigFn, modTime)
 		if err != nil {
 			return "", err
 		}
@@ -304,11 +298,26 @@ func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 		if err != nil {
 			return "", err
 		}
-		_, err = fmt.Fprintf(w, "ts: %d\n", st.ModTime().Unix())
+		_, err = fmt.Fprintf(w, "ts: %d\n", modTime.Unix())
 		return fmt.Sprintf("%x", h.Sum(nil)), err
 	}
+	writeEepromUpdateFile := func(matches []string, target string) (sig string, _ error) {
+		f, err := os.Open(bestMatch(matches))
+		if err != nil {
+			return "", err
+		}
+		defer f.Close()
+		st, err := f.Stat()
+		if err != nil {
+			return "", err
+		}
+		return writeEepromUpdate(target, st.ModTime(), f)
+	}
+
+	var pieSig string
 	if eepromDir != "" {
 		log.Printf("EEPROM directory: %s", eepromDir)
+		log.Printf("(gokrazy config mtime: %v)", p.Cfg.Meta.LastModified)
 		log.Printf("EEPROM update summary:")
 		eepromGlob := filepath.Join(eepromDir, "pieeprom-*.bin")
 		eepromMatches, err := filepath.Glob(eepromGlob)
@@ -318,10 +327,20 @@ func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 		if len(eepromMatches) == 0 {
 			return fmt.Errorf("invalid -eeprom_package: no files matching %s", filepath.Base(eepromGlob))
 		}
-
-		pieSig, err := writeEepromUpdateFile(eepromMatches, "/pieeprom.upd")
-		if err != nil {
-			return err
+		if ee := p.Cfg.BootloaderExtraEEPROM; len(ee) > 0 {
+			updated, err := applyExtraEEPROM(bestMatch(eepromMatches), ee)
+			if err != nil {
+				return err
+			}
+			pieSig, err = writeEepromUpdate("/pieeprom.upd", p.Cfg.Meta.LastModified, bytes.NewReader(updated))
+			if err != nil {
+				return err
+			}
+		} else {
+			pieSig, err = writeEepromUpdateFile(eepromMatches, "/pieeprom.upd")
+			if err != nil {
+				return err
+			}
 		}
 
 		vl805Glob := filepath.Join(eepromDir, "vl805-*.bin")

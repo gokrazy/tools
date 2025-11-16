@@ -7,7 +7,7 @@ toolchain go1.24.6
 require (
 	github.com/donovanhide/eventsource v0.0.0-20210830082556-c59027999da0
 	github.com/gokrazy/gokapi v0.0.0-20250222080418-e140e9c461d8
-	github.com/gokrazy/internal v0.0.0-20250526201501-559979153369
+	github.com/gokrazy/internal v0.0.0-20251116180701-05cd6a8b1bc0
 	github.com/gokrazy/updater v0.0.0-20250705135802-db129c40879c
 	github.com/google/renameio/v2 v2.0.0
 	github.com/mattn/go-isatty v0.0.20
