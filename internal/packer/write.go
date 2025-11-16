@@ -309,6 +309,10 @@ func (p *Pack) writeBoot(f io.Writer, mbrfilename string) error {
 			return "", err
 		}
 		_, err = fmt.Fprintf(w, "%x\n", h.Sum(nil))
+		if err != nil {
+			return "", err
+		}
+		_, err = fmt.Fprintf(w, "ts: %d\n", st.ModTime().Unix())
 		return fmt.Sprintf("%x", h.Sum(nil)), err
 	}
 	if eepromDir != "" {
