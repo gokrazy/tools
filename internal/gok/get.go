@@ -17,11 +17,12 @@ import (
 )
 
 // getCmd is gok get.
-var getCmd = &cobra.Command{
-	GroupID: "edit",
-	Use:     "get",
-	Short:   "Update the version of your Go program(s) using `go get`",
-	Long: "gok get runs `go get` to update the version of the specified Go programs" + `
+func getCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		GroupID: "edit",
+		Use:     "get",
+		Short:   "Update the version of your Go program(s) using `go get`",
+		Long: "gok get runs `go get` to update the version of the specified Go programs" + `
 in your gokrazy instance.
 
 Examples:
@@ -34,9 +35,13 @@ Examples:
   # Update only gokrazy system packages
   % gok -i scanner get gokrazy
 `,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return getImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
-	},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return getImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
+		},
+	}
+	cmd.Flags().BoolVarP(&getImpl.updateAll, "update_all", "u", false, "update all installed packages and gokrazy system packages")
+	instanceflag.RegisterPflags(cmd.Flags())
+	return cmd
 }
 
 type getImplConfig struct {
@@ -44,11 +49,6 @@ type getImplConfig struct {
 }
 
 var getImpl getImplConfig
-
-func init() {
-	getCmd.Flags().BoolVarP(&getImpl.updateAll, "update_all", "u", false, "update all installed packages and gokrazy system packages")
-	instanceflag.RegisterPflags(getCmd.Flags())
-}
 
 func getGokrazySystemPackages(cfg *config.Struct) []string {
 	pkgs := append([]string{}, cfg.GokrazyPackagesOrDefault()...)

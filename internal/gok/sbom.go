@@ -16,11 +16,12 @@ import (
 )
 
 // sbomCmd is gok sbom.
-var sbomCmd = &cobra.Command{
-	GroupID: "deploy",
-	Use:     "sbom",
-	Short:   "Print the Software Bill Of Materials of a gokrazy instance",
-	Long: `gok sbom generates an SBOM of what gok overwrite or gok update would build
+func sbomCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		GroupID: "deploy",
+		Use:     "sbom",
+		Short:   "Print the Software Bill Of Materials of a gokrazy instance",
+		Long: `gok sbom generates an SBOM of what gok overwrite or gok update would build
 
 Examples:
   # print the hash and SBOM contents in JSON format
@@ -30,9 +31,13 @@ Examples:
   % gok -i scanner sbom --format hash
 
 `,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return sbomImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
-	},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return sbomImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
+		},
+	}
+	cmd.Flags().StringVarP(&sbomImpl.format, "format", "", "json", "output format. one of json or hash")
+	instanceflag.RegisterPflags(cmd.Flags())
+	return cmd
 }
 
 type sbomConfig struct {
@@ -40,11 +45,6 @@ type sbomConfig struct {
 }
 
 var sbomImpl sbomConfig
-
-func init() {
-	sbomCmd.Flags().StringVarP(&sbomImpl.format, "format", "", "json", "output format. one of json or hash")
-	instanceflag.RegisterPflags(sbomCmd.Flags())
-}
 
 func (r *sbomConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	fileCfg, err := config.ApplyInstanceFlag()

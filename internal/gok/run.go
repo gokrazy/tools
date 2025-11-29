@@ -22,11 +22,12 @@ import (
 )
 
 // runCmd is gok run.
-var runCmd = &cobra.Command{
-	GroupID: "runtime",
-	Use:     "run",
-	Short:   "`go install` and run on a running gokrazy instance",
-	Long: "gok run uses `go install` to build the Go program in the current directory," + `
+func runCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		GroupID: "runtime",
+		Use:     "run",
+		Short:   "`go install` and run on a running gokrazy instance",
+		Long: "gok run uses `go install` to build the Go program in the current directory," + `
 then it stores the program in RAM of a running gokrazy instance and runs the program.
 
 This enables a quick feedback loop when working on a program that is running on gokrazy,
@@ -42,9 +43,13 @@ Examples:
   # specify extra flags on the command line
   % gok -i scan2drive run -- -tls_autocert_hosts=scan.example.com
   `,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return runImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
-	},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
+		},
+	}
+	cmd.Flags().BoolVarP(&runImpl.keep, "keep", "k", false, "keep temporary binary")
+	instanceflag.RegisterPflags(cmd.Flags())
+	return cmd
 }
 
 type runImplConfig struct {
@@ -52,11 +57,6 @@ type runImplConfig struct {
 }
 
 var runImpl runImplConfig
-
-func init() {
-	runCmd.Flags().BoolVarP(&runImpl.keep, "keep", "k", false, "keep temporary binary")
-	instanceflag.RegisterPflags(runCmd.Flags())
-}
 
 func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	cfg, err := config.ApplyInstanceFlag()

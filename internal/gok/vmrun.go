@@ -18,10 +18,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var vmRunCmd = &cobra.Command{
-	Use:   "run",
-	Short: "run a virtual machine (using QEMU)",
-	Long: `gok run builds a gokrazy instance and runs it using QEMU.
+func vmRunCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "run",
+		Short: "run a virtual machine (using QEMU)",
+		Long: `gok run builds a gokrazy instance and runs it using QEMU.
 
 Extra arguments are passed to QEMU as-is.
 
@@ -35,13 +36,20 @@ Examples:
   # Directly specify QEMU USB flags
   % gok vm run -- -usb -device usb-mouse
 `,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return vmRunImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
-	},
-}
-
-func init() {
-	vmCmd.AddCommand(vmRunCmd)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return vmRunImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
+		},
+	}
+	cmd.Flags().StringVarP(&vmRunImpl.sudo, "sudo", "", "", "Whether to elevate privileges using sudo when required (one of auto, always, never, default auto)")
+	const permSize = 512 * 1024 * 1024
+	cmd.Flags().IntVarP(&vmRunImpl.targetStorageBytes, "target_storage_bytes", "", 1258299392+permSize, "Size of the disk image in bytes")
+	cmd.Flags().StringVarP(&vmRunImpl.arch, "arch", "", "", "architecture for which to build and run QEMU. One of 'amd64' or 'arm64'")
+	cmd.Flags().StringVarP(&vmRunImpl.netdev, "netdev", "", "user,id=net0,hostfwd=tcp::8080-:80,hostfwd=tcp::8022-:22", "QEMU -netdev argument")
+	cmd.Flags().BoolVarP(&vmRunImpl.keep, "keep", "", false, "keep ephemeral disk images around instead of deleting them when QEMU exits")
+	cmd.Flags().BoolVarP(&vmRunImpl.dry, "dryrun", "", false, "Whether to actually run QEMU or merely print the command")
+	cmd.Flags().BoolVarP(&vmRunImpl.graphic, "graphic", "", true, "Run QEMU in graphical mode?")
+	instanceflag.RegisterPflags(cmd.Flags())
+	return cmd
 }
 
 type vmRunConfig struct {
@@ -63,18 +71,6 @@ func (r *vmRunConfig) effectiveGoarch() string {
 }
 
 var vmRunImpl vmRunConfig
-
-func init() {
-	vmRunCmd.Flags().StringVarP(&vmRunImpl.sudo, "sudo", "", "", "Whether to elevate privileges using sudo when required (one of auto, always, never, default auto)")
-	const permSize = 512 * 1024 * 1024
-	vmRunCmd.Flags().IntVarP(&vmRunImpl.targetStorageBytes, "target_storage_bytes", "", 1258299392+permSize, "Size of the disk image in bytes")
-	vmRunCmd.Flags().StringVarP(&vmRunImpl.arch, "arch", "", "", "architecture for which to build and run QEMU. One of 'amd64' or 'arm64'")
-	vmRunCmd.Flags().StringVarP(&vmRunImpl.netdev, "netdev", "", "user,id=net0,hostfwd=tcp::8080-:80,hostfwd=tcp::8022-:22", "QEMU -netdev argument")
-	vmRunCmd.Flags().BoolVarP(&vmRunImpl.keep, "keep", "", false, "keep ephemeral disk images around instead of deleting them when QEMU exits")
-	vmRunCmd.Flags().BoolVarP(&vmRunImpl.dry, "dryrun", "", false, "Whether to actually run QEMU or merely print the command")
-	vmRunCmd.Flags().BoolVarP(&vmRunImpl.graphic, "graphic", "", true, "Run QEMU in graphical mode?")
-	instanceflag.RegisterPflags(vmRunCmd.Flags())
-}
 
 func (r *vmRunConfig) buildFullDiskImage(ctx context.Context, dest string, fileCfg *config.Struct) error {
 

@@ -20,15 +20,20 @@ import (
 )
 
 // logsCmd is gok logs.
-var logsCmd = &cobra.Command{
-	GroupID: "runtime",
-	Use:     "logs",
-	Short:   "Stream logs from a running gokrazy service",
-	Long: `Display the most recent 100 log lines from stdout and stderr each,
+func logsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		GroupID: "runtime",
+		Use:     "logs",
+		Short:   "Stream logs from a running gokrazy service",
+		Long: `Display the most recent 100 log lines from stdout and stderr each,
 and any new lines the gokrazy service produces (cancel any time with Ctrl-C)`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return logsImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
-	},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return logsImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
+		},
+	}
+	cmd.Flags().StringVarP(&logsImpl.service, "service", "s", "", "gokrazy service to fetch logs for")
+	instanceflag.RegisterPflags(cmd.Flags())
+	return cmd
 }
 
 type logsImplConfig struct {
@@ -36,11 +41,6 @@ type logsImplConfig struct {
 }
 
 var logsImpl logsImplConfig
-
-func init() {
-	logsCmd.Flags().StringVarP(&logsImpl.service, "service", "s", "", "gokrazy service to fetch logs for")
-	instanceflag.RegisterPflags(logsCmd.Flags())
-}
 
 func (l *logsImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	cfg, err := config.ApplyInstanceFlag()

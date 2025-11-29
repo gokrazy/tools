@@ -18,12 +18,13 @@ import (
 )
 
 // addCmd is gok add.
-var addCmd = &cobra.Command{
-	GroupID:               "edit",
-	Use:                   "add [flags] importpath[@version]",
-	DisableFlagsInUseLine: true,
-	Short:                 "Add a Go package to a gokrazy instance",
-	Long: `Add a Go package to a gokrazy instance.
+func addCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		GroupID:               "edit",
+		Use:                   "add [flags] importpath[@version]",
+		DisableFlagsInUseLine: true,
+		Short:                 "Add a Go package to a gokrazy instance",
+		Long: `Add a Go package to a gokrazy instance.
 
 This command creates the required build directory, runs go get, and adds
 the specified package to the gokrazy instance configuration (Packages field).
@@ -42,25 +43,24 @@ Examples:
   % gok -i scan2drive add /home/michael/projects/scanui/cmd/scanui
 
 `,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		if cmd.Flags().NArg() != 1 {
-			fmt.Fprint(os.Stderr, `expected Go package name, name@version, or path
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().NArg() != 1 {
+				fmt.Fprint(os.Stderr, `expected Go package name, name@version, or path
 
 `)
-			return cmd.Usage()
-		}
+				return cmd.Usage()
+			}
 
-		return addImpl.run(cmd.Context(), args[0], cmd.OutOrStdout(), cmd.OutOrStderr())
-	},
+			return addImpl.run(cmd.Context(), args[0], cmd.OutOrStdout(), cmd.OutOrStderr())
+		},
+	}
+	instanceflag.RegisterPflags(cmd.Flags())
+	return cmd
 }
 
 type addImplConfig struct{}
 
 var addImpl addImplConfig
-
-func init() {
-	instanceflag.RegisterPflags(addCmd.Flags())
-}
 
 type packageInfo struct {
 	// Dir is the directory on the local disk containing the package sources,

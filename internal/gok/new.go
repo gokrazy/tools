@@ -16,25 +16,30 @@ import (
 )
 
 // newCmd is gok new.
-var newCmd = &cobra.Command{
-	GroupID: "edit",
-	Use:     "new",
-	Short:   "Create a new gokrazy instance",
-	Long: `Create a new gokrazy instance.
+func newCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		GroupID: "edit",
+		Use:     "new",
+		Short:   "Create a new gokrazy instance",
+		Long: `Create a new gokrazy instance.
 
 If you are unfamiliar with gokrazy, please follow:
 https://gokrazy.org/quickstart/
 `,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		if cmd.Flags().NArg() > 0 {
-			fmt.Fprint(os.Stderr, `positional arguments are not supported
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().NArg() > 0 {
+				fmt.Fprint(os.Stderr, `positional arguments are not supported
 
 `)
-			return cmd.Usage()
-		}
+				return cmd.Usage()
+			}
 
-		return newImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
-	},
+			return newImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
+		},
+	}
+	instanceflag.RegisterPflags(cmd.Flags())
+	cmd.Flags().BoolVarP(&newImpl.empty, "empty", "", false, "create an empty gokrazy instance, without the default packages")
+	return cmd
 }
 
 type newImplConfig struct {
@@ -42,11 +47,6 @@ type newImplConfig struct {
 }
 
 var newImpl newImplConfig
-
-func init() {
-	instanceflag.RegisterPflags(newCmd.Flags())
-	newCmd.Flags().BoolVarP(&newImpl.empty, "empty", "", false, "create an empty gokrazy instance, without the default packages")
-}
 
 func (r *newImplConfig) createBreakglassAuthorizedKeys(authorizedPath string, matches []string) error {
 	f, err := os.OpenFile(authorizedPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)

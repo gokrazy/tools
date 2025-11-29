@@ -15,11 +15,12 @@ import (
 )
 
 // pushCmd is gok push.
-var pushCmd = &cobra.Command{
-	GroupID: "server",
-	Use:     "push",
-	Short:   "Push a gokrazy image to a remote GUS server",
-	Long: `gok push pushes a local gaf (gokrazy archive format) file to a remote server.
+func pushCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		GroupID: "server",
+		Use:     "push",
+		Short:   "Push a gokrazy image to a remote GUS server",
+		Long: `gok push pushes a local gaf (gokrazy archive format) file to a remote server.
 
 When the --json flag is specified, the server response is printed to stdout.
 
@@ -28,9 +29,15 @@ Examples:
   % gok push --gaf /tmp/gokrazy.gaf --server https://gus.gokrazy.org
 
 `,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return pushImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
-	},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return pushImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
+		},
+	}
+	cmd.Flags().StringVarP(&pushImpl.gafPath, "gaf", "", "", "path to the .gaf (gokrazy archive format) file to push to GUS (e.g. /tmp/gokrazy.gaf); build using gok overwrite --gaf")
+	cmd.Flags().StringVarP(&pushImpl.server, "server", "", "", "HTTP(S) URL to the server to push to")
+	cmd.Flags().BoolVarP(&pushImpl.json, "json", "", false, "print server JSON response directly to stdout")
+	instanceflag.RegisterPflags(cmd.Flags())
+	return cmd
 }
 
 type pushConfig struct {
@@ -40,13 +47,6 @@ type pushConfig struct {
 }
 
 var pushImpl pushConfig
-
-func init() {
-	pushCmd.Flags().StringVarP(&pushImpl.gafPath, "gaf", "", "", "path to the .gaf (gokrazy archive format) file to push to GUS (e.g. /tmp/gokrazy.gaf); build using gok overwrite --gaf")
-	pushCmd.Flags().StringVarP(&pushImpl.server, "server", "", "", "HTTP(S) URL to the server to push to")
-	pushCmd.Flags().BoolVarP(&pushImpl.json, "json", "", false, "print server JSON response directly to stdout")
-	instanceflag.RegisterPflags(pushCmd.Flags())
-}
 
 func (r *pushConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	// TODO: use an io.Reader that allows us to indicate progress

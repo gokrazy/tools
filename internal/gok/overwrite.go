@@ -15,11 +15,12 @@ import (
 )
 
 // overwriteCmd is gok overwrite.
-var overwriteCmd = &cobra.Command{
-	GroupID: "deploy",
-	Use:     "overwrite",
-	Short:   "Build and deploy a gokrazy instance to a storage device",
-	Long: `Build and deploy a gokrazy instance to a storage device.
+func overwriteCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		GroupID: "deploy",
+		Use:     "overwrite",
+		Short:   "Build and deploy a gokrazy instance to a storage device",
+		Long: `Build and deploy a gokrazy instance to a storage device.
 
 You typically need to use the gok overwrite command only once,
 when first deploying your gokrazy instance. Afterwards, you can
@@ -29,16 +30,27 @@ Examples:
   # Overwrite the contents of the SD card sdx with gokrazy instance scan2drive:
   % gok -i scan2drive overwrite --full=/dev/sdx
 `,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		if cmd.Flags().NArg() > 0 {
-			fmt.Fprint(os.Stderr, `positional arguments are not supported
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().NArg() > 0 {
+				fmt.Fprint(os.Stderr, `positional arguments are not supported
 
 `)
-			return cmd.Usage()
-		}
+				return cmd.Usage()
+			}
 
-		return overwriteImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
-	},
+			return overwriteImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
+		},
+	}
+	instanceflag.RegisterPflags(cmd.Flags())
+	cmd.Flags().StringVarP(&overwriteImpl.full, "full", "", "", "write a full gokrazy device image to the specified device (e.g. /dev/sdx) or path (e.g. /tmp/gokrazy.img)")
+	cmd.Flags().StringVarP(&overwriteImpl.gaf, "gaf", "", "", "write a .gaf (gokrazy archive format) file to the specified path (e.g. /tmp/gokrazy.gaf)")
+	cmd.Flags().StringVarP(&overwriteImpl.boot, "boot", "", "", "write the gokrazy boot file system to the specified partition (e.g. /dev/sdx1) or path (e.g. /tmp/boot.fat)")
+	cmd.Flags().StringVarP(&overwriteImpl.root, "root", "", "", "write the gokrazy root file system to the specified partition (e.g. /dev/sdx2) or path (e.g. /tmp/root.squashfs)")
+	cmd.Flags().StringVarP(&overwriteImpl.mbr, "mbr", "", "", "write the gokrazy master boot record (MBR) to the specified device (e.g. /dev/sdx) or path (e.g. /tmp/mbr.img). only effective if -boot is specified, too")
+	cmd.Flags().StringVarP(&overwriteImpl.sudo, "sudo", "", "", "Whether to elevate privileges using sudo when required (one of auto, always, never, default auto)")
+	cmd.Flags().IntVarP(&overwriteImpl.targetStorageBytes, "target_storage_bytes", "", 0, "Number of bytes which the target storage device (SD card) has. Required for using -full=<file>")
+	cmd.Flags().StringVarP(&overwriteImpl.traceFile, "trace_file", "", "", "If non-empty, write a Go runtime/trace to this file (for performance analysis)")
+	return cmd
 }
 
 type overwriteImplConfig struct {
@@ -55,18 +67,6 @@ type overwriteImplConfig struct {
 }
 
 var overwriteImpl overwriteImplConfig
-
-func init() {
-	instanceflag.RegisterPflags(overwriteCmd.Flags())
-	overwriteCmd.Flags().StringVarP(&overwriteImpl.full, "full", "", "", "write a full gokrazy device image to the specified device (e.g. /dev/sdx) or path (e.g. /tmp/gokrazy.img)")
-	overwriteCmd.Flags().StringVarP(&overwriteImpl.gaf, "gaf", "", "", "write a .gaf (gokrazy archive format) file to the specified path (e.g. /tmp/gokrazy.gaf)")
-	overwriteCmd.Flags().StringVarP(&overwriteImpl.boot, "boot", "", "", "write the gokrazy boot file system to the specified partition (e.g. /dev/sdx1) or path (e.g. /tmp/boot.fat)")
-	overwriteCmd.Flags().StringVarP(&overwriteImpl.root, "root", "", "", "write the gokrazy root file system to the specified partition (e.g. /dev/sdx2) or path (e.g. /tmp/root.squashfs)")
-	overwriteCmd.Flags().StringVarP(&overwriteImpl.mbr, "mbr", "", "", "write the gokrazy master boot record (MBR) to the specified device (e.g. /dev/sdx) or path (e.g. /tmp/mbr.img). only effective if -boot is specified, too")
-	overwriteCmd.Flags().StringVarP(&overwriteImpl.sudo, "sudo", "", "", "Whether to elevate privileges using sudo when required (one of auto, always, never, default auto)")
-	overwriteCmd.Flags().IntVarP(&overwriteImpl.targetStorageBytes, "target_storage_bytes", "", 0, "Number of bytes which the target storage device (SD card) has. Required for using -full=<file>")
-	overwriteCmd.Flags().StringVarP(&overwriteImpl.traceFile, "trace_file", "", "", "If non-empty, write a Go runtime/trace to this file (for performance analysis)")
-}
 
 func (r *overwriteImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if r.traceFile != "" {

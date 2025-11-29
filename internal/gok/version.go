@@ -10,13 +10,16 @@ import (
 )
 
 // versionCmd is gok version.
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print gok version",
-	Long:  `Print gok version`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return versionImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
-	},
+func versionCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "version",
+		Short: "Print gok version",
+		Long:  `Print gok version`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return versionImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
+		},
+	}
+	return cmd
 }
 
 type versionImplConfig struct{}

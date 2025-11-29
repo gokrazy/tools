@@ -136,7 +136,7 @@ func TestGokRun(t *testing.T) {
 
 	// Testing the root command because individual cobra commands cannot be
 	// executed directly.
-	root := gok.RootCmd
+	root := gok.RootCmd()
 	root.SetContext(ctx)
 	logOutputFound := make(chan bool)
 	rd, wr := io.Pipe()

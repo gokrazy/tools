@@ -13,22 +13,28 @@ import (
 )
 
 // updateCmd is gok update.
-var updateCmd = &cobra.Command{
-	GroupID: "deploy",
-	Use:     "update",
-	Short:   "Build a gokrazy instance and update over the network",
-	Long: `Build a gokrazy instance and update over the network.
+func updateCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		GroupID: "deploy",
+		Use:     "update",
+		Short:   "Build a gokrazy instance and update over the network",
+		Long: `Build a gokrazy instance and update over the network.
 `,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		if cmd.Flags().NArg() > 0 {
-			fmt.Fprint(os.Stderr, `positional arguments are not supported
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().NArg() > 0 {
+				fmt.Fprint(os.Stderr, `positional arguments are not supported
 
 `)
-			return cmd.Usage()
-		}
+				return cmd.Usage()
+			}
 
-		return updateImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
-	},
+			return updateImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
+		},
+	}
+	instanceflag.RegisterPflags(cmd.Flags())
+	cmd.Flags().BoolVarP(&updateImpl.insecure, "insecure", "", false, "Disable TLS stripping detection. Should only be used when first enabling TLS, not permanently.")
+	cmd.Flags().BoolVarP(&updateImpl.testboot, "testboot", "", false, "Trigger a testboot instead of switching to the new root partition directly")
+	return cmd
 }
 
 type updateImplConfig struct {
@@ -37,12 +43,6 @@ type updateImplConfig struct {
 }
 
 var updateImpl updateImplConfig
-
-func init() {
-	instanceflag.RegisterPflags(updateCmd.Flags())
-	updateCmd.Flags().BoolVarP(&updateImpl.insecure, "insecure", "", false, "Disable TLS stripping detection. Should only be used when first enabling TLS, not permanently.")
-	updateCmd.Flags().BoolVarP(&updateImpl.testboot, "testboot", "", false, "Trigger a testboot instead of switching to the new root partition directly")
-}
 
 func (r *updateImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	fileCfg, err := config.ApplyInstanceFlag()

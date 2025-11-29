@@ -17,7 +17,7 @@ type Context struct {
 }
 
 func (c Context) Execute(ctx context.Context) error {
-	root := gok.RootCmd
+	root := gok.RootCmd()
 	if r := c.Stdin; r != nil {
 		root.SetIn(r)
 	}

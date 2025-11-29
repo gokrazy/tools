@@ -14,28 +14,28 @@ import (
 )
 
 // psCmd is gok ps.
-var psCmd = &cobra.Command{
-	GroupID: "runtime",
-	Use:     "ps",
-	Short:   "list processes of a running gokrazy instance",
-	Long: `gok ps
+func psCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		GroupID: "runtime",
+		Use:     "ps",
+		Short:   "list processes of a running gokrazy instance",
+		Long: `gok ps
 
 Examples:
   % gok -i scan2drive ps
   `,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return psImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
-	},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return psImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
+		},
+	}
+	instanceflag.RegisterPflags(cmd.Flags())
+	return cmd
 }
 
 type psImplConfig struct {
 }
 
 var psImpl psImplConfig
-
-func init() {
-	instanceflag.RegisterPflags(psCmd.Flags())
-}
 
 func (r *psImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	cfg, err := config.ApplyInstanceFlag()
