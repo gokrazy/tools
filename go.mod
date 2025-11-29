@@ -5,6 +5,7 @@ go 1.24.0
 toolchain go1.24.6
 
 require (
+	github.com/anatol/vmtest v0.0.0-20250627153117-302402d269a6
 	github.com/donovanhide/eventsource v0.0.0-20210830082556-c59027999da0
 	github.com/gokrazy/gokapi v0.0.0-20250222080418-e140e9c461d8
 	github.com/gokrazy/internal v0.0.0-20251116180701-05cd6a8b1bc0

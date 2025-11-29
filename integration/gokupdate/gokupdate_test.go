@@ -2,20 +2,11 @@ package gokupdate_test
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
-	"fmt"
-	"hash"
-	"hash/crc32"
-	"io"
-	"log"
 	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
 	"time"
 
@@ -75,78 +66,6 @@ func TestGokUpdate(t *testing.T) {
 
 	_ = writeGokrazyInstance(t)
 
-	// TODO: run the gokrazy instance in a VM instead of providing a fake
-	// implementation of the update protocol.
-	mux := http.NewServeMux()
-	mux.HandleFunc("/update/features", func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "not found", http.StatusNotFound)
-	})
-	mux.HandleFunc("/update/", func(w http.ResponseWriter, r *http.Request) {
-		// accept whatever for now.
-		var hash hash.Hash
-		switch r.Header.Get("X-Gokrazy-Update-Hash") {
-		case "crc32":
-			hash = crc32.NewIEEE()
-		default:
-			hash = sha256.New()
-		}
-		if _, err := io.Copy(hash, r.Body); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		fmt.Fprintf(w, "%x", hash.Sum(nil))
-	})
-	mux.HandleFunc("/reboot", func(w http.ResponseWriter, r *http.Request) {
-		// you got it, boss!
-	})
-	mux.HandleFunc("/uploadtemp/", func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("[HTTP] uploadtemp: %s", r.URL.Path)
-	})
-	mux.HandleFunc("/divert", func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("[HTTP] divert: %s to %s",
-			r.FormValue("path"),
-			r.FormValue("diversion"))
-	})
-	mux.HandleFunc("/log", func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("[HTTP] log: %s", r.FormValue("path"))
-		w.Header().Set("Content-type", "text/event-stream")
-		if r.FormValue("stream") == "stdout" {
-			const text = "Hello Sun"
-			line := fmt.Sprintf("data: %s\n", text)
-			if _, err := fmt.Fprintln(w, line); err != nil {
-				return
-			}
-		}
-		if f, ok := w.(http.Flusher); ok {
-			f.Flush()
-		}
-		select {}
-	})
-	fakeBuildTimestamp := "fake-" + time.Now().Format(time.RFC3339)
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if strings.Contains(strings.ToLower(r.Header.Get("Accept")), "application/json") {
-			status := struct {
-				BuildTimestamp string `json:"BuildTimestamp"`
-			}{
-				BuildTimestamp: fakeBuildTimestamp,
-			}
-			b, err := json.Marshal(&status)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			w.Header().Set("Content-Type", "application/json")
-			w.Write(b)
-			return
-		}
-		http.Error(w, "handler not implemented", http.StatusNotImplemented)
-	})
-	srv := httptest.NewServer(mux)
-	u, err := url.Parse(srv.URL)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	// create a new instance
 	c := gok.Context{
 		Args: []string{
@@ -160,28 +79,73 @@ func TestGokUpdate(t *testing.T) {
 		t.Fatalf("%v: %v", c.Args, err)
 	}
 
-	// update the instance config to speak to the test server
-	const configPath = "gokrazy/hello/config.json"
-	b, err := os.ReadFile(configPath)
-	if err != nil {
+	// and update the (default) instance config for our test
+	{
+		const configPath = "gokrazy/hello/config.json"
+		b, err := os.ReadFile(configPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var cfg config.Struct
+		if err := json.Unmarshal(b, &cfg); err != nil {
+			t.Fatal(err)
+		}
+
+		// use generic kernel, enable serial console
+		// TODO: use arm64 kernel when running on arm64
+		kernelPackage := "github.com/gokrazy/kernel.amd64"
+		cfg.KernelPackage = &kernelPackage
+		cfg.FirmwarePackage = &kernelPackage
+		cfg.SerialConsole = "ttyS0,115200"
+		cfg.Environment = []string{"GOOS=linux", "GOARCH=amd64"}
+
+		cfg.Update.Hostname = "localhost"
+		cfg.Update.HTTPPort = "9080"
+		t.Logf("Updated cfg.Update = %+v", cfg.Update)
+
+		t.Logf("Updated cfg = %+v", cfg)
+		b, err = cfg.FormatForFile()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(configPath, b, 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	t.Logf("booting gokrazy instance in a VM")
+	qemu := Run(t, nil)
+	defer qemu.Kill()
+
+	// wait for this instance to become healthy
+	//
+	// TODO: include the actual build timestamp once gok overwrite returns it.
+	if err := qemu.ConsoleExpect("gokrazy build timestamp "); err != nil {
 		t.Fatal(err)
 	}
-	var cfg config.Struct
-	if err := json.Unmarshal(b, &cfg); err != nil {
-		t.Fatal(err)
-	}
-	cfg.Update.Hostname = "localhost"
-	cfg.Update.HTTPPort = u.Port()
-	t.Logf("Updated cfg.Update = %+v", cfg.Update)
-	b, err = cfg.FormatForFile()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(configPath, b, 0644); err != nil {
-		t.Fatal(err)
+	t.Logf("gokrazy VM booted up, waiting for network reachability")
+	// poll for reachability over the network
+	for start := time.Now(); time.Since(start) < 10*time.Second; time.Sleep(1 * time.Second) {
+		ctx, cancel := context.WithTimeout(t.Context(), 1*time.Second)
+		defer cancel()
+		req, err := http.NewRequest("GET", "http://localhost:9080", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req = req.WithContext(ctx)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Logf("VM not yet reachable: %v", err)
+			continue
+		}
+		if resp.StatusCode == http.StatusUnauthorized {
+			t.Logf("gokrazy VM became reachable over the network")
+			break
+		}
 	}
 
 	// verify overwrite works (i.e. locates extrafiles)
+	fakeBuildTimestamp := "fake-" + time.Now().Format(time.RFC3339)
 	ctx := context.WithValue(context.Background(), packer.BuildTimestampOverride, fakeBuildTimestamp)
 	c = gok.Context{
 		Args: []string{
