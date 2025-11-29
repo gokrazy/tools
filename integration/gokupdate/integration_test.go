@@ -13,6 +13,14 @@ import (
 	"github.com/anatol/vmtest"
 )
 
+func effectiveGOARCH() string {
+	goarch := os.Getenv("GOARCH")
+	if goarch != "" {
+		return goarch
+	}
+	return runtime.GOARCH
+}
+
 // TODO: move to a gokrazy/internal/integrationtest package
 func Run(t *testing.T, qemuArgs []string) *vmtest.Qemu {
 	tempdir := t.TempDir()
@@ -51,6 +59,22 @@ func Run(t *testing.T, qemuArgs []string) *vmtest.Qemu {
 		"-boot", "order=d",
 		"-drive", "file="+diskImage+",format=raw",
 	)
+
+	// Do not use hardware acceleration on GitHub Actions,
+	// where there is no nested KVM available (by default).
+	if os.Getenv("GITHUB_ACTIONS") != "true" {
+		goarch := effectiveGOARCH()
+		if goarch == runtime.GOARCH {
+			// Hardware acceleration (in both cases) is only available for the
+			// native architecture, e.g. arm64 for M1 MacBooks.
+			switch runtime.GOOS {
+			case "linux":
+				qemuArgs = append(qemuArgs, "-accel", "kvm")
+			case "darwin":
+				qemuArgs = append(qemuArgs, "-accel", "hvf")
+			}
+		}
+	}
 
 	opts := vmtest.QemuOptions{
 		Architecture:    vmtest.QEMU_X86_64,
