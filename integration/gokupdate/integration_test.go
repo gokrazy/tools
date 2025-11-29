@@ -51,7 +51,7 @@ func Run(t *testing.T, qemuArgs []string) *vmtest.Qemu {
 		// required! system gets stuck without -smp
 		"-smp", strconv.Itoa(max(runtime.NumCPU(), 2)),
 		"-device", "e1000,netdev=net0",
-		"-netdev", "user,id=net0,hostfwd=tcp::9080-:9080,hostfwd=tcp::9022-:22",
+		"-netdev", "user,id=net0,hostfwd=tcp::9080-:9080,hostfwd=tcp::9022-:22,hostfwd=tcp::9443-:9443",
 		// Use -drive instead of vmtest.QemuOptions.Disks because the latter
 		// results in wiring up the devices using SCSI in a way that the
 		// router7 kernel config does not support.
@@ -87,7 +87,7 @@ func Run(t *testing.T, qemuArgs []string) *vmtest.Qemu {
 		// 	},
 		// },
 		Verbose: testing.Verbose(),
-		Timeout: 1 * time.Minute,
+		Timeout: 30 * time.Minute,
 	}
 	qemu, err := vmtest.NewQemu(&opts)
 	if err != nil {

@@ -67,10 +67,11 @@ func TestGokUpdate(t *testing.T) {
 	_ = writeGokrazyInstance(t)
 
 	// create a new instance
+	const instanceName = "hello"
 	c := gok.Context{
 		Args: []string{
 			"--parent_dir", "gokrazy",
-			"-i", "hello",
+			"-i", instanceName,
 			"new",
 		},
 	}
@@ -81,7 +82,7 @@ func TestGokUpdate(t *testing.T) {
 
 	// and update the (default) instance config for our test
 	{
-		const configPath = "gokrazy/hello/config.json"
+		const configPath = "gokrazy/" + instanceName + "/config.json"
 		b, err := os.ReadFile(configPath)
 		if err != nil {
 			t.Fatal(err)
@@ -99,8 +100,10 @@ func TestGokUpdate(t *testing.T) {
 		cfg.SerialConsole = "ttyS0,115200"
 		cfg.Environment = []string{"GOOS=linux", "GOARCH=amd64"}
 
+		cfg.Hostname = "localhost"
 		cfg.Update.Hostname = "localhost"
 		cfg.Update.HTTPPort = "9080"
+		cfg.Update.HTTPSPort = "9443"
 		t.Logf("Updated cfg.Update = %+v", cfg.Update)
 
 		t.Logf("Updated cfg = %+v", cfg)
@@ -116,6 +119,8 @@ func TestGokUpdate(t *testing.T) {
 	t.Logf("booting gokrazy instance in a VM")
 	qemu := Run(t, nil)
 	defer qemu.Kill()
+	// TODO: kill the test if this qemu process dies for any reason
+	// test by setting an aggressive QemuOptions.Timeout
 
 	// wait for this instance to become healthy
 	//
@@ -144,13 +149,19 @@ func TestGokUpdate(t *testing.T) {
 		}
 	}
 
+	// TODO: make 'gok update' not change directory?
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// verify overwrite works (i.e. locates extrafiles)
-	fakeBuildTimestamp := "fake-" + time.Now().Format(time.RFC3339)
+	fakeBuildTimestamp := "fake-update-1"
 	ctx := context.WithValue(context.Background(), packer.BuildTimestampOverride, fakeBuildTimestamp)
 	c = gok.Context{
 		Args: []string{
 			"--parent_dir", "gokrazy",
-			"-i", "hello",
+			"-i", instanceName,
 			"update",
 		},
 	}
@@ -158,4 +169,69 @@ func TestGokUpdate(t *testing.T) {
 	if err := c.Execute(ctx); err != nil {
 		t.Fatalf("%v: %v", c.Args, err)
 	}
+
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+
+	// change to use self-signed TLS certificates
+	t.Logf("Setting Update.UseTLS = self-signed")
+
+	{
+		const configPath = "gokrazy/" + instanceName + "/config.json"
+		b, err := os.ReadFile(configPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var cfg config.Struct
+		if err := json.Unmarshal(b, &cfg); err != nil {
+			t.Fatal(err)
+		}
+
+		cfg.Update.UseTLS = "self-signed"
+		t.Logf("Updated cfg.Update = %+v", cfg.Update)
+
+		t.Logf("Updated cfg = %+v", cfg)
+		b, err = cfg.FormatForFile()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(configPath, b, 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	fakeBuildTimestamp = "fake-update-2"
+	ctx = context.WithValue(context.Background(), packer.BuildTimestampOverride, fakeBuildTimestamp)
+	c = gok.Context{
+		Args: []string{
+			"--parent_dir", "gokrazy",
+			"-i", instanceName,
+			"update",
+			"--insecure", // only on first update after enabling self-signed TLS
+		},
+	}
+	t.Logf("running %q", append([]string{"<gok>"}, c.Args...))
+	if err := c.Execute(ctx); err != nil {
+		t.Fatalf("%v: %v", c.Args, err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("first update succeeded, doing another update without --insecure")
+	fakeBuildTimestamp = "fake-update-3"
+	ctx = context.WithValue(context.Background(), packer.BuildTimestampOverride, fakeBuildTimestamp)
+	c = gok.Context{
+		Args: []string{
+			"--parent_dir", "gokrazy",
+			"-i", instanceName,
+			"update",
+		},
+	}
+	t.Logf("running %q", append([]string{"<gok>"}, c.Args...))
+	if err := c.Execute(ctx); err != nil {
+		t.Fatalf("%v: %v", c.Args, err)
+	}
+
 }

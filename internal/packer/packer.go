@@ -2076,6 +2076,22 @@ func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte,
 	const polltimeout = 5 * time.Minute
 	log.Printf("Updated, waiting %v for the device to become reachable (cancel with Ctrl-C any time)", polltimeout)
 
+	if update.CertPEM != "" && update.KeyPEM != "" {
+		// Use an HTTPS client (post-update),
+		// even when the --insecure flag was specified.
+		pack.schema = "https"
+		updateflag.SetUpdate("yes")
+		var err error
+		updateBaseUrl, err = updateflag.BaseURL(update.HTTPPort, update.HTTPSPort, pack.schema, update.Hostname, update.HTTPPassword)
+		if err != nil {
+			return err
+		}
+		updateHttpClient, foundMatchingCertificate, err = httpclient.GetTLSHttpClientByTLSFlag(tlsflag.GetUseTLS(), false /* insecure */, updateBaseUrl)
+		if err != nil {
+			return fmt.Errorf("getting http client by tls flag: %v", err)
+		}
+	}
+
 	pollctx, canc := context.WithTimeout(context.Background(), polltimeout)
 	defer canc()
 	for {
