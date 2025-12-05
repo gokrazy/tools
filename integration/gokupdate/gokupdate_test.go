@@ -16,18 +16,39 @@ import (
 )
 
 type gokrazyTestInstance struct {
+	name      string
 	configDir string
 }
 
-func (inst *gokrazyTestInstance) writeConfig(t *testing.T, basename, content string) {
+func (inst *gokrazyTestInstance) configPath() string {
+	return "gokrazy/" + inst.name + "/config.json"
+}
+
+func (inst *gokrazyTestInstance) readConfig(t *testing.T) config.Struct {
+	b, err := os.ReadFile(inst.configPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cfg config.Struct
+	if err := json.Unmarshal(b, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	return cfg
+}
+
+func (inst *gokrazyTestInstance) writeConfig(t *testing.T, cfg config.Struct) {
 	t.Helper()
-	fn := filepath.Join(inst.configDir, basename)
-	if err := os.WriteFile(fn, []byte(content), 0600); err != nil {
+	t.Logf("Writing updated cfg = %+v", cfg)
+	b, err := cfg.FormatForFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(inst.configPath(), b, 0644); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func writeGokrazyInstance(t *testing.T) *gokrazyTestInstance {
+func writeGokrazyInstance(t *testing.T, name string) *gokrazyTestInstance {
 	t.Helper()
 
 	// Redirect os.UserConfigDir() to a temporary directory under our
@@ -55,6 +76,7 @@ func writeGokrazyInstance(t *testing.T) *gokrazyTestInstance {
 	}
 
 	return &gokrazyTestInstance{
+		name:      name,
 		configDir: configDir,
 	}
 }
@@ -64,10 +86,13 @@ func TestGokUpdate(t *testing.T) {
 	// gokrazy/tools repository working copy.
 	t.Chdir(t.TempDir())
 
-	_ = writeGokrazyInstance(t)
-
 	// create a new instance
-	const instanceName = "hello"
+	const (
+		instanceName = "hello"
+		hostname     = "localhost"
+	)
+	ti := writeGokrazyInstance(t, instanceName)
+
 	c := gok.Context{
 		Args: []string{
 			"--parent_dir", "gokrazy",
@@ -82,15 +107,7 @@ func TestGokUpdate(t *testing.T) {
 
 	// and update the (default) instance config for our test
 	{
-		const configPath = "gokrazy/" + instanceName + "/config.json"
-		b, err := os.ReadFile(configPath)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var cfg config.Struct
-		if err := json.Unmarshal(b, &cfg); err != nil {
-			t.Fatal(err)
-		}
+		cfg := ti.readConfig(t)
 
 		// use generic kernel, enable serial console
 		// TODO: use arm64 kernel when running on arm64
@@ -100,20 +117,13 @@ func TestGokUpdate(t *testing.T) {
 		cfg.SerialConsole = "ttyS0,115200"
 		cfg.Environment = []string{"GOOS=linux", "GOARCH=amd64"}
 
-		cfg.Hostname = "localhost"
-		cfg.Update.Hostname = "localhost"
+		cfg.Hostname = hostname
+		cfg.Update.Hostname = hostname
 		cfg.Update.HTTPPort = "9080"
 		cfg.Update.HTTPSPort = "9443"
 		t.Logf("Updated cfg.Update = %+v", cfg.Update)
 
-		t.Logf("Updated cfg = %+v", cfg)
-		b, err = cfg.FormatForFile()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(configPath, b, 0644); err != nil {
-			t.Fatal(err)
-		}
+		ti.writeConfig(t, cfg)
 	}
 
 	t.Logf("booting gokrazy instance in a VM")
@@ -178,27 +188,12 @@ func TestGokUpdate(t *testing.T) {
 	t.Logf("Setting Update.UseTLS = self-signed")
 
 	{
-		const configPath = "gokrazy/" + instanceName + "/config.json"
-		b, err := os.ReadFile(configPath)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var cfg config.Struct
-		if err := json.Unmarshal(b, &cfg); err != nil {
-			t.Fatal(err)
-		}
+		cfg := ti.readConfig(t)
 
 		cfg.Update.UseTLS = "self-signed"
 		t.Logf("Updated cfg.Update = %+v", cfg.Update)
 
-		t.Logf("Updated cfg = %+v", cfg)
-		b, err = cfg.FormatForFile()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(configPath, b, 0644); err != nil {
-			t.Fatal(err)
-		}
+		ti.writeConfig(t, cfg)
 	}
 
 	fakeBuildTimestamp = "fake-update-2"
