@@ -1103,7 +1103,9 @@ func filterGoEnv(env []string) []string {
 	return relevant
 }
 
-func (pack *Pack) logicPrepare(ctx context.Context, programName string, sbomHook func(marshaled []byte, withHash SBOMWithHash)) error {
+const programName = "gokrazy gok"
+
+func (pack *Pack) logicPrepare(ctx context.Context, sbomHook func(marshaled []byte, withHash SBOMWithHash)) error {
 	log := pack.Env.Logger()
 	cfg := pack.Cfg
 	tlsflag.SetInsecure(cfg.InternalCompatibilityFlags.Insecure)
@@ -1244,7 +1246,7 @@ func (pack *Pack) logicPrepare(ctx context.Context, programName string, sbomHook
 	return nil
 }
 
-func (pack *Pack) logicBuild(programName string, sbomHook func(marshaled []byte, withHash SBOMWithHash), bindir string) error {
+func (pack *Pack) logicBuild(sbomHook func(marshaled []byte, withHash SBOMWithHash), bindir string) error {
 	log := pack.Env.Logger()
 
 	cfg := pack.Cfg // for convenience
@@ -1639,7 +1641,7 @@ func (pack *Pack) logicBuild(programName string, sbomHook func(marshaled []byte,
 	return nil
 }
 
-func (pack *Pack) logic(ctx context.Context, programName string, sbomHook func(marshaled []byte, withHash SBOMWithHash)) error {
+func (pack *Pack) logic(ctx context.Context, sbomHook func(marshaled []byte, withHash SBOMWithHash)) error {
 	dnsCheck := make(chan error)
 	go func() {
 		defer close(dnsCheck)
@@ -1655,7 +1657,7 @@ func (pack *Pack) logic(ctx context.Context, programName string, sbomHook func(m
 		dnsCheck <- nil
 	}()
 
-	if err := pack.logicPrepare(ctx, programName, sbomHook); err != nil {
+	if err := pack.logicPrepare(ctx, sbomHook); err != nil {
 		return err
 	}
 
@@ -1665,19 +1667,19 @@ func (pack *Pack) logic(ctx context.Context, programName string, sbomHook func(m
 	}
 	defer os.RemoveAll(bindir)
 
-	if err := pack.logicBuild(programName, sbomHook, bindir); err != nil {
+	if err := pack.logicBuild(sbomHook, bindir); err != nil {
 		return err
 	}
 	defer os.RemoveAll(pack.initTmp)
 
-	if err := pack.logicWrite(programName, sbomHook, bindir, dnsCheck); err != nil {
+	if err := pack.logicWrite(sbomHook, bindir, dnsCheck); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte, withHash SBOMWithHash), bindir string, dnsCheck chan error) error {
+func (pack *Pack) logicWrite(sbomHook func(marshaled []byte, withHash SBOMWithHash), bindir string, dnsCheck chan error) error {
 	ctx := context.Background()
 	log := pack.Env.Logger()
 
@@ -2220,8 +2222,8 @@ func (pack *Pack) updateWithProgress(prog *progress.Reporter, reader io.Reader, 
 	return nil
 }
 
-func (pack *Pack) Main(ctx context.Context, programName string) {
-	if err := pack.logic(ctx, programName, nil); err != nil {
+func (pack *Pack) Main(ctx context.Context) {
+	if err := pack.logic(ctx, nil); err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR:\n  %s\n", err)
 		os.Exit(1)
 	}
@@ -2230,7 +2232,7 @@ func (pack *Pack) Main(ctx context.Context, programName string) {
 func (pack *Pack) GenerateSBOM(ctx context.Context) ([]byte, SBOMWithHash, error) {
 	var sbom []byte
 	var sbomWithHash SBOMWithHash
-	if err := pack.logic(ctx, "gokrazy gok", func(b []byte, wh SBOMWithHash) {
+	if err := pack.logic(ctx, func(b []byte, wh SBOMWithHash) {
 		sbom = b
 		sbomWithHash = wh
 	}); err != nil {

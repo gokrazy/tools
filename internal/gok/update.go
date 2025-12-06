@@ -90,7 +90,7 @@ func (r *updateImplConfig) run(ctx context.Context, args []string, stdout, stder
 		Cfg:     cfg,
 	}
 
-	pack.Main(ctx, "gokrazy gok")
+	pack.Main(ctx)
 
 	return nil
 }
