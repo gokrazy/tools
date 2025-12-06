@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gokrazy/internal/config"
+	"github.com/gokrazy/internal/tlsflag"
 	"github.com/gokrazy/tools/gok"
 	"github.com/gokrazy/tools/internal/packer"
 )
@@ -222,6 +223,35 @@ func TestGokUpdate(t *testing.T) {
 			"--parent_dir", "gokrazy",
 			"-i", instanceName,
 			"update",
+		},
+	}
+	t.Logf("running %q", append([]string{"<gok>"}, c.Args...))
+	if err := c.Execute(ctx); err != nil {
+		t.Fatalf("%v: %v", c.Args, err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("second update succeeded, doing another update after deleting the certificates (with --insecure)")
+	certPath, keyPath, err := tlsflag.CertificatePathsFor(hostname)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(certPath); err != nil {
+		t.Fatalf("deleting certificate: %v", err)
+	}
+	if err := os.Remove(keyPath); err != nil {
+		t.Fatalf("deleting certificate: %v", err)
+	}
+	fakeBuildTimestamp = "fake-update-4"
+	ctx = context.WithValue(context.Background(), packer.BuildTimestampOverride, fakeBuildTimestamp)
+	c = gok.Context{
+		Args: []string{
+			"--parent_dir", "gokrazy",
+			"-i", instanceName,
+			"update",
+			"--insecure", // because we deleted the certificate files
 		},
 	}
 	t.Logf("running %q", append([]string{"<gok>"}, c.Args...))

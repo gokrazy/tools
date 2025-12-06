@@ -1707,7 +1707,12 @@ func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte,
 		remoteScheme, err := httpclient.GetRemoteScheme(updateBaseUrl)
 		done("")
 		if remoteScheme == "https" {
-			updateBaseUrl.Scheme = "https"
+			updateBaseUrl, err = updateflag.Value{
+				Update: pack.Cfg.InternalCompatibilityFlags.Update,
+			}.BaseURL(update.HTTPPort, update.HTTPSPort, "https", update.Hostname, update.HTTPPassword)
+			if err != nil {
+				return err
+			}
 			pack.Cfg.InternalCompatibilityFlags.Update = updateBaseUrl.String()
 		}
 
