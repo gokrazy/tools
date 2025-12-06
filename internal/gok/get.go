@@ -11,7 +11,6 @@ import (
 
 	"github.com/gokrazy/internal/config"
 	"github.com/gokrazy/internal/instanceflag"
-	"github.com/gokrazy/internal/updateflag"
 	"github.com/gokrazy/tools/packer"
 	"github.com/spf13/cobra"
 )
@@ -77,8 +76,6 @@ func (r *getImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 	if err := os.Chdir(config.InstancePath()); err != nil {
 		return err
 	}
-
-	updateflag.SetUpdate("yes")
 
 	packages := args
 	if r.updateAll {

@@ -69,8 +69,6 @@ func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 		}
 	}
 
-	updateflag.SetUpdate("yes")
-
 	var tmp string
 	if r.keep {
 		tmp = os.TempDir()
@@ -122,7 +120,7 @@ func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 		return err
 	}
 
-	httpClient, _, updateBaseUrl, err := httpclient.For(cfg)
+	httpClient, _, updateBaseUrl, err := httpclient.For(updateflag.Value{Update: "yes"}, cfg)
 	if err != nil {
 		return err
 	}

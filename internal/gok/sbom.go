@@ -10,7 +10,6 @@ import (
 
 	"github.com/gokrazy/internal/config"
 	"github.com/gokrazy/internal/instanceflag"
-	"github.com/gokrazy/internal/updateflag"
 	"github.com/gokrazy/tools/internal/packer"
 	"github.com/spf13/cobra"
 )
@@ -65,8 +64,6 @@ func (r *sbomConfig) run(ctx context.Context, args []string, stdout, stderr io.W
 	if err := os.Chdir(config.InstancePath()); err != nil {
 		return err
 	}
-
-	updateflag.SetUpdate("yes")
 
 	var buf bytes.Buffer
 	pack := &packer.Pack{

@@ -53,13 +53,11 @@ func (l *logsImplConfig) run(ctx context.Context, args []string, stdout, stderr 
 		}
 	}
 
-	updateflag.SetUpdate("yes")
-
 	if l.service == "" {
 		return fmt.Errorf("the -service flag is empty, but required")
 	}
 
-	httpClient, _, logsUrl, err := httpclient.For(cfg)
+	httpClient, _, logsUrl, err := httpclient.For(updateflag.Value{Update: "yes"}, cfg)
 	if err != nil {
 		return err
 	}

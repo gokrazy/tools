@@ -1106,11 +1106,11 @@ func filterGoEnv(env []string) []string {
 func (pack *Pack) logicPrepare(ctx context.Context, programName string, sbomHook func(marshaled []byte, withHash SBOMWithHash)) error {
 	log := pack.Env.Logger()
 	cfg := pack.Cfg
-	updateflag.SetUpdate(cfg.InternalCompatibilityFlags.Update)
 	tlsflag.SetInsecure(cfg.InternalCompatibilityFlags.Insecure)
 	tlsflag.SetUseTLS(cfg.Update.UseTLS)
 
-	if !updateflag.NewInstallation() && cfg.InternalCompatibilityFlags.Overwrite != "" {
+	if cfg.InternalCompatibilityFlags.Update != "" &&
+		cfg.InternalCompatibilityFlags.Overwrite != "" {
 		return fmt.Errorf("both -update and -overwrite are specified; use either one, not both")
 	}
 
@@ -1151,7 +1151,7 @@ func (pack *Pack) logicPrepare(ctx context.Context, programName string, sbomHook
 
 	pack.Pack = packer.NewPackForHost(pack.firstPartitionOffsetSectors, cfg.Hostname)
 
-	newInstallation := updateflag.NewInstallation()
+	newInstallation := cfg.InternalCompatibilityFlags.Update == ""
 	useGPT := newInstallation && !mbrOnlyWithoutGpt
 
 	pack.Pack.UsePartuuid = newInstallation
@@ -1390,7 +1390,9 @@ func (pack *Pack) logicBuild(programName string, sbomHook func(marshaled []byte,
 		})
 	}
 
-	defaultPassword, updateHostname := updateflag.GetUpdateTarget(cfg.Hostname)
+	defaultPassword, updateHostname := updateflag.Value{
+		Update: cfg.InternalCompatibilityFlags.Update,
+	}.GetUpdateTarget(cfg.Hostname)
 	update, err := cfg.Update.WithFallbackToHostSpecific(cfg.Hostname)
 	if err != nil {
 		return err
@@ -1686,10 +1688,13 @@ func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte,
 		target                   *updater.Target
 	)
 
-	if !updateflag.NewInstallation() {
+	newInstallation := pack.Cfg.InternalCompatibilityFlags.Update == ""
+	if !newInstallation {
 		update := pack.update // for convenience
 		var err error
-		updateBaseUrl, err = updateflag.BaseURL(update.HTTPPort, update.HTTPSPort, pack.schema, update.Hostname, update.HTTPPassword)
+		updateBaseUrl, err = updateflag.Value{
+			Update: pack.Cfg.InternalCompatibilityFlags.Update,
+		}.BaseURL(update.HTTPPort, update.HTTPSPort, pack.schema, update.Hostname, update.HTTPPassword)
 		if err != nil {
 			return err
 		}
@@ -1703,7 +1708,7 @@ func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte,
 		done("")
 		if remoteScheme == "https" && !tlsflag.Insecure() {
 			updateBaseUrl.Scheme = "https"
-			updateflag.SetUpdate(updateBaseUrl.String())
+			pack.Cfg.InternalCompatibilityFlags.Update = updateBaseUrl.String()
 		}
 
 		if updateBaseUrl.Scheme != "https" && foundMatchingCertificate {
@@ -1907,7 +1912,7 @@ func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte,
 		log.Printf("")
 	}
 
-	if updateflag.NewInstallation() {
+	if newInstallation {
 		return nil
 	}
 
@@ -2080,9 +2085,10 @@ func (pack *Pack) logicWrite(programName string, sbomHook func(marshaled []byte,
 		// Use an HTTPS client (post-update),
 		// even when the --insecure flag was specified.
 		pack.schema = "https"
-		updateflag.SetUpdate("yes")
 		var err error
-		updateBaseUrl, err = updateflag.BaseURL(update.HTTPPort, update.HTTPSPort, pack.schema, update.Hostname, update.HTTPPassword)
+		updateBaseUrl, err = updateflag.Value{
+			Update: "yes",
+		}.BaseURL(update.HTTPPort, update.HTTPSPort, pack.schema, update.Hostname, update.HTTPPassword)
 		if err != nil {
 			return err
 		}
