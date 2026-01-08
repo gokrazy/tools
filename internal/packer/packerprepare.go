@@ -176,6 +176,12 @@ func (pack *Pack) logicPrepare(ctx context.Context) error {
 	}
 	pack.waitForClock = waitForClock
 
+	waitFor, err := pack.findWaitFor(cfg)
+	if err != nil {
+		return err
+	}
+	pack.waitFor = waitFor
+
 	basenames, err := findBasenames(cfg)
 	if err != nil {
 		return err
@@ -539,6 +545,26 @@ func (pack *Pack) findWaitForClock(cfg *config.Struct) (map[string]bool, error) 
 	}
 
 	return contents, nil
+}
+
+func (pack *Pack) findWaitFor(cfg *config.Struct) (map[string][]string, error) {
+	if len(cfg.PackageConfig) > 0 {
+		contents := make(map[string][]string)
+		for pkg, packageConfig := range cfg.PackageConfig {
+			if len(packageConfig.WaitFor) == 0 {
+				continue
+			}
+			contents[pkg] = packageConfig.WaitFor
+			packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
+				kind:         "wait for conditions before start",
+				path:         cfg.Meta.Path,
+				lastModified: cfg.Meta.LastModified,
+			})
+		}
+		return contents, nil
+	}
+
+	return nil, nil // generic WaitFor is not supported in old config formats
 }
 
 func findBasenames(cfg *config.Struct) (map[string]string, error) {

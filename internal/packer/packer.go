@@ -403,6 +403,7 @@ type Pack struct {
 	envFileContents             map[string][]string
 	dontStart                   map[string]bool
 	waitForClock                map[string]bool
+	waitFor                     map[string][]string
 	basenames                   map[string]string
 	schema                      string
 	update                      *config.UpdateStruct

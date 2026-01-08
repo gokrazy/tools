@@ -134,6 +134,7 @@ func (pack *Pack) logicBuild(bindir string) error {
 			buildTimestamp:   pack.buildTimestamp,
 			dontStart:        pack.dontStart,
 			waitForClock:     pack.waitForClock,
+			waitFor:          pack.waitFor,
 			basenames:        pack.basenames,
 		}
 		if cfg.InternalCompatibilityFlags.OverwriteInit != "" {

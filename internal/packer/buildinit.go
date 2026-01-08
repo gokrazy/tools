@@ -60,6 +60,10 @@ func main() {
 {{ else }}
 		svc := gokrazy.NewService(cmd)
 {{ end }}
+{{- $waitFor := WaitFor $.WaitFor $path }}
+{{- if $waitFor }}
+		svc.SetWaitFor({{ printf "%#v" $waitFor }})
+{{- end }}
 		services = append(services, svc)
 	}
 {{- end }}
@@ -95,6 +99,10 @@ var initTmpl = template.Must(template.New("").Funcs(template.FuncMap{
 	"WaitForClock": func(waitForClock map[string]bool, path string) bool {
 		return waitForClock[filepath.Base(path)]
 	},
+
+	"WaitFor": func(waitFor map[string][]string, path string) []string {
+		return waitFor[filepath.Base(path)]
+	},
 }).Parse(initTmplContents))
 
 func flattenFiles(prefix string, root *FileInfo) []string {
@@ -111,6 +119,7 @@ func flattenFiles(prefix string, root *FileInfo) []string {
 
 type gokrazyInit struct {
 	root             *FileInfo
+	waitFor          map[string][]string
 	flagFileContents map[string][]string
 	envFileContents  map[string][]string
 	dontStart        map[string]bool
@@ -141,6 +150,7 @@ func (g *gokrazyInit) generate() ([]byte, error) {
 		Env            map[string][]string
 		DontStart      map[string]bool
 		WaitForClock   map[string]bool
+		WaitFor        map[string][]string
 	}{
 		Binaries:       flattenFiles("/", g.root),
 		BuildTimestamp: g.buildTimestamp,
@@ -148,6 +158,7 @@ func (g *gokrazyInit) generate() ([]byte, error) {
 		Env:            mapKeyBasename(g.basenames, g.envFileContents),
 		DontStart:      mapKeyBasename(g.basenames, g.dontStart),
 		WaitForClock:   mapKeyBasename(g.basenames, g.waitForClock),
+		WaitFor:        mapKeyBasename(g.basenames, g.waitFor),
 	}); err != nil {
 		return nil, err
 	}
