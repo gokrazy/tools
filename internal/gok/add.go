@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/gokrazy/internal/config"
@@ -208,11 +209,9 @@ func (r *addImplConfig) addPackageToConfig(importPath string) error {
 	if err != nil {
 		return err
 	}
-	for _, existing := range cfg.Packages {
-		if existing == importPath {
-			log.Printf("Package already configured (see 'gok -i %s edit')", instanceflag.Instance())
-			return nil
-		}
+	if slices.Contains(cfg.Packages, importPath) || slices.Contains(cfg.GokrazyPackagesOrDefault(), importPath) {
+		log.Printf("Package already configured (see 'gok -i %s edit')", instanceflag.Instance())
+		return nil
 	}
 	log.Printf("Adding package to gokrazy config")
 	cfg.Packages = append(cfg.Packages, importPath)
