@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -17,14 +16,10 @@ import (
 
 // TestGokAdd tests `gok add`ing to a gokrazy instance.
 func TestGokAdd(t *testing.T) {
-	fakeDHCPPath := func() string {
-		_, filename, _, ok := runtime.Caller(0)
-		if !ok {
-			t.Fatal("runtime.Caller(0) returned not ok")
-		}
-		return filepath.Dir(filename) + "/testdata/cmd/dhcp"
-	}()
-
+	fakeDHCPPath, err := filepath.Abs("testdata/cmd/dhcp")
+	if err != nil {
+		t.Fatalf("filepath.Abs(testdata/cmd/dhcp): %v", err)
+	}
 	t.Chdir(t.TempDir()) // Avoid littering gokrazy/tools source/working tree.
 	const instance = "gokadd_test"
 
