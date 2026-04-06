@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -48,12 +49,14 @@ Examples:
 		},
 	}
 	cmd.Flags().BoolVarP(&runImpl.keep, "keep", "k", false, "keep temporary binary")
+	cmd.Flags().DurationVarP(&runImpl.watch, "watch", "w", 999999*time.Hour /* indefinite */, "how long to watch the remote process")
 	instanceflag.RegisterPflags(cmd.Flags())
 	return cmd
 }
 
 type runImplConfig struct {
-	keep bool
+	keep  bool
+	watch time.Duration
 }
 
 var runImpl runImplConfig
@@ -183,8 +186,19 @@ func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 	canc()
 
 	// stream stdout/stderr logs
+	ctx, canc = context.WithTimeout(ctx, r.watch)
+	defer canc()
+	log.Printf("Watching remote service logs for -watch=%v", r.watch)
 	logsCfg := &logsImplConfig{
 		service: basename,
 	}
-	return logsCfg.run(ctx, nil, stdout, stderr)
+	err = logsCfg.run(ctx, nil, stdout, stderr)
+	if err == context.DeadlineExceeded {
+		log.Printf("-watch=%v ended, exiting", r.watch)
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return nil
 }

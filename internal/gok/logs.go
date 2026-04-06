@@ -101,6 +101,7 @@ func (r *logsImplConfig) streamLog(ctx context.Context, w io.Writer, url string,
 	if err != nil {
 		return err
 	}
+	req = req.WithContext(ctx)
 
 	stream, err := eventsource.SubscribeWith("", httpClient, req)
 	if err != nil {
