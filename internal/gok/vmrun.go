@@ -175,13 +175,24 @@ func (r *vmRunConfig) runQEMU(ctx context.Context, fullDiskImage string, extraAr
 			"-m", "1024",
 		}, extraArgs...)...)
 
+	// Hardware acceleration is only available for the native architecture,
+	// e.g. arm64 for M1 MacBooks.
+	useHVF := goarch == runtime.GOARCH && runtime.GOOS == "darwin"
+	useKVM := goarch == runtime.GOARCH && runtime.GOOS == "linux"
+
 	// Start in EFI mode (not legacy BIOS) so that we get a frame buffer (for
 	// gokrazy’s fbstatus program) and serial console.
 	switch goarch {
 	case "arm64":
+		cpu := "cortex-a72"
+		if useHVF {
+			// macOS Hypervisor.framework does not support named CPU
+			// models like cortex-a72; only host and max are valid.
+			cpu = "host"
+		}
 		qemu.Args = append(qemu.Args,
 			"-machine", "virt,highmem=off",
-			"-cpu", "cortex-a72",
+			"-cpu", cpu,
 			"-bios", arm64EFI)
 
 	case "amd64":
@@ -195,15 +206,10 @@ func (r *vmRunConfig) runQEMU(ctx context.Context, fullDiskImage string, extraAr
 		)
 	}
 
-	if goarch == runtime.GOARCH {
-		// Hardware acceleration (in both cases) is only available for the
-		// native architecture, e.g. arm64 for M1 MacBooks.
-		switch runtime.GOOS {
-		case "linux":
-			qemu.Args = append(qemu.Args, "-accel", "kvm")
-		case "darwin":
-			qemu.Args = append(qemu.Args, "-accel", "hvf")
-		}
+	if useKVM {
+		qemu.Args = append(qemu.Args, "-accel", "kvm")
+	} else if useHVF {
+		qemu.Args = append(qemu.Args, "-accel", "hvf")
 	}
 
 	if !r.graphic {
