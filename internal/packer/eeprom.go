@@ -40,6 +40,7 @@ func overwriteBootconf(bootconfTxt []byte, extraEEPROM []string) []byte {
 		extraByProp[prop] = line
 	}
 	var out strings.Builder
+	// Replace existing properties with values from extraEEPROM
 	for _, line := range bootconfLines {
 		prop, _, ok := strings.Cut(line, "=")
 		if !ok {
@@ -48,7 +49,19 @@ func overwriteBootconf(bootconfTxt []byte, extraEEPROM []string) []byte {
 		}
 		if extra, ok := extraByProp[prop]; ok {
 			out.WriteString(extra + "\n")
+			delete(extraByProp, prop)
 		} else {
+			out.WriteString(line + "\n")
+		}
+	}
+	// Append any extra properties not already present in the upstream bootconf.txt
+	// Iterate over extraEEPROM to preserve the user-specified order.
+	for _, line := range extraEEPROM {
+		prop, _, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		if _, ok := extraByProp[prop]; ok {
 			out.WriteString(line + "\n")
 		}
 	}
