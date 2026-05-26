@@ -4,6 +4,7 @@ package packer
 
 import (
 	"archive/tar"
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -18,6 +19,7 @@ import (
 	"github.com/gokrazy/internal/deviceconfig"
 	"github.com/gokrazy/tools/internal/log"
 	"github.com/gokrazy/tools/packer"
+	"github.com/klauspost/compress/zstd"
 )
 
 type contextKey int
@@ -93,7 +95,22 @@ func (ae *archiveExtraction) extractArchive(path string) (time.Time, error) {
 		return time.Time{}, err
 	}
 	defer f.Close()
-	rd := tar.NewReader(f)
+
+	// Sniff zstd magic bytes (0x28 0xb5 0x2f 0xfd) to transparently handle both plain tar
+	// and zstd-compressed tar archives.
+	// Ref: https://datatracker.ietf.org/doc/html/rfc8878#section-3.1.1
+	br := bufio.NewReader(f)
+	var r io.Reader = br
+	if magic, err := br.Peek(4); err == nil &&
+		magic[0] == 0x28 && magic[1] == 0xb5 && magic[2] == 0x2f && magic[3] == 0xfd {
+		zr, err := zstd.NewReader(br)
+		if err != nil {
+			return time.Time{}, fmt.Errorf("zstd %s: %v", path, err)
+		}
+		defer zr.Close()
+		r = zr
+	}
+	rd := tar.NewReader(r)
 
 	var latestTime time.Time
 	for {
@@ -147,17 +164,23 @@ func (ae *archiveExtraction) extractArchive(path string) (time.Time, error) {
 	return latestTime, nil
 }
 
+// extraFilesArchiveCandidates returns the list of archive paths to probe
+// for a given extrafiles directory, in priority order.
+func extraFilesArchiveCandidates(dir string) []string {
+	targetArch := packer.TargetArch()
+	return []string{
+		dir + "_" + targetArch + ".tar.zst",
+		dir + "_" + targetArch + ".tar",
+		dir + ".tar.zst",
+		dir + ".tar",
+	}
+}
+
 // findExtraFilesInDir probes for extrafiles .tar files (possibly with an
 // architecture suffix like _amd64), or whether dir itself exists.
 func findExtraFilesInDir(dir string) (string, error) {
-	targetArch := packer.TargetArch()
-
 	var err error
-	for _, p := range []string{
-		dir + "_" + targetArch + ".tar",
-		dir + ".tar",
-		dir,
-	} {
+	for _, p := range append(extraFilesArchiveCandidates(dir), dir) {
 		_, err = os.Stat(p)
 		if err == nil {
 			return p, nil
@@ -179,18 +202,18 @@ func addExtraFilesFromDir(pkg, dir string, fi *FileInfo) error {
 	}
 	ae.dirs["."] = fi // root
 
-	targetArch := packer.TargetArch()
-
-	effectivePath := dir + "_" + targetArch + ".tar"
-	latestModTime, err := ae.extractArchive(effectivePath)
-	if err != nil {
-		return err
-	}
-	if len(fi.Dirents) == 0 {
-		effectivePath = dir + ".tar"
+	var (
+		effectivePath string
+		latestModTime time.Time
+		err           error
+	)
+	for _, effectivePath = range extraFilesArchiveCandidates(dir) {
 		latestModTime, err = ae.extractArchive(effectivePath)
 		if err != nil {
 			return err
+		}
+		if len(fi.Dirents) > 0 {
+			break
 		}
 	}
 	if len(fi.Dirents) == 0 {

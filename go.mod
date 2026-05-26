@@ -11,6 +11,7 @@ require (
 	github.com/gokrazy/internal v0.0.0-20251208203110-3c1aa9087c82
 	github.com/gokrazy/updater v0.0.0-20250705135802-db129c40879c
 	github.com/google/renameio/v2 v2.0.0
+	github.com/klauspost/compress v1.18.6
 	github.com/mattn/go-isatty v0.0.20
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6
