@@ -103,7 +103,10 @@ func (r *logsImplConfig) streamLog(ctx context.Context, w io.Writer, url string,
 	}
 	req = req.WithContext(ctx)
 
-	stream, err := eventsource.SubscribeWith("", httpClient, req)
+	// Clone the client because eventsource.SubscribeWith mutates
+	// client.CheckRedirect, and streamLog is called concurrently.
+	c := *httpClient
+	stream, err := eventsource.SubscribeWith("", &c, req)
 	if err != nil {
 		return err
 	}
