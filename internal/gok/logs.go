@@ -107,7 +107,10 @@ func (r *logsImplConfig) streamLog(ctx context.Context, w io.Writer, url string,
 	if err != nil {
 		return err
 	}
-	defer stream.Close()
+	// Do not defer stream.Close() — it races with the library's
+	// background goroutine and panics (send on closed channel).
+	// The context cancellation will abort the HTTP request, which
+	// makes the library goroutine exit on its own.
 
 	for {
 		select {
