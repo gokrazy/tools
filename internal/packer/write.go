@@ -48,7 +48,7 @@ func copyFile(fw *fat.Writer, dest string, src fs.File, srcName string) error {
 	return src.Close()
 }
 
-func copyFileSquash(d *squashfs.Directory, dest, src string) error {
+func copyFileSquash(d *squashfs.Directory, dest, src string, xattrs map[string][]byte) error {
 	f, err := os.Open(src)
 	if err != nil {
 		return err
@@ -58,7 +58,7 @@ func copyFileSquash(d *squashfs.Directory, dest, src string) error {
 	if err != nil {
 		return err
 	}
-	w, err := d.File(filepath.Base(dest), st.ModTime(), st.Mode()&os.ModePerm)
+	w, err := d.File(filepath.Base(dest), st.ModTime(), st.Mode()&os.ModePerm, xattrs)
 	if err != nil {
 		return err
 	}
@@ -443,6 +443,7 @@ type FileInfo struct {
 	FromHost    string
 	FromLiteral string
 	SymlinkDest string
+	Xattrs      map[string][]byte
 
 	Dirents []*FileInfo
 }
@@ -577,7 +578,7 @@ type foundBin struct {
 	hostPath    string
 }
 
-func findBins(cfg *config.Struct, buildEnv *packer.BuildEnv, bindir string, basenames map[string]string) (*FileInfo, []foundBin, error) {
+func findBins(cfg *config.Struct, buildEnv *packer.BuildEnv, bindir string, basenames map[string]string, xattrs map[string]map[string][]byte) (*FileInfo, []foundBin, error) {
 	var found []foundBin
 	result := FileInfo{Filename: ""}
 
@@ -632,15 +633,20 @@ func findBins(cfg *config.Struct, buildEnv *packer.BuildEnv, bindir string, base
 	}
 	user := FileInfo{Filename: "user"}
 	for _, pkg := range mainPkgs {
+		xattr := make(map[string][]byte)
 		basename := pkg.Basename()
 		if basenameOverride, ok := basenames[pkg.ImportPath]; ok {
 			basename = basenameOverride
+		}
+		if xattrsOverride, ok := xattrs[pkg.ImportPath]; ok {
+			xattr = xattrsOverride
 		}
 		binPath := filepath.Join(bindir, basename)
 		fileIsELFOrFatal(binPath)
 		user.Dirents = append(user.Dirents, &FileInfo{
 			Filename: basename,
 			FromHost: binPath,
+			Xattrs:   xattr,
 		})
 		found = append(found, foundBin{
 			gokrazyPath: "/user/" + basename,
@@ -653,14 +659,14 @@ func findBins(cfg *config.Struct, buildEnv *packer.BuildEnv, bindir string, base
 
 func writeFileInfo(dir *squashfs.Directory, fi *FileInfo) error {
 	if fi.FromHost != "" { // copy a regular file
-		return copyFileSquash(dir, fi.Filename, fi.FromHost)
+		return copyFileSquash(dir, fi.Filename, fi.FromHost, fi.Xattrs)
 	}
 	if fi.FromLiteral != "" { // write a regular file
 		mode := fi.Mode
 		if mode == 0 {
 			mode = 0444
 		}
-		w, err := dir.File(fi.Filename, time.Now(), mode)
+		w, err := dir.File(fi.Filename, time.Now(), mode, fi.Xattrs)
 		if err != nil {
 			return err
 		}
