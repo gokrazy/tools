@@ -43,7 +43,7 @@ type logsImplConfig struct {
 var logsImpl logsImplConfig
 
 func (l *logsImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	cfg, err := config.ReadFromFile(l.inst.InstanceConfigPath())
+	cfg, err := config.ReadFromFile(l.inst.InstanceConfigPath(), l.inst.Name)
 	if err != nil {
 		return err
 	}

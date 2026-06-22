@@ -158,7 +158,7 @@ func (r *addImplConfig) addLocal(ctx context.Context, abs string, stdout, stderr
   in Go module: %s
   in local dir: %s`, r.inst.Name, pkg.ImportPath, pkg.Module.Path, pkg.Dir)
 
-	buildDir := filepath.Join(config.InstancePath(), "builddir", pkg.ImportPath)
+	buildDir := filepath.Join(r.inst.InstancePath(), "builddir", pkg.ImportPath)
 	if _, err := os.Stat(buildDir); err != nil {
 		log.Printf("Creating gokrazy builddir for package %s", pkg.ImportPath)
 		if err := os.MkdirAll(buildDir, 0755); err != nil {
@@ -207,7 +207,7 @@ func (r *addImplConfig) addLocal(ctx context.Context, abs string, stdout, stderr
 }
 
 func (r *addImplConfig) addPackageToConfig(importPath string) error {
-	cfg, err := config.ReadFromFile(r.inst.InstanceConfigPath())
+	cfg, err := config.ReadFromFile(r.inst.InstanceConfigPath(), r.inst.Name)
 	if err != nil {
 		return err
 	}
@@ -222,7 +222,7 @@ func (r *addImplConfig) addPackageToConfig(importPath string) error {
 	if err != nil {
 		return err
 	}
-	if err := replaceFile(config.InstanceConfigPath(), b, 0600); err != nil {
+	if err := replaceFile(r.inst.InstanceConfigPath(), b, 0600); err != nil {
 		return fmt.Errorf("updating config.json: %v", err)
 	}
 	return nil
@@ -245,7 +245,7 @@ func (r *addImplConfig) addNonLocal(ctx context.Context, arg string, stdout, std
   Go package  : %s
   in Go module: %s`, instanceflag.Instance(), importPath, resolved.module)
 
-	buildDir := filepath.Join(config.InstancePath(), "builddir", resolved.module)
+	buildDir := filepath.Join(r.inst.InstancePath(), "builddir", resolved.module)
 	if _, err := os.Stat(buildDir); err != nil {
 		log.Printf("Creating gokrazy builddir for module %s", resolved.module)
 		if err := os.MkdirAll(buildDir, 0755); err != nil {

@@ -38,7 +38,7 @@ type psImplConfig struct {
 var psImpl psImplConfig
 
 func (r *psImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	cfg, err := config.ReadFromFile(r.inst.InstanceConfigPath())
+	cfg, err := config.ReadFromFile(r.inst.InstanceConfigPath(), r.inst.Name)
 	if err != nil {
 		return err
 	}

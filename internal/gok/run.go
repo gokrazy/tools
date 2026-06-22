@@ -64,7 +64,7 @@ type runImplConfig struct {
 var runImpl runImplConfig
 
 func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	cfg, err := config.ReadFromFile(r.inst.InstanceConfigPath())
+	cfg, err := config.ReadFromFile(r.inst.InstanceConfigPath(), r.inst.Name)
 	if err != nil {
 		return err
 	}

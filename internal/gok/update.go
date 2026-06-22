@@ -47,13 +47,13 @@ type updateImplConfig struct {
 var updateImpl updateImplConfig
 
 func (r *updateImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	fileCfg, err := config.ReadFromFile(r.inst.InstanceConfigPath())
+	fileCfg, err := config.ReadFromFile(r.inst.InstanceConfigPath(), r.inst.Name)
 	if err != nil {
 		return err
 	}
 	fileCfg.ApplyEnvironment()
 
-	cfg, err := config.ReadFromFile(fileCfg.Meta.Path)
+	cfg, err := config.ReadFromFile(fileCfg.Meta.Path, fileCfg.Meta.Instance)
 	if err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func (r *updateImplConfig) run(ctx context.Context, args []string, stdout, stder
 		cfg.InternalCompatibilityFlags.Testboot = true
 	}
 
-	if err := os.Chdir(config.InstancePath()); err != nil {
+	if err := os.Chdir(r.inst.InstancePath()); err != nil {
 		return err
 	}
 
