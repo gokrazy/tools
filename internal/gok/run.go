@@ -189,6 +189,7 @@ func (r *runImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 	log.Printf("Watching remote service logs for -watch=%v", r.watch)
 	logsCfg := &logsImplConfig{
 		service: basename,
+		inst:    r.inst,
 	}
 	err = logsCfg.run(ctx, nil, stdout, stderr)
 	if err == context.DeadlineExceeded {

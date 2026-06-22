@@ -2,101 +2,32 @@ package gokupdate_test
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 
-	"github.com/gokrazy/internal/config"
 	"github.com/gokrazy/internal/tlsflag"
 	"github.com/gokrazy/tools/gok"
+	"github.com/gokrazy/tools/internal/goktest"
 	"github.com/gokrazy/tools/internal/packer"
 )
 
-type gokrazyTestInstance struct {
-	name      string
-	configDir string
-}
-
-func (inst *gokrazyTestInstance) configPath() string {
-	return "gokrazy/" + inst.name + "/config.json"
-}
-
-func (inst *gokrazyTestInstance) readConfig(t *testing.T) config.Struct {
-	b, err := os.ReadFile(inst.configPath())
-	if err != nil {
-		t.Fatal(err)
-	}
-	var cfg config.Struct
-	if err := json.Unmarshal(b, &cfg); err != nil {
-		t.Fatal(err)
-	}
-	return cfg
-}
-
-func (inst *gokrazyTestInstance) writeConfig(t *testing.T, cfg config.Struct) {
-	t.Helper()
-	t.Logf("Writing updated cfg = %+v", cfg)
-	b, err := cfg.FormatForFile()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(inst.configPath(), b, 0644); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func writeGokrazyInstance(t *testing.T, name string) *gokrazyTestInstance {
-	t.Helper()
-
-	// Redirect os.UserConfigDir() to a temporary directory under our
-	// control. gokrazy always uses a path under os.UserConfigDir().
-	var configDir string
-	switch runtime.GOOS {
-	case "linux":
-		configHomeDir := t.TempDir()
-		os.Setenv("XDG_CONFIG_HOME", configHomeDir)
-		// where linux looks:
-		configDir = filepath.Join(configHomeDir, "gokrazy")
-
-	case "darwin":
-		homeDir := t.TempDir()
-		os.Setenv("HOME", homeDir)
-		// where darwin looks:
-		configDir = filepath.Join(homeDir, "Library", "Application Support", "gokrazy")
-
-	default:
-		t.Fatalf("GOOS=%s unsupported", runtime.GOOS)
-	}
-
-	if err := os.MkdirAll(configDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	return &gokrazyTestInstance{
-		name:      name,
-		configDir: configDir,
-	}
-}
-
 func TestGokUpdate(t *testing.T) {
-	// Run this whole test in a throw-away temporary directory to not litter the
-	// gokrazy/tools repository working copy.
-	t.Chdir(t.TempDir())
-
 	// create a new instance
 	const (
 		instanceName = "hello"
 		hostname     = "localhost"
 	)
-	ti := writeGokrazyInstance(t, instanceName)
+	ti := goktest.WriteInstance(t, instanceName)
+	// Run this whole test in a throw-away temporary directory to not litter the
+	// gokrazy/tools repository working copy.
+	t.Chdir(filepath.Dir(ti.ConfigDir))
 
 	c := gok.Context{
 		Args: []string{
-			"--parent_dir", "gokrazy",
+			"--parent_dir", ti.ConfigDir,
 			"-i", instanceName,
 			"new",
 		},
@@ -108,7 +39,7 @@ func TestGokUpdate(t *testing.T) {
 
 	// and update the (default) instance config for our test
 	{
-		cfg := ti.readConfig(t)
+		cfg := ti.ReadConfig(t)
 
 		// use generic kernel, enable serial console
 		// TODO: use arm64 kernel when running on arm64
@@ -124,7 +55,7 @@ func TestGokUpdate(t *testing.T) {
 		cfg.Update.HTTPSPort = "9443"
 		t.Logf("Updated cfg.Update = %+v", cfg.Update)
 
-		ti.writeConfig(t, cfg)
+		ti.WriteConfig(t, cfg)
 	}
 
 	t.Logf("booting gokrazy instance in a VM")
@@ -171,7 +102,7 @@ func TestGokUpdate(t *testing.T) {
 	ctx := context.WithValue(context.Background(), packer.BuildTimestampOverride, fakeBuildTimestamp)
 	c = gok.Context{
 		Args: []string{
-			"--parent_dir", "gokrazy",
+			"--parent_dir", ti.ConfigDir,
 			"-i", instanceName,
 			"update",
 		},
@@ -189,19 +120,19 @@ func TestGokUpdate(t *testing.T) {
 	t.Logf("Setting Update.UseTLS = self-signed")
 
 	{
-		cfg := ti.readConfig(t)
+		cfg := ti.ReadConfig(t)
 
 		cfg.Update.UseTLS = "self-signed"
 		t.Logf("Updated cfg.Update = %+v", cfg.Update)
 
-		ti.writeConfig(t, cfg)
+		ti.WriteConfig(t, cfg)
 	}
 
 	fakeBuildTimestamp = "fake-update-2"
 	ctx = context.WithValue(context.Background(), packer.BuildTimestampOverride, fakeBuildTimestamp)
 	c = gok.Context{
 		Args: []string{
-			"--parent_dir", "gokrazy",
+			"--parent_dir", ti.ConfigDir,
 			"-i", instanceName,
 			"update",
 			"--insecure", // only on first update after enabling self-signed TLS
@@ -220,7 +151,7 @@ func TestGokUpdate(t *testing.T) {
 	ctx = context.WithValue(context.Background(), packer.BuildTimestampOverride, fakeBuildTimestamp)
 	c = gok.Context{
 		Args: []string{
-			"--parent_dir", "gokrazy",
+			"--parent_dir", ti.ConfigDir,
 			"-i", instanceName,
 			"update",
 		},
@@ -248,7 +179,7 @@ func TestGokUpdate(t *testing.T) {
 	ctx = context.WithValue(context.Background(), packer.BuildTimestampOverride, fakeBuildTimestamp)
 	c = gok.Context{
 		Args: []string{
-			"--parent_dir", "gokrazy",
+			"--parent_dir", ti.ConfigDir,
 			"-i", instanceName,
 			"update",
 			"--insecure", // because we deleted the certificate files

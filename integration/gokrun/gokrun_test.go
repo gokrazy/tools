@@ -12,55 +12,12 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
-	"github.com/gokrazy/tools/internal/gok"
+	"github.com/gokrazy/tools/gok"
+	internalgok "github.com/gokrazy/tools/internal/gok"
+	"github.com/gokrazy/tools/internal/goktest"
 )
-
-type gokrazyTestInstance struct {
-	configDir string
-}
-
-func (inst *gokrazyTestInstance) writeConfig(t *testing.T, basename, content string) {
-	t.Helper()
-	fn := filepath.Join(inst.configDir, basename)
-	if err := os.WriteFile(fn, []byte(content), 0600); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func writeGokrazyInstance(t *testing.T) *gokrazyTestInstance {
-	t.Helper()
-
-	// Redirect os.UserConfigDir() to a temporary directory under our
-	// control. gokrazy always uses a path under os.UserConfigDir().
-	var configDir string
-	switch runtime.GOOS {
-	case "linux":
-		configHomeDir := t.TempDir()
-		os.Setenv("XDG_CONFIG_HOME", configHomeDir)
-		// where linux looks:
-		configDir = filepath.Join(configHomeDir, "gokrazy")
-
-	case "darwin":
-		homeDir := t.TempDir()
-		os.Setenv("HOME", homeDir)
-		// where darwin looks:
-		configDir = filepath.Join(homeDir, "Library", "Application Support", "gokrazy")
-
-	default:
-		t.Fatalf("GOOS=%s unsupported", runtime.GOOS)
-	}
-
-	if err := os.MkdirAll(configDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	return &gokrazyTestInstance{
-		configDir: configDir,
-	}
-}
 
 func writeGoWorkingDirectory(t *testing.T, wd string) {
 	t.Helper()
@@ -86,7 +43,25 @@ func main() {
 }
 
 func TestGokRun(t *testing.T) {
-	inst := writeGokrazyInstance(t)
+	// create a new instance
+	const (
+		instanceName = "hello"
+		hostname     = "localhost"
+	)
+	ti := goktest.WriteInstance(t, instanceName)
+	parentDir := ti.ConfigDir
+
+	c := gok.Context{
+		Args: []string{
+			"--parent_dir", parentDir,
+			"-i", instanceName,
+			"new",
+		},
+	}
+	t.Logf("running %q", append([]string{"<gok>"}, c.Args...))
+	if err := c.Execute(context.Background()); err != nil {
+		t.Fatalf("%v: %v", c.Args, err)
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/update/features", func(w http.ResponseWriter, r *http.Request) {
@@ -124,8 +99,16 @@ func TestGokRun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	inst.writeConfig(t, "http-password.txt", "irrelevant")
-	inst.writeConfig(t, "http-port.txt", u.Port())
+	{
+		cfg := ti.ReadConfig(t)
+
+		cfg.Update.HTTPPassword = "irrelevant"
+		cfg.Update.HTTPPort = u.Port()
+		cfg.Update.Hostname = "localhost"
+		t.Logf("Updated cfg.Update = %+v", cfg.Update)
+
+		ti.WriteConfig(t, cfg)
+	}
 
 	wd := filepath.Join(t.TempDir(), "hello")
 	writeGoWorkingDirectory(t, wd)
@@ -136,7 +119,7 @@ func TestGokRun(t *testing.T) {
 
 	// Testing the root command because individual cobra commands cannot be
 	// executed directly.
-	root := gok.RootCmd()
+	root := internalgok.RootCmd()
 	root.SetContext(ctx)
 	logOutputFound := make(chan bool)
 	rd, wr := io.Pipe()
@@ -155,7 +138,7 @@ func TestGokRun(t *testing.T) {
 	}()
 	root.SetOut(wr)
 	root.SetErr(wr)
-	args := []string{"run", "-i", "localhost"}
+	args := []string{"run", "--parent_dir", parentDir, "-i", instanceName}
 	root.SetArgs(args)
 	t.Logf("%s", append([]string{"gok"}, args...))
 	executeReturned := make(chan error)
