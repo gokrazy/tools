@@ -37,12 +37,13 @@ https://gokrazy.org/quickstart/
 			return newImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
 		},
 	}
-	instanceflag.RegisterPflags(cmd.Flags())
+	newImpl.inst = instanceflag.RegisterPflags(cmd.Flags())
 	cmd.Flags().BoolVarP(&newImpl.empty, "empty", "", false, "create an empty gokrazy instance, without the default packages")
 	return cmd
 }
 
 type newImplConfig struct {
+	inst  *instanceflag.Flags
 	empty bool
 }
 
@@ -98,14 +99,11 @@ func (r *newImplConfig) addBreakglassAuthorizedKeys(authorizedPath string, match
 }
 
 func (r *newImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	parentDir := instanceflag.ParentDir()
-	instance := instanceflag.Instance()
-
-	if err := os.MkdirAll(filepath.Join(parentDir, instance), 0755); err != nil {
+	if err := os.MkdirAll(r.inst.InstancePath(), 0755); err != nil {
 		return err
 	}
 
-	configJSON := filepath.Join(parentDir, instance, "config.json")
+	configJSON := r.inst.InstanceConfigPath()
 	f, err := os.OpenFile(configJSON, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		if os.IsExist(err) {
@@ -132,7 +130,7 @@ func (r *newImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 		}
 		if len(matches) > 0 {
 			packages = append(packages, "github.com/gokrazy/breakglass")
-			authorizedPath := filepath.Join(parentDir, instance, "breakglass.authorized_keys")
+			authorizedPath := filepath.Join(r.inst.InstancePath(), "breakglass.authorized_keys")
 			if err := r.addBreakglassAuthorizedKeys(authorizedPath, matches, packageConfig); err != nil {
 				return err
 			}
@@ -155,7 +153,7 @@ func (r *newImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 		return err
 	}
 	cfg := &config.Struct{
-		Hostname: instance,
+		Hostname: r.inst.Name,
 		Packages: packages,
 		Update: &config.UpdateStruct{
 			HTTPPassword: pw,
@@ -178,9 +176,9 @@ func (r *newImplConfig) run(ctx context.Context, args []string, stdout, stderr i
 	}
 
 	fmt.Printf("gokrazy instance configuration created in %s\n", configJSON)
-	fmt.Printf("(Use 'gok -i %s edit' to edit the configuration interactively.)\n", instance)
+	fmt.Printf("(Use 'gok -i %s edit' to edit the configuration interactively.)\n", r.inst.Name)
 	fmt.Println()
-	fmt.Printf("Use 'gok -i %s add' to add packages to this instance\n", instance)
+	fmt.Printf("Use 'gok -i %s add' to add packages to this instance\n", r.inst.Name)
 	fmt.Println()
 	fmt.Printf("To deploy this gokrazy instance, see 'gok help overwrite'\n")
 

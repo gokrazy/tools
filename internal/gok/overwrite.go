@@ -41,7 +41,7 @@ Examples:
 			return overwriteImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
 		},
 	}
-	instanceflag.RegisterPflags(cmd.Flags())
+	overwriteImpl.inst = instanceflag.RegisterPflags(cmd.Flags())
 	cmd.Flags().StringVarP(&overwriteImpl.full, "full", "", "", "write a full gokrazy device image to the specified device (e.g. /dev/sdx) or path (e.g. /tmp/gokrazy.img)")
 	cmd.Flags().StringVarP(&overwriteImpl.gaf, "gaf", "", "", "write a .gaf (gokrazy archive format) file to the specified path (e.g. /tmp/gokrazy.gaf)")
 	cmd.Flags().StringVarP(&overwriteImpl.boot, "boot", "", "", "write the gokrazy boot file system to the specified partition (e.g. /dev/sdx1) or path (e.g. /tmp/boot.fat)")
@@ -54,6 +54,8 @@ Examples:
 }
 
 type overwriteImplConfig struct {
+	inst *instanceflag.Flags
+
 	full string
 	gaf  string
 	boot string
@@ -81,10 +83,11 @@ func (r *overwriteImplConfig) run(ctx context.Context, args []string, stdout, st
 		defer trace.Stop()
 	}
 
-	fileCfg, err := config.ApplyInstanceFlag()
+	fileCfg, err := config.ReadFromFile(r.inst.InstanceConfigPath())
 	if err != nil {
 		return err
 	}
+	fileCfg.ApplyEnvironment()
 
 	cfg, err := config.ReadFromFile(fileCfg.Meta.Path)
 	if err != nil {

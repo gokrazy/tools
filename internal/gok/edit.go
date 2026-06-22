@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"syscall"
 
 	"github.com/gokrazy/internal/instanceflag"
@@ -31,19 +30,18 @@ func editCmd() *cobra.Command {
 			return editImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
 		},
 	}
-	instanceflag.RegisterPflags(cmd.Flags())
+	editImpl.inst = instanceflag.RegisterPflags(cmd.Flags())
 	return cmd
 }
 
-type editImplConfig struct{}
+type editImplConfig struct {
+	inst *instanceflag.Flags
+}
 
 var editImpl editImplConfig
 
 func (r *editImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	parentDir := instanceflag.ParentDir()
-	instance := instanceflag.Instance()
-
-	configJSON := filepath.Join(parentDir, instance, "config.json")
+	configJSON := r.inst.InstanceConfigPath()
 	editor := os.Getenv("VISUAL")
 	if editor == "" {
 		editor = os.Getenv("EDITOR")

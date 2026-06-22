@@ -35,26 +35,23 @@ Examples:
 		},
 	}
 	cmd.Flags().StringVarP(&sbomImpl.format, "format", "", "json", "output format. one of json or hash")
-	instanceflag.RegisterPflags(cmd.Flags())
+	sbomImpl.inst = instanceflag.RegisterPflags(cmd.Flags())
 	return cmd
 }
 
 type sbomConfig struct {
+	inst   *instanceflag.Flags
 	format string
 }
 
 var sbomImpl sbomConfig
 
 func (r *sbomConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	fileCfg, err := config.ApplyInstanceFlag()
+	fileCfg, err := config.ReadFromFile(r.inst.InstanceConfigPath())
 	if err != nil {
-		if os.IsNotExist(err) {
-			// best-effort compatibility for old setups
-			fileCfg = config.NewStruct(instanceflag.Instance())
-		} else {
-			return err
-		}
+		return err
 	}
+	fileCfg.ApplyEnvironment()
 
 	cfg, err := config.ReadFromFile(fileCfg.Meta.Path)
 	if err != nil {

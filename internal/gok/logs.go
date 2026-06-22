@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/donovanhide/eventsource"
@@ -32,26 +31,23 @@ and any new lines the gokrazy service produces (cancel any time with Ctrl-C)`,
 		},
 	}
 	cmd.Flags().StringVarP(&logsImpl.service, "service", "s", "", "gokrazy service to fetch logs for")
-	instanceflag.RegisterPflags(cmd.Flags())
+	logsImpl.inst = instanceflag.RegisterPflags(cmd.Flags())
 	return cmd
 }
 
 type logsImplConfig struct {
+	inst    *instanceflag.Flags
 	service string
 }
 
 var logsImpl logsImplConfig
 
 func (l *logsImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	cfg, err := config.ApplyInstanceFlag()
+	cfg, err := config.ReadFromFile(l.inst.InstanceConfigPath())
 	if err != nil {
-		if os.IsNotExist(err) {
-			// best-effort compatibility for old setups
-			cfg = config.NewStruct(instanceflag.Instance())
-		} else {
-			return err
-		}
+		return err
 	}
+	cfg.ApplyEnvironment()
 
 	if l.service == "" {
 		return fmt.Errorf("the -service flag is empty, but required")

@@ -36,11 +36,13 @@ Examples:
 	cmd.Flags().StringVarP(&pushImpl.gafPath, "gaf", "", "", "path to the .gaf (gokrazy archive format) file to push to GUS (e.g. /tmp/gokrazy.gaf); build using gok overwrite --gaf")
 	cmd.Flags().StringVarP(&pushImpl.server, "server", "", "", "HTTP(S) URL to the server to push to")
 	cmd.Flags().BoolVarP(&pushImpl.json, "json", "", false, "print server JSON response directly to stdout")
-	instanceflag.RegisterPflags(cmd.Flags())
+	pushImpl.inst = instanceflag.RegisterPflags(cmd.Flags())
 	return cmd
 }
 
 type pushConfig struct {
+	inst *instanceflag.Flags
+
 	gafPath string
 	server  string
 	json    bool

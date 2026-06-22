@@ -55,11 +55,13 @@ Examples:
 			return addImpl.run(cmd.Context(), args[0], cmd.OutOrStdout(), cmd.OutOrStderr())
 		},
 	}
-	instanceflag.RegisterPflags(cmd.Flags())
+	addImpl.inst = instanceflag.RegisterPflags(cmd.Flags())
 	return cmd
 }
 
-type addImplConfig struct{}
+type addImplConfig struct {
+	inst *instanceflag.Flags
+}
 
 var addImpl addImplConfig
 
@@ -154,7 +156,7 @@ func (r *addImplConfig) addLocal(ctx context.Context, abs string, stdout, stderr
 	log.Printf(`Adding the following package to gokrazy instance %q:
   Go package  : %s
   in Go module: %s
-  in local dir: %s`, instanceflag.Instance(), pkg.ImportPath, pkg.Module.Path, pkg.Dir)
+  in local dir: %s`, r.inst.Name, pkg.ImportPath, pkg.Module.Path, pkg.Dir)
 
 	buildDir := filepath.Join(config.InstancePath(), "builddir", pkg.ImportPath)
 	if _, err := os.Stat(buildDir); err != nil {
@@ -205,12 +207,13 @@ func (r *addImplConfig) addLocal(ctx context.Context, abs string, stdout, stderr
 }
 
 func (r *addImplConfig) addPackageToConfig(importPath string) error {
-	cfg, err := config.ApplyInstanceFlag()
+	cfg, err := config.ReadFromFile(r.inst.InstanceConfigPath())
 	if err != nil {
 		return err
 	}
+	cfg.ApplyEnvironment()
 	if slices.Contains(cfg.Packages, importPath) || slices.Contains(cfg.GokrazyPackagesOrDefault(), importPath) {
-		log.Printf("Package already configured (see 'gok -i %s edit')", instanceflag.Instance())
+		log.Printf("Package already configured (see 'gok -i %s edit')", r.inst.Name)
 		return nil
 	}
 	log.Printf("Adding package to gokrazy config")

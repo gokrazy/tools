@@ -48,11 +48,12 @@ Examples:
 	cmd.Flags().BoolVarP(&vmRunImpl.keep, "keep", "", false, "keep ephemeral disk images around instead of deleting them when QEMU exits")
 	cmd.Flags().BoolVarP(&vmRunImpl.dry, "dryrun", "", false, "Whether to actually run QEMU or merely print the command")
 	cmd.Flags().BoolVarP(&vmRunImpl.graphic, "graphic", "", true, "Run QEMU in graphical mode?")
-	instanceflag.RegisterPflags(cmd.Flags())
+	vmRunImpl.inst = instanceflag.RegisterPflags(cmd.Flags())
 	return cmd
 }
 
 type vmRunConfig struct {
+	inst               *instanceflag.Flags
 	dry                bool
 	keep               bool
 	graphic            bool
@@ -164,7 +165,7 @@ func (r *vmRunConfig) runQEMU(ctx context.Context, fullDiskImage string, extraAr
 
 	qemu := exec.CommandContext(ctx, qemuBin,
 		append([]string{
-			"-name", instanceflag.Instance(),
+			"-name", r.inst.Name,
 			"-boot", "order=d",
 			"-drive", "file=" + fullDiskImage + ",format=raw",
 			"-device", "i6300esb,id=watchdog0",
@@ -229,10 +230,11 @@ func (r *vmRunConfig) runQEMU(ctx context.Context, fullDiskImage string, extraAr
 }
 
 func (r *vmRunConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	fileCfg, err := config.ApplyInstanceFlag()
+	fileCfg, err := config.ReadFromFile(r.inst.InstanceConfigPath())
 	if err != nil {
 		return err
 	}
+	fileCfg.ApplyEnvironment()
 
 	if fileCfg.SerialConsole == "disabled" {
 		// The serial console is disabled by default:
