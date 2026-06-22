@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 
 	"github.com/gokrazy/gokapi"
 	"github.com/gokrazy/gokapi/ondeviceapi"
@@ -28,25 +27,22 @@ Examples:
 			return psImpl.run(cmd.Context(), args, cmd.OutOrStdout(), cmd.OutOrStderr())
 		},
 	}
-	instanceflag.RegisterPflags(cmd.Flags())
+	psImpl.inst = instanceflag.RegisterPflags(cmd.Flags())
 	return cmd
 }
 
 type psImplConfig struct {
+	inst *instanceflag.Flags
 }
 
 var psImpl psImplConfig
 
 func (r *psImplConfig) run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	cfg, err := config.ApplyInstanceFlag()
+	cfg, err := config.ReadFromFile(r.inst.InstanceConfigPath())
 	if err != nil {
-		if os.IsNotExist(err) {
-			// best-effort compatibility for old setups
-			cfg = config.NewStruct(instanceflag.Instance())
-		} else {
-			return err
-		}
+		return err
 	}
+	cfg.ApplyEnvironment()
 
 	acfg, err := gokapi.ConnectRemotely(cfg)
 	if err != nil {
