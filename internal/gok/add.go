@@ -229,7 +229,7 @@ func (r *addImplConfig) addPackageToConfig(importPath string) error {
 }
 
 func (r *addImplConfig) addNonLocal(ctx context.Context, arg string, stdout, stderr io.Writer) error {
-	log.Printf("Adding %s as a (non-local) package to gokrazy instance %s", arg, instanceflag.Instance())
+	log.Printf("Adding %s as a (non-local) package to gokrazy instance %s", arg, r.inst.Name)
 	importPath := arg
 	version := "latest"
 	if idx := strings.IndexByte(importPath, '@'); idx > -1 {
@@ -243,7 +243,7 @@ func (r *addImplConfig) addNonLocal(ctx context.Context, arg string, stdout, std
 	}
 	log.Printf(`Adding the following package to gokrazy instance %q:
   Go package  : %s
-  in Go module: %s`, instanceflag.Instance(), importPath, resolved.module)
+  in Go module: %s`, r.inst.Name, importPath, resolved.module)
 
 	buildDir := filepath.Join(r.inst.InstancePath(), "builddir", resolved.module)
 	if _, err := os.Stat(buildDir); err != nil {
@@ -293,11 +293,8 @@ func (r *addImplConfig) addNonLocal(ctx context.Context, arg string, stdout, std
 }
 
 func (r *addImplConfig) run(ctx context.Context, arg string, stdout, stderr io.Writer) error {
-	parentDir := instanceflag.ParentDir()
-	instance := instanceflag.Instance()
-
-	if _, err := os.Stat(filepath.Join(parentDir, instance)); err != nil {
-		return fmt.Errorf("instance %q does not exist (%v), create it using 'gok -i %s new'", instance, err, instance)
+	if _, err := os.Stat(r.inst.InstancePath()); err != nil {
+		return fmt.Errorf("instance %q does not exist (%v), create it using 'gok -i %s new'", r.inst.Name, err, r.inst.Name)
 	}
 
 	// Clear cases: an absolute path on the local disk

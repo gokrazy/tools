@@ -8,7 +8,7 @@ require (
 	github.com/anatol/vmtest v0.0.0-20250627153117-302402d269a6
 	github.com/donovanhide/eventsource v0.0.0-20210830082556-c59027999da0
 	github.com/gokrazy/gokapi v0.0.0-20251205165548-0927bab199d4
-	github.com/gokrazy/internal v0.0.0-20260622204018-ff886b5b594e
+	github.com/gokrazy/internal v0.0.0-20260623064215-691b1044c174
 	github.com/gokrazy/updater v0.0.0-20250705135802-db129c40879c
 	github.com/google/renameio/v2 v2.0.0
 	github.com/klauspost/compress v1.18.6

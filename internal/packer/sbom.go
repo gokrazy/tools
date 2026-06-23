@@ -7,13 +7,11 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 
 	"github.com/gokrazy/internal/config"
-	"github.com/gokrazy/internal/instanceflag"
 	"github.com/gokrazy/tools/internal/buildid"
 	"github.com/gokrazy/tools/packer"
 	"golang.org/x/sync/errgroup"
@@ -100,7 +98,7 @@ func generateSBOM(cfg *config.Struct, foundBins []foundBin) ([]byte, SBOMWithHas
 
 	result := SBOM{
 		ConfigHash: FileHash{
-			Path: filepath.Join(instanceflag.ParentDir(), instanceflag.Instance(), "config.json"),
+			Path: cfg.Meta.Path,
 			Hash: fmt.Sprintf("%x", sha256.Sum256([]byte(string(formattedCfg)))),
 		},
 	}
