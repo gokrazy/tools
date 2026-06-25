@@ -9,8 +9,8 @@ github.com/donovanhide/eventsource v0.0.0-20210830082556-c59027999da0 h1:C7t6eeM
 github.com/donovanhide/eventsource v0.0.0-20210830082556-c59027999da0/go.mod h1:56wL82FO0bfMU5RvfXoIwSOP2ggqqxT+tAfNEIyxuHw=
 github.com/gokrazy/gokapi v0.0.0-20251205165548-0927bab199d4 h1:XFo3EqnHUbmAySp7zqms8ee/tU8bM9k+YzT7L4o5CcQ=
 github.com/gokrazy/gokapi v0.0.0-20251205165548-0927bab199d4/go.mod h1:+StofDb/2cMb7vbA2znaNolgp9SadTYeyRIFtdhH1KQ=
-github.com/gokrazy/internal v0.0.0-20260623064215-691b1044c174 h1:oQf3oXBpoIqOvNGG0vCmkUxdSzxIeqkf0OvvW1dIJSk=
-github.com/gokrazy/internal v0.0.0-20260623064215-691b1044c174/go.mod h1:dQY4EMkD4L5ZjYJ0SPtpgYbV7MIUMCxNIXiOfnZ6jP4=
+github.com/gokrazy/internal v0.0.0-20260625065634-6994f9152c44 h1:hUOyCucKrO5bNvL7Wrn2eglA5mxMvXrhuUVepWKjHhI=
+github.com/gokrazy/internal v0.0.0-20260625065634-6994f9152c44/go.mod h1:dQY4EMkD4L5ZjYJ0SPtpgYbV7MIUMCxNIXiOfnZ6jP4=
 github.com/gokrazy/updater v0.0.0-20250705135802-db129c40879c h1:j4/v9FR/cOy6nog5rmXUtauBsOU3mm+rTPn5IENUbmg=
 github.com/gokrazy/updater v0.0.0-20250705135802-db129c40879c/go.mod h1:EtAn+BPibqnAHnYGj3FW5e284xNsiOOMOL2dJiwu7H4=
 github.com/google/go-cmp v0.5.9 h1:O2Tfq5qg4qc4AmwVlvv0oLiVAGB7enBSJ2x2DqQFi38=
