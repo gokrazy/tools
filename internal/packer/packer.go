@@ -427,6 +427,7 @@ type Pack struct {
 	dontStart                   map[string]bool
 	waitForClock                map[string]bool
 	basenames                   map[string]string
+	xattrs                      map[string]map[string][]byte
 	schema                      string
 	update                      *config.UpdateStruct
 	root                        *FileInfo

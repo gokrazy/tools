@@ -12,6 +12,7 @@ import (
 
 	"github.com/gokrazy/internal/config"
 	"github.com/gokrazy/internal/deviceconfig"
+	"github.com/gokrazy/tools/internal/cap"
 	"github.com/gokrazy/tools/internal/version"
 	"github.com/gokrazy/tools/packer"
 )
@@ -181,6 +182,12 @@ func (pack *Pack) logicPrepare(ctx context.Context) error {
 		return err
 	}
 	pack.basenames = basenames
+
+	capabilities, err := findCapabilities(cfg)
+	if err != nil {
+		return err
+	}
+	pack.xattrs = capabilities
 
 	return nil
 }
@@ -550,6 +557,34 @@ func findBasenames(cfg *config.Struct) (map[string]string, error) {
 		contents[pkg] = packageConfig.Basename
 		packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
 			kind: "be installed with the basename set to " + packageConfig.Basename,
+		})
+	}
+	return contents, nil
+}
+
+func findCapabilities(cfg *config.Struct) (map[string]map[string][]byte, error) {
+	contents := make(map[string]map[string][]byte)
+	for pkg, packageConfig := range cfg.PackageConfig {
+		if packageConfig.Capabilities == "" {
+			continue
+		}
+		set, err := cap.FromText(packageConfig.Capabilities)
+		if err != nil {
+			return nil, fmt.Errorf("Unable to parse capabilities: %s: %w", packageConfig.Capabilities, err)
+		}
+		xattrValue, err := set.PackFileCap()
+		if err != nil {
+			return nil, fmt.Errorf("Unable to pack capabilities: %s: %w", packageConfig.Capabilities, err) // This should basically never happen
+		}
+		set, err = cap.DigestFileCap(xattrValue)
+		if err != nil {
+			return nil, fmt.Errorf("Error checking packed capabilities: %s: %w", packageConfig.Capabilities, err) // This should also never happen
+		}
+		contents[pkg] = map[string][]byte{
+			"security.capability": xattrValue,
+		}
+		packageConfigFiles[pkg] = append(packageConfigFiles[pkg], packageConfigFile{
+			kind: "be installed with file capabilities " + set.String(),
 		})
 	}
 	return contents, nil
