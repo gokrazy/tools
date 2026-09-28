@@ -1,17 +1,15 @@
 package gok
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
+	"os/exec"
 	"path"
 	"strings"
 
-	gokversion "github.com/gokrazy/tools/internal/version"
-	"golang.org/x/mod/module"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -21,107 +19,63 @@ type resolvedModule struct {
 	goMod   []byte
 }
 
-type latestResp struct {
-	Version string `json:"Version"`
-}
-
-func proxyRequest(importPath, suffix string) (*http.Request, error) {
-	proxyBase := "https://proxy.golang.org"
-	if gp := os.Getenv("GOPROXY"); gp != "" {
-		if strings.ContainsRune(gp, ',') ||
-			strings.ContainsRune(gp, '|') ||
-			gp == "off" ||
-			gp == "direct" {
-			return nil, fmt.Errorf("only GOPROXY=<url> is supported by the gok tool, not %q", gp)
-		}
-		proxyBase = strings.TrimSuffix(gp, "/")
+// listModule resolves modulePath@version using the go command, which honors
+// the full Go configuration (GOPROXY, GOPRIVATE, GONOPROXY, git credentials,
+// settings made via go env -w, …).
+//
+// dir is the directory in which to run the go command. It should not be inside
+// a Go module, so that the result does not depend on the current directory.
+func listModule(ctx context.Context, dir, modulePath, version string) (*resolvedModule, error) {
+	query := modulePath + "@" + version
+	list := exec.CommandContext(ctx, "go", "list", "-m", "-json", query)
+	list.Dir = dir
+	cmdline := strings.Join(list.Args, " ")
+	var stdout, stderr bytes.Buffer
+	list.Stdout = &stdout
+	list.Stderr = &stderr
+	if err := list.Run(); err != nil {
+		return nil, fmt.Errorf("%s: %v: %s", cmdline, err, strings.TrimSpace(stderr.String()))
 	}
-	escapedSuffix, err := module.EscapeVersion(suffix)
+	var m struct {
+		Path    string
+		Version string
+		GoMod   string // path to the .mod file in the module cache
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &m); err != nil {
+		return nil, fmt.Errorf("decoding %s output: %v", cmdline, err)
+	}
+	if m.Path != modulePath {
+		return nil, fmt.Errorf("%s resolved to module %q, not %q", cmdline, m.Path, modulePath)
+	}
+	if m.Version == "" || m.GoMod == "" {
+		return nil, fmt.Errorf("%s: no version or go.mod in output", cmdline)
+	}
+	goMod, err := os.ReadFile(m.GoMod)
 	if err != nil {
 		return nil, err
-	}
-	if escapedSuffix != "@latest" {
-		escapedSuffix = "@v/" + escapedSuffix
-	}
-	escapedImportPath, err := module.EscapePath(importPath)
-	if err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequest("GET", proxyBase+"/"+escapedImportPath+"/"+escapedSuffix, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("User-Agent", "gokrazy gok "+gokversion.ReadBrief())
-	return req, nil
-}
-
-func moduleInfo(ctx context.Context, importPath, version string) (*latestResp, error) {
-	suffix := version + ".info"
-	if version == "latest" {
-		suffix = "@latest"
-	}
-	req, err := proxyRequest(importPath, suffix)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Accept", "application/json")
-	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		io.ReadAll(resp.Body)
-		resp.Body.Close()
-	}()
-	if resp.StatusCode == http.StatusNotFound {
-		return nil, nil
-	}
-	if got, want := resp.StatusCode, http.StatusOK; got != want {
-		return nil, fmt.Errorf("unexpected HTTP status: got %v, want %v", resp.Status, want)
-	}
-	var latest latestResp
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading HTTP response: %v", err)
-	}
-	if err := json.Unmarshal(b, &latest); err != nil {
-		return nil, fmt.Errorf("decoding /@latest response: %v", err)
-	}
-	return &latest, nil
-}
-
-func resolveGoMod(ctx context.Context, importPath string, latest *latestResp) (*resolvedModule, error) {
-	req, err := proxyRequest(importPath, latest.Version+".mod")
-	if err != nil {
-		return nil, err
-	}
-	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		io.ReadAll(resp.Body)
-		resp.Body.Close()
-	}()
-	if got, want := resp.StatusCode, http.StatusOK; got != want {
-		return nil, fmt.Errorf("unexpected HTTP status: got %v, want %v", resp.Status, want)
-	}
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading HTTP response: %v", err)
 	}
 	return &resolvedModule{
-		module:  importPath,
-		version: latest.Version,
-		goMod:   b,
+		module:  m.Path,
+		version: m.Version,
+		goMod:   goMod,
 	}, nil
 }
 
+// resolveModule resolves importPath to the Go module containing it: the module
+// path is the longest prefix of importPath for which the go command finds a
+// module.
 func resolveModule(ctx context.Context, importPath, version string) (*resolvedModule, error) {
-	eg, latestctx := errgroup.WithContext(ctx)
+	// Run outside of any module (and of the current directory’s go.mod).
+	dir, err := os.MkdirTemp("", "gok-resolve-")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(dir)
 
 	parts := strings.Split(path.Clean(importPath), "/")
-	resps := make([]*latestResp, len(parts))
+	resolved := make([]*resolvedModule, len(parts))
+	errs := make([]error, len(parts))
+	var eg errgroup.Group
 	for idx := len(parts); idx > 0; idx-- {
 		idx := idx // copy
 		importPath := strings.Join(parts[:idx], "/")
@@ -136,27 +90,27 @@ func resolveModule(ctx context.Context, importPath, version string) (*resolvedMo
 				// organisation or user, not a repository.
 				return nil
 			}
-			resp, err := moduleInfo(latestctx, importPath, version)
-			if err != nil {
-				return err
-			}
-			resps[idx-1] = resp
+			// Most prefixes of an import path are not modules, so a failure
+			// here is expected. It is only reported if no prefix resolves.
+			resolved[idx-1], errs[idx-1] = listModule(ctx, dir, importPath, version)
 			return nil
 		})
 	}
-
-	if err := eg.Wait(); err != nil {
-		return nil, err
-	}
+	eg.Wait() // never returns an error, see above
 
 	for idx := len(parts); idx > 0; idx-- {
-		importPath := strings.Join(parts[:idx], "/")
-		resp := resps[idx-1]
-		if resp == nil {
-			continue
+		if m := resolved[idx-1]; m != nil {
+			return m, nil
 		}
-		return resolveGoMod(ctx, importPath, resp)
 	}
 
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	// The error for the full import path is the most informative one (e.g.
+	// authentication failures for a private repository).
+	if err := errs[len(parts)-1]; err != nil {
+		return nil, fmt.Errorf("could not resolve import path %q to any Go module: %w", importPath, err)
+	}
 	return nil, fmt.Errorf("could not resolve import path %q to any Go module", importPath)
 }
