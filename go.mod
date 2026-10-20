@@ -1,6 +1,10 @@
 module github.com/gokrazy/tools
 
-go 1.26
+go 1.26.0
+
+// Contains a fix for CVE-2026-111943, see
+// https://groups.google.com/g/golang-announce/c/66pojueaQek
+toolchain go1.26.10
 
 require (
 	github.com/anatol/vmtest v0.0.0-20260509163454-0d3e5bd9399c
@@ -13,7 +17,7 @@ require (
 	github.com/mattn/go-isatty v0.0.22
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
-	golang.org/x/crypto/x509roots/fallback v0.0.0-20260630172432-7626c5025624
+	golang.org/x/crypto/x509roots/fallback v0.0.0-20261020153306-9f2b28d4331a
 	golang.org/x/mod v0.37.0
 	golang.org/x/sync v0.21.0
 	golang.org/x/sys v0.46.0
