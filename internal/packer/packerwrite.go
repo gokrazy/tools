@@ -268,7 +268,7 @@ func (p *Pack) overwriteDevice(dev string, root *FileInfo, rootDeviceFiles []dev
 	}
 
 	// sync to ensure the data makes it to the SD card.
-	if err := f.Sync(); err != nil {
+	if err := syncFile(f); err != nil {
 		return err
 	}
 
