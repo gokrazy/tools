@@ -239,6 +239,24 @@ func (pack *Pack) logicBuild(bindir string) error {
 		lib.Dirents = append(lib.Dirents, modules)
 	}
 
+	// include lib/firmware from kernelPackage dir, if present
+	firmwareDir := filepath.Join(kernelDir, "lib", "firmware")
+	if _, err := os.Stat(firmwareDir); err == nil {
+		log.Printf("Including firmware files from:")
+		log.Printf("  %s", firmwareDir)
+		firmware := &FileInfo{
+			Filename: "firmware",
+		}
+		trace.WithRegion(context.Background(), "firmware", func() {
+			_, err = addToFileInfo(firmware, firmwareDir)
+		})
+		if err != nil {
+			return err
+		}
+		lib := root.mustFindDirent("lib")
+		lib.Dirents = append(lib.Dirents, firmware)
+	}
+
 	etc := root.mustFindDirent("etc")
 	tmpdir, err := os.MkdirTemp("", "gokrazy")
 	if err != nil {

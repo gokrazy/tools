@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -144,7 +145,8 @@ func (pack *Pack) logicUpdate(ctx context.Context, isDev bool, bootSize int64, r
 			prog, f, target, fmt.Sprintf("root device file %s", rootDeviceFile.Name),
 			filepath.Join("device-specific", rootDeviceFile.Name),
 		); err != nil {
-			if errors.Is(err, updater.ErrUpdateHandlerNotImplemented) {
+			if errors.Is(err, updater.ErrUpdateHandlerNotImplemented) ||
+				strings.Contains(err.Error(), "404 Not Found") {
 				log.Printf("target does not support updating device file %s yet, ignoring", rootDeviceFile.Name)
 				continue
 			}
